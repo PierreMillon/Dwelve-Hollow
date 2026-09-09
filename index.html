@@ -109,10 +109,17 @@ renderer.setSize(innerWidth, innerHeight);
 renderer.setClearColor(0x000000, 1);
 document.body.appendChild(renderer.domElement);
 
+// Caméra sur le même principe que Bastion Orbit : on tourne autour d'un
+// point fixe et on zoome, jamais de déplacement libre. Ce point est le
+// centre d'intérêt de la scène — la place du village, une fois qu'il y
+// aura un village ; ici, le centre du modèle chargé.
 const controls = new OrbitControls(camera, renderer.domElement);
 controls.enableDamping = true;
+controls.enablePan = false;          // pas de déplacement latéral : on reste centré sur la place
 controls.autoRotate = true;
-controls.autoRotateSpeed = 0.6;   // lent : le jeu est contemplatif
+controls.autoRotateSpeed = 0.6;      // lent : le jeu est contemplatif
+controls.minPolarAngle = THREE.MathUtils.degToRad(12);  // jamais tout à fait à la verticale
+controls.maxPolarAngle = THREE.MathUtils.degToRad(86);  // jamais sous le niveau du sol
 
 const materiau = new THREE.LineBasicMaterial({ color: LINE });
 const groupeAretes = new THREE.Group();   // EdgesGeometry : seulement les arêtes vives
@@ -191,6 +198,10 @@ function cadrer(boite) {
   camera.position.set(dist * 0.62, dist * 0.42, dist * 0.72);
   camera.updateProjectionMatrix();
   controls.target.set(0, t.y * 0.45, 0);
+  // bornes du zoom, relatives à la taille du modèle : assez près pour
+  // détailler une maison, jamais assez loin pour perdre la scène
+  controls.minDistance = rayon * 0.9;
+  controls.maxDistance = dist * 3;
   controls.update();
 
   if (grille) { scene.remove(grille); grille.geometry.dispose(); grille.material.dispose(); }
@@ -265,6 +276,11 @@ addEventListener('resize', () => {
   camera.updateProjectionMatrix();
   renderer.setSize(innerWidth, innerHeight);
 });
+
+// exposé pour le débogage depuis la console du navigateur (et pour les
+// vérifications automatisées) — même esprit que les réglages debug du
+// menu des autres jeux
+window.DH = { scene, camera, controls, renderer };
 
 // --- boucle ---
 const champIps = document.getElementById('h-fps');

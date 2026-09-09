@@ -387,6 +387,18 @@ que les autres jeux.
   banc, 2 766 contre 6 464 au même seuil de 1°, et 1 767 à 45°. La
   différence est nette et visible à l'écran.
 
+**Caméra (v0.3, demandé par Pierre)** : même principe que Bastion Orbit —
+on tourne autour d'un point fixe et on zoome, **jamais de déplacement
+libre**. Ce point est le centre d'intérêt de la scène : la place du
+village une fois qu'il y aura un village, le centre du modèle pour
+l'instant. Concrètement : déplacement latéral désactivé, inclinaison
+bornée entre 12° et 86° (ni vue du dessus parfaite, ni passage sous le
+sol), zoom borné entre 0,9 fois le rayon du modèle et trois fois la
+distance de cadrage. Le pincement à deux doigts zoome sur mobile.
+Vérifié au navigateur, pas supposé : après un glisser latéral la cible
+reste identique au pixel près, et le zoom bute exactement sur ses deux
+bornes.
+
 **Boucle de travail retenue** : Pierre exporte depuis Blender et **lâche
 le fichier sur la page** (glisser-déposer, ou bouton « charger un .obj »).
 Rien à committer pour essayer un modèle. Seuls les modèles retenus
