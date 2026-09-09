@@ -38,31 +38,58 @@ qu'ils font). Le mot inventé est un atout : il ne renvoie à rien
 d'existant, le dépôt sera le seul résultat de recherche. `Hollow` (le
 creux, le vallon) porte une inquiétude discrète sans forcer.
 
-### D'où venait la contrainte
+### La règle de nommage — source retrouvée et vérifiée
 
 Point de départ donné par Pierre : le créateur de Dragon Quest aurait dit
-qu'un bon nom de jeu, c'est deux mots — le premier commençant par un D,
-le deuxième un peu mystérieux.
+qu'un bon nom de jeu, c'est deux mots — le premier commençant par un D, le
+deuxième un peu mystérieux.
 
-**Vérification faite (recherche web, 2026-09-09) : cette règle n'a pas
-été retrouvée.** Les interviews accessibles de Yuji Horii parlent de la
-création de Dragon Quest, de sa philosophie, des remakes — jamais de
-cette règle de nommage. Sources consultées :
-[Game Developer — 25 Years of Dragon Quest](https://www.gamedeveloper.com/business/25-years-of-i-dragon-quest-i-an-interview-with-yuji-horii),
-[Game Informer — Yuji Horii's Journey](https://gameinformer.com/exclusive-interview/2025/11/19/yuji-horiis-journey-to-making-dragon-quest-as-told-by-the-man).
+**Première vérification (2026-09-09) : échec, à tort.** J'avais cherché du
+côté des interviews de Yuji Horii sur le choix du titre, sans rien trouver,
+et j'en avais conclu que la règle n'était pas sourcée. Mauvais angle : la
+règle n'est pas de Horii, il l'a reçue.
 
-Traitée comme une bonne intuition, pas comme un fait établi — elle colle
-de toute façon aux trois titres précédents du portfolio, un mot concret
-suivi d'un mot abstrait (Knight Wars, Bastion Orbit, Forge Line).
+**Deuxième vérification, après que Pierre a transmis le passage d'une
+vidéo : confirmée.** La règle vient du mangaka **Kazuo Koike** (Lone Wolf
+and Cub, Lady Snowblood, Crying Freeman), qui a fondé en 1977 le
+**Gekiga Sonjuku**, son école d'écriture. **Yuji Horii en est diplômé
+(3ᵉ promotion.)** Horii a lui-même déclaré que le nom *Dragon Quest* vient
+directement d'un enseignement de Koike : **un nom peut associer un mot
+simple et un mot difficile** — d'où le très connu *Dragon* accolé au plus
+rare mais compréhensible *Quest*.
 
-**Piste non close** : Pierre a envoyé le lien d'une vidéo YouTube
-(`ia0R855JYyA`, à 32 min 43 s) où l'anecdote serait citée. YouTube est
-bloqué par la politique réseau de l'environnement d'exécution (403 sur
-le CONNECT, via le proxy comme via yt-dlp, et tous les miroirs de
-transcription testés le sont aussi) — transcription impossible à
-récupérer depuis cette session. À reprendre si Pierre colle le passage
-ou donne le titre et la chaîne : la source pourra alors être citée ici
-et le « non retrouvé » ci-dessus corrigé.
+Sources : [Yuji Horii — Dragon Quest Wiki](https://dragon-quest.org/wiki/Yuji_Horii),
+[Kazuo Koike — Wikipedia](https://en.wikipedia.org/wiki/Kazuo_Koike).
+
+**Deux points de la vidéo non corroborés** (rapportés par Pierre, pas
+retrouvés dans une source écrite — probables mais non établis) : que la
+première syllabe doive être forte, si possible celle du son **d** ; et que
+les noms **anglais** attirent davantage. La vidéo elle-même n'a pas pu être
+consultée depuis la session (YouTube est bloqué par la politique réseau de
+l'environnement d'exécution — 403 sur le CONNECT, via le proxy comme via
+yt-dlp, et les miroirs de transcription testés le sont aussi).
+
+### Ce que la règle dit du nom choisi — point ouvert
+
+La règle, dans sa formulation confirmée, va **mot connu d'abord, mot rare
+ensuite** : *Dragon* puis *Quest*. Et le mot rare doit rester *compris* —
+difficile, pas inexistant.
+
+**Dwelve Hollow inverse les deux.** L'étrangeté est dans le premier mot, le
+mot connu (*Hollow*) est en second, et *Dwelve* n'est pas un mot rare : il
+n'existe pas du tout, donc il dépasse la limite posée par Koike.
+
+Argument inverse, qui a du poids : la règle de Koike vise l'attention d'un
+lecteur devant un présentoir, dans les années 70-80. Un mot inventé apporte
+aujourd'hui autre chose que Koike ne pouvait pas anticiper — la propriété
+totale du terme dans un moteur de recherche.
+
+Candidats du même lot qui respectent la règle telle qu'énoncée :
+**Dusk Vellum** (mot connu + mot rare mais compris, son d, oreille douce)
+et **Dusk Vigil**. Le dépôt étant créé mais vide de code, sans déploiement
+et sans lien nulle part, un renommage coûte quasiment rien maintenant et
+coûtera cher plus tard. **Décision laissée à Pierre — rien n'est changé
+tant qu'il n'a pas tranché.**
 
 ### Candidats écartés (gardés pour mémoire)
 
@@ -261,8 +288,84 @@ Décidés le 2026-09-09, tirés de l'analyse ci-dessus.
 
 ---
 
+## Le passage à la 3D — recommandation faite, pas encore tranchée
+
+Constat de Pierre (2026-09-09) : les trois jeux précédents sont en 2D avec
+un moteur de volume maison (pavés isométriques, faces teintées en dur, tri
+des calques par profondeur). Ça marche pour des boîtes, mais toute forme
+non cubique coûte un chantier entier — le bateau, la tour, le pont en
+arche, les escaliers de Bastion Orbit et Forge Line en témoignent. Le vrai
+manque n'est pas le rendu : **il n'y a aucun format d'entrée**, donc rien
+ne peut être dessiné ailleurs puis importé.
+
+Demande : un moteur qui laisse la liberté d'écrire son propre jeu, mais
+qui accepte de vrais modèles 3D faits par Pierre (Blender, SketchUp) ou
+récupérés en ligne, dans un style minimaliste qu'il contrôle entièrement
+— et que Claude puisse comprendre complètement les modèles.
+
+**Recommandation (à valider par Pierre) :**
+
+- **Moteur : Three.js.** Page web statique donc GitHub Pages continue de
+  fonctionner ; charge les formats standards ; n'impose aucune structure
+  (la boucle de jeu et les règles locales restent du code à nous) ; et
+  c'est la bibliothèque 3D web la mieux documentée, donc la moins
+  risquée à faire écrire par un modèle.
+- **Séparer le mort du vivant** — c'est la décision structurante :
+  - **décor** (bâtiments, terrain, ponts) modélisé par Pierre et exporté
+    en **.obj**, un format texte où chaque sommet et chaque face tient sur
+    une ligne lisible. Claude peut l'ouvrir, le vérifier, le corriger ;
+    git en montre les différences ligne à ligne ; quelques kilo-octets par
+    modèle en faible-polygone. Le .glb standard est binaire, donc opaque
+    à la fois pour Claude et pour git — écarté pour cette raison.
+  - **vivant** (villageois, animaux) **jamais modélisé** : généré par le
+    code à partir de formes simples et animé par des règles. Aucun
+    fichier, contrôle total, et cohérent avec le principe n°1 (une
+    démarche qui est une formule, pas une animation enregistrée).
+- **Blender plutôt que SketchUp**, pour deux raisons concrètes : l'export
+  OBJ de SketchUp est réservé aux versions payantes (la version web
+  gratuite n'exporte qu'en STL, qui perd groupes, noms et hiérarchie), et
+  surtout Blender est **scriptable en Python** — Claude peut inspecter,
+  vérifier, corriger ou générer des modèles par script. Repli possible si
+  Blender bloque (Pierre a une formation d'architecture, la logique
+  pousser-tirer de SketchUp lui est plus naturelle) : modéliser dans
+  SketchUp, exporter en STL, convertir en OBJ propre par script — ça
+  marche, c'est juste une étape de plus à chaque aller-retour.
+- **Modèles gratuits réutilisables** si besoin : Kenney, Quaternius et
+  Poly Haven publient en CC0 (domaine public, aucune attribution
+  obligatoire, sans risque pour un dépôt public). Le style de Kenney
+  correspond au minimalisme visé.
+- **Piège de style à éviter** : l'option `wireframe` de Three.js dessine
+  *tous* les triangles, diagonales comprises — un mur devient un grillage
+  sale. Le rendu voulu s'obtient avec **EdgesGeometry**, qui ne trace que
+  les arêtes vives (un cube = 12 traits, pas 18). C'est ça, le filaire
+  vectoriel des vieilles bornes.
+
+**Conséquence sur la structure du dépôt** : le jeu ne peut plus être un
+seul fichier HTML. Il devient un dossier — la page, Three.js **copié dans
+le dépôt** plutôt que chargé depuis un CDN (pas de dépendance externe,
+fonctionne hors ligne, ne cassera pas dans deux ans), et un dossier de
+modèles .obj versionnés. C'est une rupture assumée avec la méthode des
+trois jeux précédents.
+
+**Premier test proposé, avant tout engagement** (méthode « terrain
+restreint » : le cas le plus simple, dix minutes, aucun objectif de
+résultat) : Pierre modélise **une seule maison** dans Blender (un cube
+poussé-tiré, toit à deux pentes) et l'exporte en OBJ ; Claude écrit la
+page Three.js minimale qui la charge et la dessine en arêtes vertes sur
+fond noir, caméra tournant lentement autour. Si ça se lit bien et tourne à
+plein régime sur le téléphone de Pierre, la direction est validée. Sinon,
+on l'aura su pour le prix d'un cube.
+
+---
+
 ## 📜 Historique
 
+- **2026-09-09 (soir)** — Règle de nommage : source retrouvée et vérifiée
+  (Kazuo Koike via son école, Yuji Horii diplômé), ce qui corrige le
+  « non retrouvé » de l'après-midi. Point ouvert consigné : la règle,
+  telle qu'énoncée, plaide contre l'ordre des mots de Dwelve Hollow —
+  décision laissée à Pierre. Réflexion sur le passage à la 3D :
+  recommandation Three.js + .obj + Blender, avec un test minimal proposé.
 - **2026-09-09** — Concept posé (univers médiéval, vie autonome, règles
   locales par personnage, contemplatif, esprit terminal vert). Nom
   cherché puis tranché : Dwelve Hollow. Analyse de l'IA des trois jeux
