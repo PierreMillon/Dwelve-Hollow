@@ -69,7 +69,7 @@
 
 <div id="hud">
   <div class="title">DWELVE HOLLOW</div>
-  <div class="row">test 3D · v0.2</div>
+  <div class="row">test 3D · v0.3</div>
   <div class="row">modèle <span class="val" id="h-model">—</span></div>
   <div class="row">taille <span class="val" id="h-taille">—</span></div>
   <div class="row">faces <span class="val" id="h-faces">—</span></div>
@@ -79,6 +79,7 @@
 </div>
 
 <div id="controls">
+  <button id="btn-modele">modèle suivant</button>
   <button id="btn-mode" aria-pressed="false">arêtes vives</button>
   <button id="btn-seuil">seuil 1°</button>
   <button id="btn-spin" aria-pressed="true">rotation</button>
@@ -97,12 +98,30 @@ import { OBJLoader } from './vendor/three/OBJLoader.js';
 import { OrbitControls } from './vendor/three/OrbitControls.js';
 
 const LINE = 0x46ffa0;        // vert phosphore, repris de Bastion Orbit
-const DEFAUT = 'models/maison.obj';
+const MODELES = [                 // les modèles versionnés du dépôt
+  { url: 'models/maison.obj', nom: 'maison' },
+  { url: 'models/banc.obj',   nom: 'banc (Poly Haven, CC0)' },
+];
 const SEUILS = [1, 15, 30, 45]; // degrés — voir majAretes()
 
 // --- scène ---
 const scene = new THREE.Scene();
-const camera = new THREE.PerspectiveCamera(45, innerWidth / innerHeight, 0.01, 10000);
+
+// Caméra ISOMÉTRIQUE, comme les jeux précédents : projection
+// ORTHOGRAPHIQUE, donc parallèle — aucun point de fuite, deux cubes de
+// même taille se dessinent identiques qu'ils soient devant ou au fond.
+// C'est ce qui donne l'impression de dé.
+//
+// L'angle : en regardant depuis la direction (1,1,1), les trois axes du
+// monde se projettent à 120° les uns des autres et les arêtes du sol
+// tombent exactement à 30° de l'horizontale — la projection de Bastion
+// Orbit, au degré près (voir son project(), cos(π/6)/sin(π/6)).
+// L'inclinaison correspondante depuis la verticale vaut arccos(1/√3).
+const ISO_POLAIRE = Math.acos(1 / Math.sqrt(3));   // 54,7356°
+const ISO_AZIMUT = Math.PI / 4;                    // 45°, le quart de tour de départ
+let demiHauteur = 10;                              // moitié de la hauteur du cadrage, en unités du monde
+
+const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.01, 10000);
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setPixelRatio(Math.min(devicePixelRatio, 2)); // plafonné : sur mobile, 3x ne se voit pas et coûte cher
 renderer.setSize(innerWidth, innerHeight);
@@ -118,8 +137,11 @@ controls.enableDamping = true;
 controls.enablePan = false;          // pas de déplacement latéral : on reste centré sur la place
 controls.autoRotate = true;
 controls.autoRotateSpeed = 0.6;      // lent : le jeu est contemplatif
-controls.minPolarAngle = THREE.MathUtils.degToRad(12);  // jamais tout à fait à la verticale
-controls.maxPolarAngle = THREE.MathUtils.degToRad(86);  // jamais sous le niveau du sol
+// tangage VERROUILLÉ : on tourne autour de la place et on zoome, on ne
+// monte ni ne descend jamais la caméra. Les deux bornes sont égales,
+// donc l'inclinaison isométrique ne peut pas bouger d'un degré.
+controls.minPolarAngle = ISO_POLAIRE;
+controls.maxPolarAngle = ISO_POLAIRE;
 
 const materiau = new THREE.LineBasicMaterial({ color: LINE });
 const groupeAretes = new THREE.Group();   // EdgesGeometry : seulement les arêtes vives
@@ -191,17 +213,29 @@ function majAretes() {
 function cadrer(boite) {
   const t = boite.getSize(new THREE.Vector3());
   const rayon = Math.max(t.x, t.y, t.z) * 0.5 || 1;
-  const dist = rayon / Math.sin(THREE.MathUtils.degToRad(camera.fov * 0.5)) * 1.6;
 
-  camera.near = rayon / 100;
-  camera.far = rayon * 100;
-  camera.position.set(dist * 0.62, dist * 0.42, dist * 0.72);
-  camera.updateProjectionMatrix();
+  // en projection parallèle, la distance ne change pas la taille à
+  // l'écran : c'est la HAUTEUR DU CADRAGE qui fait le cadrage, et la
+  // distance sert seulement à garder toute la scène devant la caméra
+  demiHauteur = rayon * 1.5;
+  const dist = rayon * 6;
+  majCadrage();
+
+  camera.near = 0.01;
+  camera.far = dist * 4;
   controls.target.set(0, t.y * 0.45, 0);
-  // bornes du zoom, relatives à la taille du modèle : assez près pour
-  // détailler une maison, jamais assez loin pour perdre la scène
-  controls.minDistance = rayon * 0.9;
-  controls.maxDistance = dist * 3;
+
+  // place la caméra sur l'inclinaison isométrique, azimut à 45°
+  const sinP = Math.sin(ISO_POLAIRE);
+  camera.position.set(
+    controls.target.x + dist * sinP * Math.sin(ISO_AZIMUT),
+    controls.target.y + dist * Math.cos(ISO_POLAIRE),
+    controls.target.z + dist * sinP * Math.cos(ISO_AZIMUT),
+  );
+  camera.zoom = 1;
+  camera.updateProjectionMatrix();
+  controls.minZoom = 0.6;   // dézoom : la scène entière tient largement
+  controls.maxZoom = 12;    // zoom : de quoi détailler une seule maison
   controls.update();
 
   if (grille) { scene.remove(grille); grille.geometry.dispose(); grille.material.dispose(); }
@@ -212,6 +246,17 @@ function cadrer(boite) {
   scene.add(grille);
 }
 
+// le cadre orthographique dépend de la fenêtre : à recalculer au
+// chargement d'un modèle comme à chaque redimensionnement
+function majCadrage() {
+  const a = innerWidth / innerHeight;
+  camera.left = -demiHauteur * a;
+  camera.right = demiHauteur * a;
+  camera.top = demiHauteur;
+  camera.bottom = -demiHauteur;
+  camera.updateProjectionMatrix();
+}
+
 function message(txt) {
   const m = document.getElementById('msg');
   m.style.display = txt ? 'block' : 'none';
@@ -220,8 +265,20 @@ function message(txt) {
 
 // --- chargements ---
 const loader = new OBJLoader();
-loader.load(DEFAUT, (o) => afficher(o, DEFAUT.split('/').pop()),
-  undefined, () => message('Modèle introuvable : ' + DEFAUT));
+let iModele = 0;
+
+function chargerModele(i) {
+  const m = MODELES[i];
+  message('chargement…');
+  loader.load(m.url, (o) => afficher(o, m.nom),
+    undefined, () => message('Modèle introuvable : ' + m.url));
+}
+chargerModele(iModele);
+
+document.getElementById('btn-modele').addEventListener('click', () => {
+  iModele = (iModele + 1) % MODELES.length;
+  chargerModele(iModele);
+});
 
 function chargerFichier(f) {
   if (!f) return;
@@ -272,15 +329,14 @@ btnSpin.addEventListener('click', () => {
 });
 
 addEventListener('resize', () => {
-  camera.aspect = innerWidth / innerHeight;
-  camera.updateProjectionMatrix();
+  majCadrage();
   renderer.setSize(innerWidth, innerHeight);
 });
 
 // exposé pour le débogage depuis la console du navigateur (et pour les
 // vérifications automatisées) — même esprit que les réglages debug du
 // menu des autres jeux
-window.DH = { scene, camera, controls, renderer };
+window.DH = { scene, camera, controls, renderer, THREE };
 
 // --- boucle ---
 const champIps = document.getElementById('h-fps');

@@ -387,27 +387,62 @@ que les autres jeux.
   banc, 2 766 contre 6 464 au même seuil de 1°, et 1 767 à 45°. La
   différence est nette et visible à l'écran.
 
-**Caméra (v0.3, demandé par Pierre)** : même principe que Bastion Orbit —
-on tourne autour d'un point fixe et on zoome, **jamais de déplacement
-libre**. Ce point est le centre d'intérêt de la scène : la place du
-village une fois qu'il y aura un village, le centre du modèle pour
-l'instant. Concrètement : déplacement latéral désactivé, inclinaison
-bornée entre 12° et 86° (ni vue du dessus parfaite, ni passage sous le
-sol), zoom borné entre 0,9 fois le rayon du modèle et trois fois la
-distance de cadrage. Le pincement à deux doigts zoome sur mobile.
-Vérifié au navigateur, pas supposé : après un glisser latéral la cible
-reste identique au pixel près, et le zoom bute exactement sur ses deux
-bornes.
+**Caméra — isométrique verrouillée (v0.3, demandé par Pierre)**
+
+Même principe que Bastion Orbit, et rien de plus : on **tourne** autour
+d'un point fixe, on **zoome**, c'est tout. Ni déplacement latéral, ni
+montée/descente de la caméra.
+
+- **Projection orthographique**, pas perspective — c'est la demande
+  « perspective sans point de fuite », et c'est le terme exact :
+  projection parallèle. Deux cubes de même taille se dessinent
+  identiques, qu'ils soient devant ou au fond. C'est ce qui donne
+  l'impression de dé.
+- **Angle repris de Bastion Orbit au degré près.** Son `project()`
+  utilise cos(π/6)/sin(π/6), soit des arêtes de sol à 30° de
+  l'horizontale : l'isométrie vraie. L'inclinaison de caméra
+  correspondante est arccos(1/√3) = **54,7356°** depuis la verticale.
+- **Tangage verrouillé** : `minPolarAngle` et `maxPolarAngle` sont mis à
+  la même valeur, donc l'inclinaison ne peut pas bouger d'un degré,
+  quoi que fasse le doigt.
+- **Azimut libre** : la rotation autour de la place reste entière, comme
+  le `rot` de Bastion Orbit. Conséquence normale, pas un défaut : les
+  30° au sol ne se lisent qu'aux azimuts multiples de 90° décalés de 45°
+  — entre les deux, les arêtes prennent d'autres angles. C'est déjà le
+  cas dans Bastion Orbit (la projection reste isométrique, ce sont les
+  arêtes du bâtiment qui tournent).
+- **Zoom borné** de 0,6 à 12 (`camera.zoom`, la bonne poignée en
+  orthographique — la distance ne change rien à la taille à l'écran en
+  projection parallèle). Pincement à deux doigts sur mobile.
+
+**Vérifié au navigateur, pas supposé** (et une première mesure fausse
+corrigée en route — en coordonnées normalisées il faut repasser aux
+pixels avant de mesurer un angle, sinon le rapport d'écran fausse le
+résultat) :
+
+| Mesure | Attendu | Obtenu |
+|---|---|---|
+| tangage | 54,7356° | 54,736°, inchangé après un glisser vertical |
+| arêtes de sol à l'écran (azimut 45°) | 30° | **30,00°** sur les deux axes |
+| taille d'un objet devant / au fond | identique | 58,969 / 58,969 |
+| bornes de zoom | 0,6 / 12 | 0,6 / 12 |
+| glisser horizontal | tourne | azimut 39,8° → −79,6° |
+
+Mesures refaites en fenêtre de téléphone (390 × 844) : 30,00° et tailles
+égales également — le cadre orthographique suit le rapport d'écran.
 
 **Boucle de travail retenue** : Pierre exporte depuis Blender et **lâche
 le fichier sur la page** (glisser-déposer, ou bouton « charger un .obj »).
 Rien à committer pour essayer un modèle. Seuls les modèles retenus
 entrent dans le dépôt.
 
-**Point ouvert — provenance du banc** : le modèle de test n'a pas été
-committé, sa licence étant inconnue. Dépôt public : tout modèle récupéré
-ailleurs doit avoir une licence vérifiée (CC0 de préférence — Kenney,
-Quaternius, Poly Haven) avant d'entrer ici.
+**Provenance du banc — réglé** : Pierre a confirmé qu'il vient de
+**Poly Haven**, donc CC0. Le modèle est entré dans le dépôt
+(`models/banc.obj`) avec son crédit dans `models/CREDITS.md`, et un
+bouton « modèle suivant » permet de passer d'un modèle versionné à
+l'autre sans glisser de fichier. Règle maintenue pour la suite : dépôt
+public, donc licence vérifiée avant d'ajouter un modèle — CC0 de
+préférence (Poly Haven, Kenney, Quaternius).
 
 ---
 
