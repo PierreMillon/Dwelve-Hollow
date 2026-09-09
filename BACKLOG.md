@@ -446,8 +446,93 @@ préférence (Poly Haven, Kenney, Quaternius).
 
 ---
 
+## Interface et rendu des traits (v0.4 → v0.7)
+
+### L'escalier sur les diagonales — diagnostiqué et corrigé
+
+Signalé par Pierre sur une capture zoomée : toutes les droites ni
+verticales ni horizontales montraient un escalier marqué.
+
+**Mesuré avant de conclure.** L'antialiasing n'était pas éteint :
+`getContextAttributes().antialias` vaut bien `true` et le contexte
+rapporte **4 échantillons** MSAA. La cause est ailleurs, et elle tient en
+deux faits qui se combinent :
+
+1. **Un trait OpenGL fait toujours 1 pixel de large.** Les navigateurs
+   ignorent `linewidth` sur `LineBasicMaterial` (limitation WebGL). Donc
+   *chaque* pixel d'une diagonale est un pixel de bord : il n'y a aucun
+   intérieur plein pour ancrer l'œil.
+2. **4 échantillons ne donnent que 4 paliers de couverture** (25, 50, 75,
+   100 %). Sur du vert saturé posé sur du noir pur, ces paliers se
+   voient : mesurés à 64, 128, 192 et 255 exactement.
+
+**Correction** : les traits sont désormais dessinés comme de la
+**géométrie** (`LineSegments2` + `LineMaterial`, les « fat lines » de
+Three.js) et non comme des lignes OpenGL. Un ruban de triangles, dont le
+fondu est calculé au pixel dans le nuanceur. L'épaisseur devient
+réglable par la même occasion — impossible autrement.
+
+**Deuxième correction, contre mon premier choix** : j'avais activé
+`alphaToCoverage`. Erreur, vérifiée aux pixels : cette option fait
+repasser le fondu du nuanceur par les 4 échantillons du MSAA, donc elle
+le **requantifie en 4 paliers** — exactement les marches qu'on
+supprimait. En transparence classique, la rampe est continue. Mesuré sur
+une même diagonale de toit :
+
+| Réglage | Niveaux intermédiaires trouvés |
+|---|---|
+| trait 1 px + alphaToCoverage | 64, 128, 192 |
+| trait 1,8 px + alphaToCoverage | 64, 128, 192 |
+| trait 1,8 px + transparence | 64, **73, 81, 89, 104**, 128, **136, 144, 152**, 192 |
+
+Retenu : trait de 1,8 px, `transparent: true`, `alphaToCoverage: false`.
+
+### Coût mesuré, et pourquoi le chiffre n'est pas concluant
+
+Sur le banc (2 766 segments), en rendu **logiciel** (SwiftShader, sans
+carte graphique — c'est ce dont dispose l'environnement de test) :
+
+| Rendu | images/s |
+|---|---|
+| lignes OpenGL 1 px (avant) | ~38 |
+| trait épais 1,0 px | 14 |
+| trait épais 1,8 px, transparent | 9 |
+| trait épais 1,8 px, alphaToCoverage | 10 |
+| trait épais 1,8 px, **opaque** | 9 |
+
+**La transparence ne coûte rien** : opaque et transparent donnent le même
+chiffre. Tout le coût vient de la géométrie du trait épais, dont la
+surface à remplir croît avec l'épaisseur.
+
+**À vérifier sur un vrai appareil avant d'en tirer une conclusion.** Un
+rasteriseur logiciel paie le remplissage au prix fort ; sur un vrai GPU,
+2 766 quadrilatères instanciés sont négligeables. Le chiffre ci-dessus
+mesure le processeur de la machine de test, pas le téléphone de Pierre.
+Si c'est lent sur son appareil, le bouton « trait » redescend à 1,0 px
+(plus rapide, mais l'escalier revient).
+
+### Interface
+
+- **Numéro de version cliquable** en haut à droite, ouvrant l'historique
+  des versions — même dispositif que Bastion Orbit et Forge Line. Tenu à
+  jour à chaque changement, pour savoir d'un coup d'œil où on en est.
+- **Coin haut-gauche réduit** au titre et à un bouton de menu (v0.6).
+- **Menu** : curseurs de bruitages et de musique (aucun son branché pour
+  l'instant, mais le réglage est déjà conservé en `localStorage` pour
+  être bon le jour où le son arrive), et les informations de diagnostic
+  qui encombraient l'écran (modèle, taille, faces, segments, images/s).
+- **Bascule arêtes vives / filaire brut retirée** (v0.5) : la comparaison
+  avait servi, elle est tranchée. Les arêtes vives sont le seul rendu,
+  et le seuil d'angle reste le réglage qui compte.
+
+---
+
 ## 📜 Historique
 
+- **2026-09-09 (nuit, suite)** — Escalier sur les diagonales diagnostiqué
+  (MSAA bien actif, mais 4 paliers sur un trait d'un seul pixel) et
+  corrigé par des traits en géométrie ; interface remise à plat (menu,
+  numéro de version cliquable, historique). v0.4 → v0.7.
 - **2026-09-09 (nuit)** — Nom confirmé par Pierre : on garde Dwelve
   Hollow. Page de test 3D écrite et vérifiée au navigateur (voir la
   section dédiée) : direction validée.

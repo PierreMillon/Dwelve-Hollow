@@ -23,34 +23,66 @@
 
   #hud {
     position: fixed; top: 0; left: 0;
-    padding: 10px 14px;
-    padding-top: max(10px, env(safe-area-inset-top));
-    padding-left: max(14px, env(safe-area-inset-left));
-    pointer-events: none;
+    padding: 8px 12px;
+    padding-top: max(8px, env(safe-area-inset-top));
+    padding-left: max(12px, env(safe-area-inset-left));
+    display: flex; align-items: center; gap: 10px;
     text-shadow: 0 0 6px rgba(70, 255, 160, 0.25);
   }
   #hud .title { color: var(--ph-line); letter-spacing: 0.12em; }
-  #hud .row { color: var(--ph-dim); }
-  #hud .val { color: var(--ph-text); }
+  #btn-menu { padding: 5px 9px; line-height: 1; }
+
+  #version {
+    position: fixed; top: 0; right: 0;
+    margin-top: max(8px, env(safe-area-inset-top));
+    margin-right: max(10px, env(safe-area-inset-right));
+  }
 
   #controls {
     position: fixed; left: 0; right: 0; bottom: 0;
-    padding: 12px 14px;
-    padding-bottom: max(12px, env(safe-area-inset-bottom));
-    padding-left: max(14px, env(safe-area-inset-left));
-    display: flex; gap: 8px; flex-wrap: wrap; align-items: center;
+    padding: 10px 12px;
+    padding-bottom: max(10px, env(safe-area-inset-bottom));
+    display: flex; gap: 6px; flex-wrap: wrap; align-items: center;
   }
   button, label.fichier {
     font: inherit; color: var(--ph-text);
     background: var(--ph-panel);
     border: 1px solid var(--ph-dim);
-    padding: 8px 12px; cursor: pointer;
-    letter-spacing: 0.06em; white-space: nowrap;
+    padding: 7px 10px; cursor: pointer;
+    letter-spacing: 0.05em; white-space: nowrap;
   }
   button:active, button[aria-pressed="true"] {
     color: #04120c; background: var(--ph-line); border-color: var(--ph-line);
   }
   label.fichier input { display: none; }
+
+  #menu, #changelog {
+    position: fixed; inset: 0; display: none; z-index: 10;
+    background: rgba(2, 8, 5, 0.94);
+    padding: 24px 20px;
+    padding-top: max(24px, env(safe-area-inset-top));
+    overflow-y: auto;
+  }
+  #menu.ouvert, #changelog.ouvert { display: block; }
+  #menu .contenu, #changelog .contenu { max-width: 640px; margin: 0 auto; }
+  #menu h2, #changelog h2 {
+    color: var(--ph-line); font-size: 13px; font-weight: normal;
+    letter-spacing: 0.16em; margin: 0 0 18px;
+  }
+  #changelog .v { margin-bottom: 14px; }
+  #changelog .v b { color: var(--ph-line); font-weight: normal; }
+  #changelog .v.courante b::after { content: ' ← ici'; color: var(--ph-dim); }
+  #menu .fermer, #changelog .fermer { margin-top: 24px; }
+  #menu .reglage { margin-bottom: 18px; }
+  #menu .reglage label { display: block; color: var(--ph-dim); margin-bottom: 6px; }
+  #menu .reglage .val { color: var(--ph-text); }
+  #menu input[type="range"] {
+    width: 100%; max-width: 320px; accent-color: var(--ph-line);
+    background: transparent;
+  }
+  #menu .note { color: var(--ph-dim); max-width: 420px; }
+  #menu .diag { color: var(--ph-dim); }
+  #menu .diag .val { color: var(--ph-text); }
 
   #msg {
     position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%);
@@ -61,29 +93,97 @@
     content: 'déposer un .obj';
     position: fixed; inset: 12px; border: 1px dashed var(--ph-line);
     display: flex; align-items: center; justify-content: center;
-    color: var(--ph-line); letter-spacing: 0.2em; pointer-events: none;
+    color: var(--ph-line); letter-spacing: 0.2em; pointer-events: none; z-index: 5;
   }
 </style>
 </head>
 <body>
 
 <div id="hud">
-  <div class="title">DWELVE HOLLOW</div>
-  <div class="row">test 3D · v0.3</div>
-  <div class="row">modèle <span class="val" id="h-model">—</span></div>
-  <div class="row">taille <span class="val" id="h-taille">—</span></div>
-  <div class="row">faces <span class="val" id="h-faces">—</span></div>
-  <div class="row">rendu <span class="val" id="h-mode">—</span></div>
-  <div class="row">segments <span class="val" id="h-seg">—</span></div>
-  <div class="row">ips <span class="val" id="h-fps">—</span></div>
+  <button id="btn-menu" title="menu">☰</button>
+  <span class="title">DWELVE HOLLOW</span>
 </div>
 
+<button id="version">v0.7</button>
+
 <div id="controls">
-  <button id="btn-modele">modèle suivant</button>
-  <button id="btn-mode" aria-pressed="false">arêtes vives</button>
+  <button id="btn-modele">modèle</button>
   <button id="btn-seuil">seuil 1°</button>
-  <button id="btn-spin" aria-pressed="true">rotation</button>
-  <label class="fichier">charger un .obj<input type="file" id="fichier" accept=".obj"></label>
+  <button id="btn-trait">trait 1.8</button>
+  <button id="btn-net">net ×1</button>
+  <button id="btn-spin" aria-pressed="true">⟳</button>
+  <label class="fichier">+ obj<input type="file" id="fichier" accept=".obj"></label>
+</div>
+
+<div id="menu">
+  <div class="contenu">
+    <h2>MENU</h2>
+
+    <div class="reglage">
+      <label for="vol-sfx">bruitages <span class="val" id="vol-sfx-val">100 %</span></label>
+      <input type="range" id="vol-sfx" min="0" max="100" value="100">
+    </div>
+
+    <div class="reglage">
+      <label for="vol-mus">musique <span class="val" id="vol-mus-val">60 %</span></label>
+      <input type="range" id="vol-mus" min="0" max="100" value="60">
+    </div>
+
+    <p class="note">Aucun son n'est encore branché — les deux curseurs sont en
+    place et leur réglage est conservé, ils prendront effet dès que les
+    bruitages et la musique existeront.</p>
+
+    <h2 style="margin-top:26px">DIAGNOSTIC</h2>
+    <div class="diag">modèle <span class="val" id="h-model">—</span></div>
+    <div class="diag">taille <span class="val" id="h-taille">—</span></div>
+    <div class="diag">faces <span class="val" id="h-faces">—</span></div>
+    <div class="diag">segments <span class="val" id="h-seg">—</span></div>
+    <div class="diag">ips <span class="val" id="h-fps">—</span></div>
+
+    <button class="fermer" id="btn-menu-fermer">fermer</button>
+  </div>
+</div>
+
+<div id="changelog">
+  <div class="contenu">
+    <h2>DWELVE HOLLOW — HISTORIQUE</h2>
+
+    <div class="v courante"><b>v0.7</b> — le fondu des traits passe en transparence
+      classique au lieu d'alphaToCoverage : ce dernier faisait repasser le dégradé
+      du nuanceur par les 4 échantillons du MSAA, donc le requantifiait en
+      4 paliers — exactement les marches qu'on voulait supprimer. Mesuré sur une
+      diagonale : 3 niveaux intermédiaires avant, une douzaine après.</div>
+
+    <div class="v"><b>v0.6</b> — coin haut-gauche réduit au titre et à un
+      bouton de menu. Le menu accueille les curseurs de bruitages et de musique
+      (réglage conservé, le son n'est pas encore branché) et les informations de
+      diagnostic qui encombraient l'écran.</div>
+
+    <div class="v"><b>v0.5</b> — la bascule arêtes vives / filaire brut est
+      retirée : la comparaison a servi, elle est tranchée. Les arêtes vives sont
+      désormais le seul rendu, et le seuil d'angle reste le réglage qui compte.</div>
+
+    <div class="v"><b>v0.4</b> — traits épais antialiasés dans le nuanceur
+      (fin de l'escalier sur les diagonales : MSAA à 4 échantillons ne donnait que
+      4 niveaux de dégradé sur un trait d'un seul pixel) ; épaisseur de trait
+      réglable ; réglage de netteté (suréchantillonnage ×1 / ×1,5 / ×2) ;
+      ce numéro de version cliquable.</div>
+
+    <div class="v"><b>v0.3</b> — caméra isométrique vraie : projection orthographique
+      (parallèle, sans point de fuite), tangage verrouillé à 54,7356° — l'angle qui
+      donne les arêtes de sol à 30°, comme Bastion Orbit. On ne peut que tourner et
+      zoomer. Banc Poly Haven (CC0) ajouté, bouton de changement de modèle.</div>
+
+    <div class="v"><b>v0.2</b> — cadrage caméra et grille calculés depuis la boîte
+      englobante (un modèle en centimètres et un en mètres se cadrent aussi bien) ;
+      seuil d'angle des arêtes réglable ; chargement d'un .obj local par bouton ou
+      glisser-déposer, sans passer par le dépôt.</div>
+
+    <div class="v"><b>v0.1</b> — premier test : chargement d'un OBJ, filaire vert sur
+      fond noir, comparaison arêtes vives contre filaire brut, rotation lente.</div>
+
+    <button class="fermer" id="btn-fermer">fermer</button>
+  </div>
 </div>
 
 <div id="msg"></div>
@@ -96,88 +196,109 @@
 import * as THREE from 'three';
 import { OBJLoader } from './vendor/three/OBJLoader.js';
 import { OrbitControls } from './vendor/three/OrbitControls.js';
+import { LineSegments2 } from './vendor/three/LineSegments2.js';
+import { LineSegmentsGeometry } from './vendor/three/LineSegmentsGeometry.js';
+import { LineMaterial } from './vendor/three/LineMaterial.js';
 
-const LINE = 0x46ffa0;        // vert phosphore, repris de Bastion Orbit
-const MODELES = [                 // les modèles versionnés du dépôt
+const LINE = 0x46ffa0;            // vert phosphore, repris de Bastion Orbit
+const SEUILS = [1, 15, 30, 45];   // degrés, seuil d'arête vive — voir majAretes()
+const TRAITS = [1.8, 2.6, 1.0];   // épaisseur en pixels ; 1.0 = comme avant, pour comparer
+const NETTETE = [1, 1.5, 2];      // suréchantillonnage par-dessus la densité de l'écran
+const MODELES = [
   { url: 'models/maison.obj', nom: 'maison' },
   { url: 'models/banc.obj',   nom: 'banc (Poly Haven, CC0)' },
 ];
-const SEUILS = [1, 15, 30, 45]; // degrés — voir majAretes()
 
 // --- scène ---
 const scene = new THREE.Scene();
 
-// Caméra ISOMÉTRIQUE, comme les jeux précédents : projection
-// ORTHOGRAPHIQUE, donc parallèle — aucun point de fuite, deux cubes de
-// même taille se dessinent identiques qu'ils soient devant ou au fond.
-// C'est ce qui donne l'impression de dé.
+// Caméra ISOMÉTRIQUE : projection ORTHOGRAPHIQUE, donc parallèle — aucun
+// point de fuite, deux cubes de même taille se dessinent identiques
+// qu'ils soient devant ou au fond. C'est l'impression de dé.
 //
-// L'angle : en regardant depuis la direction (1,1,1), les trois axes du
-// monde se projettent à 120° les uns des autres et les arêtes du sol
-// tombent exactement à 30° de l'horizontale — la projection de Bastion
-// Orbit, au degré près (voir son project(), cos(π/6)/sin(π/6)).
-// L'inclinaison correspondante depuis la verticale vaut arccos(1/√3).
+// L'angle : vu depuis la direction (1,1,1), les arêtes du sol tombent
+// exactement à 30° de l'horizontale — la projection de Bastion Orbit au
+// degré près (son project() utilise cos(π/6)/sin(π/6)). L'inclinaison
+// correspondante depuis la verticale vaut arccos(1/√3).
 const ISO_POLAIRE = Math.acos(1 / Math.sqrt(3));   // 54,7356°
 const ISO_AZIMUT = Math.PI / 4;                    // 45°, le quart de tour de départ
-let demiHauteur = 10;                              // moitié de la hauteur du cadrage, en unités du monde
+let demiHauteur = 10;                              // moitié de la hauteur de cadrage, en unités du monde
 
 const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.01, 10000);
+
 const renderer = new THREE.WebGLRenderer({ antialias: true });
-renderer.setPixelRatio(Math.min(devicePixelRatio, 2)); // plafonné : sur mobile, 3x ne se voit pas et coûte cher
-renderer.setSize(innerWidth, innerHeight);
 renderer.setClearColor(0x000000, 1);
 document.body.appendChild(renderer.domElement);
 
-// Caméra sur le même principe que Bastion Orbit : on tourne autour d'un
-// point fixe et on zoome, jamais de déplacement libre. Ce point est le
-// centre d'intérêt de la scène — la place du village, une fois qu'il y
-// aura un village ; ici, le centre du modèle chargé.
 const controls = new OrbitControls(camera, renderer.domElement);
 controls.enableDamping = true;
 controls.enablePan = false;          // pas de déplacement latéral : on reste centré sur la place
 controls.autoRotate = true;
 controls.autoRotateSpeed = 0.6;      // lent : le jeu est contemplatif
-// tangage VERROUILLÉ : on tourne autour de la place et on zoome, on ne
-// monte ni ne descend jamais la caméra. Les deux bornes sont égales,
-// donc l'inclinaison isométrique ne peut pas bouger d'un degré.
+// tangage VERROUILLÉ : les deux bornes sont égales, donc l'inclinaison
+// isométrique ne peut pas bouger d'un degré. On tourne et on zoome, on ne
+// monte ni ne descend jamais.
 controls.minPolarAngle = ISO_POLAIRE;
 controls.maxPolarAngle = ISO_POLAIRE;
 
-const materiau = new THREE.LineBasicMaterial({ color: LINE });
-const groupeAretes = new THREE.Group();   // EdgesGeometry : seulement les arêtes vives
-const groupeFilaire = new THREE.Group();  // WireframeGeometry : tous les triangles
-groupeFilaire.visible = false;
-scene.add(groupeAretes, groupeFilaire);
+// Traits épais, dessinés comme de la GÉOMÉTRIE et non comme des lignes
+// OpenGL. Deux raisons, dans cet ordre :
+//   1. l'antialiasing. Un trait GL fait forcément 1 pixel de large (les
+//      navigateurs ignorent linewidth), donc CHAQUE pixel d'une diagonale
+//      est un pixel de bord, et le MSAA à 4 échantillons ne peut le
+//      nuancer qu'en 4 paliers (25/50/75/100 %) — d'où l'escalier bien
+//      visible sur un vert saturé posé sur du noir pur. Ici le trait est
+//      un ruban de triangles et son fondu est calculé au pixel dans le
+//      nuanceur : dégradé continu, plus 4 marches.
+//   2. l'épaisseur elle-même devient réglable, ce qui était impossible.
+// `transparent` plutôt que `alphaToCoverage`, et ce n'est pas un détail :
+// alphaToCoverage fait repasser le fondu calculé par le nuanceur à travers
+// les 4 échantillons du MSAA, donc il le REQUANTIFIE en 4 paliers — les
+// mêmes marches qu'on cherchait à supprimer. Mesuré sur une diagonale de
+// toit : avec alphaToCoverage, les seuls niveaux intermédiaires sont 64,
+// 128 et 192 ; en fondu classique, on obtient aussi 73, 81, 89, 104, 136,
+// 144, 152 — une vraie rampe continue.
+const materiau = new LineMaterial({
+  color: LINE,
+  linewidth: TRAITS[0],     // en pixels CSS
+  transparent: true,
+  alphaToCoverage: false,
+});
+
+// Un seul rendu : les arêtes vives. WireframeGeometry (tous les côtés de
+// tous les triangles, diagonales comprises) n'était là que pour montrer
+// la différence — la comparaison est faite, le choix est tranché.
+const groupeAretes = new THREE.Group();
+scene.add(groupeAretes);
 
 let grille = null;
-let geometries = [];              // les géométries brutes du modèle courant
+let geometries = [];
 let decalage = new THREE.Vector3();
-let segAretes = 0, segFilaire = 0, nbFaces = 0;
-let modeAretes = true, iSeuil = 0;
+let segAretes = 0, nbFaces = 0;
+let iSeuil = 0, iTrait = 0, iNet = 0;
+
+function traitDe(geoLignes) {
+  const g = new LineSegmentsGeometry().fromEdgesGeometry(geoLignes);
+  const l = new LineSegments2(g, materiau);
+  l.position.copy(decalage);
+  return l;
+}
 
 // --- affichage d'un modèle chargé ---
 function afficher(obj, nom) {
-  groupeAretes.clear(); groupeFilaire.clear();
-  geometries = []; segFilaire = 0; nbFaces = 0;
+  groupeAretes.clear();
+  geometries = []; nbFaces = 0;
 
-  // recentre et pose au sol, quelles que soient les coordonnées d'export
   const boite = new THREE.Box3().setFromObject(obj);
   if (boite.isEmpty()) { message('Aucune géométrie dans ce fichier.'); return; }
   const centre = boite.getCenter(new THREE.Vector3());
-  decalage.set(-centre.x, -boite.min.y, -centre.z);
+  decalage.set(-centre.x, -boite.min.y, -centre.z);   // recentré, posé au sol
 
   obj.traverse((enfant) => {
     if (!enfant.isMesh) return;
     const geo = enfant.geometry;
     geometries.push(geo);
     nbFaces += geo.attributes.position.count / 3;
-
-    // WireframeGeometry garde TOUS les côtés de TOUS les triangles,
-    // diagonales comprises. Là pour la comparaison, pas pour le rendu final.
-    const filaire = new THREE.LineSegments(new THREE.WireframeGeometry(geo), materiau);
-    filaire.position.copy(decalage);
-    segFilaire += filaire.geometry.attributes.position.count / 2;
-    groupeFilaire.add(filaire);
   });
 
   majAretes();
@@ -193,30 +314,28 @@ function afficher(obj, nom) {
 }
 
 // EdgesGeometry ne garde que les arêtes où deux faces forment un angle
-// supérieur au seuil (plus les bords libres). Sur un modèle anguleux, 1°
-// suffit ; sur un modèle courbe et dense, un seuil bas redessine chaque
+// supérieur au seuil, plus les bords libres. Sur une forme anguleuse, 1°
+// suffit ; sur une forme courbe et dense, un seuil bas redessine chaque
 // triangle — c'est le réglage qui décide de la lisibilité du filaire.
 function majAretes() {
   groupeAretes.clear();
   segAretes = 0;
   for (const geo of geometries) {
-    const l = new THREE.LineSegments(new THREE.EdgesGeometry(geo, SEUILS[iSeuil]), materiau);
-    l.position.copy(decalage);
-    segAretes += l.geometry.attributes.position.count / 2;
-    groupeAretes.add(l);
+    const e = new THREE.EdgesGeometry(geo, SEUILS[iSeuil]);
+    segAretes += e.attributes.position.count / 2;
+    groupeAretes.add(traitDe(e));
   }
 }
 
-// place la caméra et la grille en fonction de la taille du modèle — un
-// banc exporté en centimètres et une maison en mètres doivent se cadrer
-// aussi bien l'un que l'autre, sans réglage à la main
+// place caméra et grille selon la taille du modèle — un banc en
+// centimètres et une maison en mètres doivent se cadrer aussi bien
 function cadrer(boite) {
   const t = boite.getSize(new THREE.Vector3());
   const rayon = Math.max(t.x, t.y, t.z) * 0.5 || 1;
 
-  // en projection parallèle, la distance ne change pas la taille à
-  // l'écran : c'est la HAUTEUR DU CADRAGE qui fait le cadrage, et la
-  // distance sert seulement à garder toute la scène devant la caméra
+  // en projection parallèle la distance ne change pas la taille à
+  // l'écran : c'est la hauteur de cadrage qui cadre, la distance sert
+  // seulement à garder la scène devant la caméra
   demiHauteur = rayon * 1.5;
   const dist = rayon * 6;
   majCadrage();
@@ -225,7 +344,6 @@ function cadrer(boite) {
   camera.far = dist * 4;
   controls.target.set(0, t.y * 0.45, 0);
 
-  // place la caméra sur l'inclinaison isométrique, azimut à 45°
   const sinP = Math.sin(ISO_POLAIRE);
   camera.position.set(
     controls.target.x + dist * sinP * Math.sin(ISO_AZIMUT),
@@ -239,15 +357,15 @@ function cadrer(boite) {
   controls.update();
 
   if (grille) { scene.remove(grille); grille.geometry.dispose(); grille.material.dispose(); }
-  const pas = Math.pow(10, Math.round(Math.log10(rayon))) / 2; // une case ≈ un dixième du modèle
+  const pas = Math.pow(10, Math.round(Math.log10(rayon))) / 2;
   grille = new THREE.GridHelper(pas * 40, 40, LINE, LINE);
   grille.material.transparent = true;
   grille.material.opacity = 0.13;
   scene.add(grille);
 }
 
-// le cadre orthographique dépend de la fenêtre : à recalculer au
-// chargement d'un modèle comme à chaque redimensionnement
+// le cadre orthographique et la résolution des traits dépendent tous deux
+// de la fenêtre : à recalculer au chargement comme au redimensionnement
 function majCadrage() {
   const a = innerWidth / innerHeight;
   camera.left = -demiHauteur * a;
@@ -255,6 +373,13 @@ function majCadrage() {
   camera.top = demiHauteur;
   camera.bottom = -demiHauteur;
   camera.updateProjectionMatrix();
+
+  renderer.setPixelRatio(Math.min(devicePixelRatio * NETTETE[iNet], 4));
+  renderer.setSize(innerWidth, innerHeight);
+  // LineMaterial a besoin de la taille de la vue pour convertir une
+  // épaisseur en pixels vers l'espace de découpe — sinon le trait a la
+  // mauvaise largeur, ou disparaît
+  materiau.resolution.set(innerWidth, innerHeight);
 }
 
 function message(txt) {
@@ -275,11 +400,6 @@ function chargerModele(i) {
 }
 chargerModele(iModele);
 
-document.getElementById('btn-modele').addEventListener('click', () => {
-  iModele = (iModele + 1) % MODELES.length;
-  chargerModele(iModele);
-});
-
 function chargerFichier(f) {
   if (!f) return;
   const lecteur = new FileReader();
@@ -292,7 +412,7 @@ function chargerFichier(f) {
 document.getElementById('fichier').addEventListener('change', (e) => chargerFichier(e.target.files[0]));
 
 // glisser-déposer : exporter depuis Blender puis lâcher le fichier sur la
-// page, sans passer par le dépôt
+// page, sans rien committer
 addEventListener('dragover', (e) => { e.preventDefault(); document.body.classList.add('glisse'); });
 addEventListener('dragleave', () => document.body.classList.remove('glisse'));
 addEventListener('drop', (e) => {
@@ -301,45 +421,78 @@ addEventListener('drop', (e) => {
 });
 
 // --- interface ---
-const btnMode = document.getElementById('btn-mode');
-const btnSeuil = document.getElementById('btn-seuil');
-const btnSpin = document.getElementById('btn-spin');
+const $ = (id) => document.getElementById(id);
 
 function majHud() {
-  document.getElementById('h-mode').textContent = modeAretes ? 'arêtes vives' : 'filaire brut';
-  document.getElementById('h-seg').textContent = Math.round(modeAretes ? segAretes : segFilaire);
+  $('h-seg').textContent = Math.round(segAretes);
 }
-btnMode.addEventListener('click', () => {
-  modeAretes = !modeAretes;
-  groupeAretes.visible = modeAretes;
-  groupeFilaire.visible = !modeAretes;
-  btnMode.textContent = modeAretes ? 'arêtes vives' : 'filaire brut';
-  btnMode.setAttribute('aria-pressed', String(!modeAretes));
-  majHud();
+
+$('btn-modele').addEventListener('click', () => {
+  iModele = (iModele + 1) % MODELES.length;
+  chargerModele(iModele);
 });
-btnSeuil.addEventListener('click', () => {
+$('btn-seuil').addEventListener('click', (e) => {
   iSeuil = (iSeuil + 1) % SEUILS.length;
-  btnSeuil.textContent = 'seuil ' + SEUILS[iSeuil] + '°';
+  e.target.textContent = 'seuil ' + SEUILS[iSeuil] + '°';
   majAretes();
   majHud();
 });
-btnSpin.addEventListener('click', () => {
-  controls.autoRotate = !controls.autoRotate;
-  btnSpin.setAttribute('aria-pressed', String(controls.autoRotate));
+$('btn-trait').addEventListener('click', (e) => {
+  iTrait = (iTrait + 1) % TRAITS.length;
+  materiau.linewidth = TRAITS[iTrait];
+  e.target.textContent = 'trait ' + TRAITS[iTrait].toFixed(1);
 });
-
-addEventListener('resize', () => {
+$('btn-net').addEventListener('click', (e) => {
+  iNet = (iNet + 1) % NETTETE.length;
+  e.target.textContent = 'net ×' + NETTETE[iNet];
   majCadrage();
-  renderer.setSize(innerWidth, innerHeight);
+});
+$('btn-spin').addEventListener('click', (e) => {
+  controls.autoRotate = !controls.autoRotate;
+  e.target.setAttribute('aria-pressed', String(controls.autoRotate));
 });
 
-// exposé pour le débogage depuis la console du navigateur (et pour les
-// vérifications automatisées) — même esprit que les réglages debug du
-// menu des autres jeux
-window.DH = { scene, camera, controls, renderer, THREE };
+// les deux panneaux (menu et historique) se comportent pareil : on clique
+// pour ouvrir, on referme par le bouton ou en cliquant hors du contenu
+function brancherPanneau(idPanneau, idOuvre, idFerme) {
+  const panneau = $(idPanneau);
+  $(idOuvre).addEventListener('click', () => panneau.classList.toggle('ouvert'));
+  $(idFerme).addEventListener('click', () => panneau.classList.remove('ouvert'));
+  panneau.addEventListener('click', (e) => {
+    if (e.target === panneau) panneau.classList.remove('ouvert');
+  });
+}
+brancherPanneau('menu', 'btn-menu', 'btn-menu-fermer');
+brancherPanneau('changelog', 'version', 'btn-fermer');
+
+// volumes : rien à piloter encore, mais le réglage est conservé d'une
+// session à l'autre pour qu'il soit déjà bon le jour où le son arrive
+const volumes = { sfx: 100, musique: 60 };
+function brancherVolume(cle, idCurseur, idValeur, cleStockage) {
+  const curseur = $(idCurseur), valeur = $(idValeur);
+  try {
+    const v = parseInt(localStorage.getItem(cleStockage), 10);
+    if (!isNaN(v) && v >= 0 && v <= 100) volumes[cle] = v;
+  } catch (e) { /* stockage indisponible : on garde la valeur par défaut */ }
+  curseur.value = volumes[cle];
+  valeur.textContent = volumes[cle] + ' %';
+  curseur.addEventListener('input', () => {
+    volumes[cle] = parseInt(curseur.value, 10);
+    valeur.textContent = volumes[cle] + ' %';
+    try { localStorage.setItem(cleStockage, String(volumes[cle])); } catch (e) { /* ignore */ }
+  });
+}
+brancherVolume('sfx', 'vol-sfx', 'vol-sfx-val', 'dh_volSfx');
+brancherVolume('musique', 'vol-mus', 'vol-mus-val', 'dh_volMusique');
+
+addEventListener('resize', majCadrage);
+
+// exposé pour le débogage en console et les vérifications automatisées —
+// même esprit que les réglages debug des autres jeux
+window.DH = { scene, camera, controls, renderer, materiau, volumes, THREE };
 
 // --- boucle ---
-const champIps = document.getElementById('h-fps');
+const champIps = $('h-fps');
 let images = 0, dernierCompte = performance.now();
 
 renderer.setAnimationLoop((maintenant) => {
