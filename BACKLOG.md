@@ -358,8 +358,52 @@ on l'aura su pour le prix d'un cube.
 
 ---
 
+## Test 3D — fait, direction validée
+
+Fait le 2026-09-09, après validation du principe par Pierre. Page en
+ligne dans le dépôt (`index.html`), déployée par le même workflow Pages
+que les autres jeux.
+
+**Ce que le test a montré :**
+
+- Un modèle écrit à la main (maison, 14 faces) et un **vrai export**
+  fourni par Pierre (un banc, 4 280 faces, avec normales et UV, exporté
+  en centimètres) s'affichent tous les deux correctement, sans aucune
+  erreur console. Le banc reste parfaitement lisible en filaire vert :
+  les lattes, les pieds en fonte et l'accoudoir courbe se lisent tous.
+- **Plus de 50 images par seconde** en fenêtre de téléphone (390 × 844),
+  sur un rendu logiciel sans accélération matérielle — donc large marge
+  sur un vrai appareil.
+- **Deux manques révélés par le vrai modèle**, corrigés dans la foulée :
+  - *le cadrage caméra fixe* — un modèle en centimètres est 40 fois plus
+    grand qu'un modèle en mètres, la caméra se retrouvait à l'intérieur.
+    La caméra, ses plans de coupe et le pas de la grille sont maintenant
+    calculés depuis la boîte englobante du modèle chargé ;
+  - *le seuil d'angle des arêtes* — sur une forme courbe et dense, un
+    seuil bas redessine chaque triangle. C'est LE réglage qui décide de
+    la lisibilité, il méritait d'être exposé plutôt que figé.
+- **Chiffres de la comparaison arêtes vives / filaire brut** (le piège
+  signalé plus haut, désormais mesuré) : maison, 15 segments contre 23 ;
+  banc, 2 766 contre 6 464 au même seuil de 1°, et 1 767 à 45°. La
+  différence est nette et visible à l'écran.
+
+**Boucle de travail retenue** : Pierre exporte depuis Blender et **lâche
+le fichier sur la page** (glisser-déposer, ou bouton « charger un .obj »).
+Rien à committer pour essayer un modèle. Seuls les modèles retenus
+entrent dans le dépôt.
+
+**Point ouvert — provenance du banc** : le modèle de test n'a pas été
+committé, sa licence étant inconnue. Dépôt public : tout modèle récupéré
+ailleurs doit avoir une licence vérifiée (CC0 de préférence — Kenney,
+Quaternius, Poly Haven) avant d'entrer ici.
+
+---
+
 ## 📜 Historique
 
+- **2026-09-09 (nuit)** — Nom confirmé par Pierre : on garde Dwelve
+  Hollow. Page de test 3D écrite et vérifiée au navigateur (voir la
+  section dédiée) : direction validée.
 - **2026-09-09 (soir)** — Règle de nommage : source retrouvée et vérifiée
   (Kazuo Koike via son école, Yuji Horii diplômé), ce qui corrige le
   « non retrouvé » de l'après-midi. Point ouvert consigné : la règle,
