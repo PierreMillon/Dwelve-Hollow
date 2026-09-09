@@ -1,0 +1,44 @@
+# maison.obj — modèle de test, écrit à la main
+#
+# Le format OBJ est du texte pur, c'est tout l'intérêt :
+#   v  x y z    -> un sommet (vertex), en coordonnées
+#   f  a b c d  -> une face, qui relie les sommets numérotés a, b, c, d
+#                  (les numéros commencent à 1, pas à 0)
+# Rien d'autre n'est nécessaire pour une forme sans texture.
+#
+# Repère de Three.js : X vers la droite, Y vers le HAUT, Z vers l'avant.
+# Unités : 1 = 1 mètre. Maison de 4 m de large, 6 m de long,
+# murs à 3 m, faîtage à 5 m.
+#
+# Remplace ce fichier par ton export Blender quand tu veux :
+# Fichier > Exporter > Wavefront (.obj), en cochant "Y up".
+
+# --- 4 coins au sol (y = 0) ---
+v -2.0 0.0 -3.0
+v  2.0 0.0 -3.0
+v  2.0 0.0  3.0
+v -2.0 0.0  3.0
+
+# --- 4 coins en haut des murs, la gouttière (y = 3) ---
+v -2.0 3.0 -3.0
+v  2.0 3.0 -3.0
+v  2.0 3.0  3.0
+v -2.0 3.0  3.0
+
+# --- 2 points du faîtage, au milieu, tout en haut (y = 5) ---
+v  0.0 5.0 -3.0
+v  0.0 5.0  3.0
+
+# --- les 4 murs ---
+f 4 3 7 8
+f 2 1 5 6
+f 1 4 8 5
+f 3 2 6 7
+
+# --- les 2 pignons (les triangles sous le toit) ---
+f 5 9 6
+f 8 7 10
+
+# --- les 2 pans de toit ---
+f 5 8 10 9
+f 6 9 10 7
