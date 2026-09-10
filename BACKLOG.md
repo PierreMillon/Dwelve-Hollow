@@ -948,8 +948,59 @@ mécaniquement est la peur qu'elle laisse derrière.
 
 ---
 
+## La boucle musicale — l'instrument commun (boucle.html)
+
+Trois tentatives de correction ratées d'affilée, et la bonne leçon au
+bout : **je n'entends pas la musique, et mes mesures ne tranchent pas.**
+
+### Ce qui a été mesuré
+
+- Le morceau s'arrête à **15,52 s** alors que le fichier en fait
+  **20,87** : il y a **5,35 s de silence pur** à la fin. Le garde-fou
+  écrit en v0.10 (ne jamais rogner plus d'un tiers de seconde, pour
+  protéger un éventuel fondu) a laissé ce silence entier dans la boucle.
+  C'est le trou que Pierre entendait.
+- Quatre analyses ont été tentées pour retrouver la grille rythmique,
+  **aucune concluante** : auto-corrélation du flux spectral (0,325 s puis
+  0,226 s selon la méthode — incohérent), auto-similarité spectrale (pas
+  de pic net, une décroissance douce), corrélation de forme d'onde brute
+  (0,14 à 0,19, trop sensible à la phase), détection d'attaques (23
+  événements très mal répartis, un trou de 3,8 s).
+- Trois candidats rendus et envoyés à l'écoute : tous refusés, « ça laisse
+  trop de temps et ce n'est pas régulier ».
+
+### La solution : arrêter de deviner
+
+`boucle.html` — une page où Pierre cale la boucle à l'oreille et qui
+rend les chiffres exacts. Même esprit que le banc d'essai OBJ : quand je
+ne peux pas juger, je construis l'outil qui lui permet de juger.
+
+- **forme d'onde** dessinée depuis le fichier décodé : le silence de la
+  fin se voit d'un coup d'œil ;
+- **clic** pour poser le début, **clic droit** pour la fin ;
+- **écoute en boucle réelle** (Web Audio, `loopStart`/`loopEnd`), plus un
+  mode « couture seule » qui ne joue que les deux secondes autour de la
+  jointure et la fait revenir toutes les quatre secondes — le seul
+  endroit qui compte ;
+- **calage sur la grille** : on tape son tempo et son nombre de noires,
+  la fin se pose exactement à `début + noires × 60 / tempo`. C'est la
+  voie la plus juste quand on connaît le tempo du morceau ;
+- **taper le tempo** pour le retrouver quand on ne l'a plus ;
+- un bloc **à recopier** : début et fin en secondes ET en échantillons.
+
+Vérifié au navigateur : décodage, tracé, calage (120 bpm × 16 noires
+donne exactement 8,000 s), pose au clic, tempo tapé, aucune erreur.
+
+**Rien n'a été changé dans le jeu** tant que Pierre n'a pas tranché.
+
+---
+
 ## 📜 Historique
 
+- **2026-09-10 (matin)** — Boucle musicale : cause trouvée (5,35 s de
+  silence en fin de fichier), quatre analyses automatiques non
+  concluantes, et construction de `boucle.html` pour que Pierre cale la
+  boucle à l'oreille et me donne les chiffres exacts.
 - **2026-09-10 (fin de nuit)** — Fiche d'habitant avec le « pourquoi »,
   mémoire, liens et chagrin, amour tu, metteur en scène, règles écrites
   avec arc de flirt, noms et surnoms gagnés, dragon repris de Fly or Die,

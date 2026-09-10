@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Dwelve Hollow — caler la boucle</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' fill='%23000'/%3E%3Cpath d='M3 12V6l5-3 5 3v6' fill='none' stroke='%2346ffa0' stroke-width='1.2'/%3E%3C/svg%3E">
+<style>
+  :root { --ph-line:#46ffa0; --ph-text:#8ffcc4; --ph-dim:rgba(70,255,160,0.4); --ph-panel:#071812; }
+  * { box-sizing: border-box; }
+  html, body {
+    margin:0; padding:0; min-height:100%; background:#000; color:var(--ph-text);
+    font:12px/1.6 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    -webkit-tap-highlight-color: transparent;
+  }
+  main { max-width:900px; margin:0 auto; padding:18px 16px 40px; }
+  h1 { color:var(--ph-line); font-size:13px; font-weight:normal; letter-spacing:.16em; margin:0 0 4px; }
+  .sous { color:var(--ph-dim); margin:0 0 18px; }
+  a.retour { color:var(--ph-text); text-decoration:none; border:1px solid var(--ph-dim);
+             background:var(--ph-panel); padding:5px 9px; float:right; }
+
+  canvas { display:block; width:100%; height:150px; border:1px solid var(--ph-dim); background:#040c08;
+           touch-action:none; cursor:crosshair; }
+  .aide { color:var(--ph-dim); margin:6px 0 16px; }
+
+  .rangee { display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-bottom:10px; }
+  button, label.champ {
+    font:inherit; color:var(--ph-text); background:var(--ph-panel);
+    border:1px solid var(--ph-dim); padding:7px 11px; cursor:pointer; letter-spacing:.05em;
+  }
+  button:active, button[aria-pressed="true"] { color:#04120c; background:var(--ph-line); border-color:var(--ph-line); }
+  input[type="number"] {
+    font:inherit; color:var(--ph-text); background:#040c08; border:1px solid var(--ph-dim);
+    padding:6px 8px; width:92px;
+  }
+  input[type="range"] { width:100%; accent-color:var(--ph-line); background:transparent; }
+  .fin { color:var(--ph-dim); }
+  .fin b { color:var(--ph-text); font-weight:normal; }
+
+  h2 { color:var(--ph-line); font-size:11px; font-weight:normal; letter-spacing:.16em;
+       margin:22px 0 8px; opacity:.7; }
+  #resultat {
+    border:1px solid var(--ph-line); background:#061a11; padding:12px 14px; margin-top:8px;
+    color:var(--ph-line); white-space:pre-wrap; user-select:all;
+  }
+  .note { color:var(--ph-dim); max-width:62ch; }
+</style>
+</head>
+<body>
+<main>
+  <a class="retour" href="index.html">← village</a>
+  <h1>CALER LA BOUCLE</h1>
+  <p class="sous">L'instrument commun : tu cales à l'oreille, la page me donne les chiffres.</p>
+
+  <canvas id="onde" width="1800" height="300"></canvas>
+  <p class="aide">Clic = poser le <b>début</b> · clic droit (ou deux doigts) = poser la <b>fin</b>.
+  La zone claire est ce qui tourne en boucle.</p>
+
+  <div class="rangee">
+    <button id="jouer">écouter la boucle</button>
+    <button id="couture">écouter la couture seule</button>
+    <button id="tout">écouter tout le fichier</button>
+    <button id="tap">taper le tempo</button>
+    <span class="fin" id="tempoTape">—</span>
+  </div>
+
+  <h2>DÉBUT</h2>
+  <input type="range" id="rDebut" min="0" max="1000" value="0">
+  <div class="fin">début <b id="vDebut">0.000</b> s</div>
+
+  <h2>FIN</h2>
+  <input type="range" id="rFin" min="0" max="1000" value="1000">
+  <div class="fin">fin <b id="vFin">0.000</b> s · longueur <b id="vLong">0.000</b> s</div>
+
+  <h2>CALER SUR LA GRILLE</h2>
+  <div class="rangee">
+    <label class="champ">tempo <input type="number" id="bpm" value="120" min="20" max="300" step="0.1"></label>
+    <label class="champ">noires <input type="number" id="noires" value="16" min="1" max="128" step="1"></label>
+    <button id="caler">poser la fin sur la grille</button>
+  </div>
+  <p class="note">La fin se place exactement à <i>début + noires × 60 / tempo</i>. Si tu connais le
+  tempo de ton morceau, c'est la façon la plus juste : la boucle tombe pile sur la mesure,
+  au sample près.</p>
+
+  <h2>À ME RECOPIER</h2>
+  <div id="resultat">—</div>
+</main>
+
+<script type="module">
+const $ = (id) => document.getElementById(id);
+const FICHIER = 'assets/musique.mp3';
+
+let ctx = null, tampon = null, source = null, mode = 'boucle';
+let debut = 0, fin = 1, duree = 1;
+
+// ---- chargement et dessin ----
+const cv = $('onde'), g = cv.getContext('2d');
+let pics = null;
+
+async function charger() {
+  ctx = new (window.AudioContext || window.webkitAudioContext)();
+  const rep = await fetch(FICHIER);
+  tampon = await ctx.decodeAudioData(await rep.arrayBuffer());
+  duree = tampon.duration;
+  fin = duree;
+  // enveloppe : un pic par colonne de pixels
+  const d = tampon.getChannelData(0), N = cv.width, pas = Math.floor(d.length / N);
+  pics = new Float32Array(N);
+  for (let i = 0; i < N; i++) {
+    let m = 0;
+    for (let k = i*pas; k < (i+1)*pas && k < d.length; k++) { const v = Math.abs(d[k]); if (v > m) m = v; }
+    pics[i] = m;
+  }
+  majSliders();
+  dessiner();
+  maj();
+}
+
+function dessiner() {
+  const W = cv.width, H = cv.height;
+  g.clearRect(0, 0, W, H);
+  const xd = debut / duree * W, xf = fin / duree * W;
+
+  g.fillStyle = 'rgba(70,255,160,0.08)';
+  g.fillRect(xd, 0, xf - xd, H);
+
+  g.strokeStyle = '#46ffa0'; g.lineWidth = 1.5; g.beginPath();
+  for (let i = 0; i < W; i++) {
+    const h = pics[i] * H * 0.46;
+    g.moveTo(i + 0.5, H/2 - h); g.lineTo(i + 0.5, H/2 + h);
+  }
+  g.stroke();
+
+  for (const [x, c] of [[xd, '#46ffa0'], [xf, '#46ffa0']]) {
+    g.strokeStyle = c; g.lineWidth = 3; g.beginPath();
+    g.moveTo(x, 0); g.lineTo(x, H); g.stroke();
+  }
+}
+
+function majSliders() {
+  $('rDebut').value = Math.round(debut / duree * 1000);
+  $('rFin').value = Math.round(fin / duree * 1000);
+}
+
+function maj() {
+  $('vDebut').textContent = debut.toFixed(3);
+  $('vFin').textContent = fin.toFixed(3);
+  $('vLong').textContent = (fin - debut).toFixed(3);
+  const sr = tampon ? tampon.sampleRate : 44100;
+  const L = fin - debut;
+  const bpm = parseFloat($('bpm').value) || 120;
+  $('resultat').textContent =
+    `début  ${debut.toFixed(4)} s   (${Math.round(debut*sr)} échantillons)\n` +
+    `fin    ${fin.toFixed(4)} s   (${Math.round(fin*sr)} échantillons)\n` +
+    `boucle ${L.toFixed(4)} s\n` +
+    `à ${bpm} noires/min, ça fait ${(L * bpm / 60).toFixed(2)} noires`;
+  dessiner();
+}
+
+// ---- lecture ----
+function stop() { if (source) { try { source.stop(); } catch (e) {} source = null; } }
+function jouer(quoi) {
+  stop();
+  mode = quoi;
+  source = ctx.createBufferSource();
+  source.buffer = tampon;
+  source.connect(ctx.destination);
+  if (quoi === 'tout') { source.loop = false; source.start(); return; }
+  source.loop = true;
+  if (quoi === 'couture') {
+    // on n'écoute que les deux secondes autour de la jointure : le seul
+    // endroit qui compte, et on l'entend revenir toutes les 4 secondes
+    const marge = Math.min(2, (fin - debut) / 2);
+    source.loopStart = fin - marge; source.loopEnd = fin;
+    source.start(0, fin - marge);
+    // et on rejoue le début tout de suite après, à la main
+    setTimeout(() => { if (mode === 'couture') jouerDebut(marge); }, marge * 1000);
+    return;
+  }
+  source.loopStart = debut; source.loopEnd = fin;
+  source.start(0, debut);
+}
+function jouerDebut(marge) {
+  stop();
+  source = ctx.createBufferSource();
+  source.buffer = tampon; source.connect(ctx.destination);
+  source.loop = true; source.loopStart = debut; source.loopEnd = debut + marge;
+  source.start(0, debut);
+  setTimeout(() => { if (mode === 'couture') jouer('couture'); }, marge * 1000);
+}
+
+$('jouer').addEventListener('click', () => jouer('boucle'));
+$('couture').addEventListener('click', () => jouer('couture'));
+$('tout').addEventListener('click', () => jouer('tout'));
+
+// ---- poser les repères ----
+function poserDepuisX(clientX, estFin) {
+  const r = cv.getBoundingClientRect();
+  const t = Math.max(0, Math.min(duree, (clientX - r.left) / r.width * duree));
+  if (estFin) fin = Math.max(t, debut + 0.05); else debut = Math.min(t, fin - 0.05);
+  majSliders(); maj();
+}
+cv.addEventListener('pointerdown', (e) => { e.preventDefault(); poserDepuisX(e.clientX, e.button === 2 || e.shiftKey); });
+cv.addEventListener('contextmenu', (e) => { e.preventDefault(); poserDepuisX(e.clientX, true); });
+
+$('rDebut').addEventListener('input', (e) => { debut = Math.min(e.target.value/1000*duree, fin - 0.05); maj(); });
+$('rFin').addEventListener('input', (e) => { fin = Math.max(e.target.value/1000*duree, debut + 0.05); maj(); });
+$('bpm').addEventListener('input', maj);
+
+$('caler').addEventListener('click', () => {
+  const bpm = parseFloat($('bpm').value), n = parseInt($('noires').value, 10);
+  if (!bpm || !n) return;
+  fin = Math.min(duree, debut + n * 60 / bpm);
+  majSliders(); maj();
+  jouer('boucle');
+});
+
+// ---- taper le tempo ----
+let taps = [];
+$('tap').addEventListener('click', () => {
+  const t = performance.now();
+  if (taps.length && t - taps[taps.length-1] > 2500) taps = [];
+  taps.push(t);
+  if (taps.length < 2) { $('tempoTape').textContent = 'continue…'; return; }
+  const ecarts = [];
+  for (let i = 1; i < taps.length; i++) ecarts.push(taps[i] - taps[i-1]);
+  const moy = ecarts.reduce((a, b) => a + b, 0) / ecarts.length;
+  const bpm = 60000 / moy;
+  $('tempoTape').textContent = `${bpm.toFixed(1)} noires/min sur ${taps.length} frappes`;
+  $('bpm').value = bpm.toFixed(1);
+  maj();
+});
+
+addEventListener('resize', () => { if (pics) dessiner(); });
+charger().catch((e) => { $('resultat').textContent = 'chargement impossible : ' + e.message; });
+window.DH_BOUCLE = { get debut() { return debut; }, get fin() { return fin; }, jouer, maj };
+</script>
+</body>
+</html>
