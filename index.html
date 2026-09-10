@@ -115,7 +115,7 @@
   <span class="title">DWELVE HOLLOW</span>
 </div>
 
-<button id="version">v0.9</button>
+<button id="version">v0.10</button>
 
 <div id="saison">jour <b id="s-jour">1</b> · <b id="s-phase">aube</b> · pain <b id="s-pain">0</b> · peur <b id="s-peur">0 %</b></div>
 
@@ -196,8 +196,6 @@
     <button class="fermer" id="btn-fermer">fermer</button>
   </div>
 </div>
-
-<audio id="musique" src="assets/musique.mp3" loop preload="auto"></audio>
 
 <script type="importmap">
 { "imports": { "three": "./vendor/three/three.module.js" } }
@@ -686,6 +684,7 @@ const village = {
   jour: 1, heure: 0.28,          // 0 = minuit, 0.5 = midi
   ble: 12, farine: 5, pain: 8, outils: 6, meubles: 0, chantier: 0,
   volsCetteNuit: 0,
+  colporteur: null, joursColporteur: 0,
   jourSansSorciere: 0, bucher: null,
   foire: 0,                      // durée restante, en journées
   dragon: null,
@@ -911,7 +910,18 @@ function agir(h, dt) {
       village.volsCetteNuit += dt * 0.35;
       break;
     }
-    case 'colporter': village.ble += dt * 0.6; break;
+    case 'colporter': {
+      village.ble += dt * 0.6;
+      // ce qu'il sort de son ballot n'a pas de nom : on s'attroupe, on
+      // écoute, et on repart avec un peu moins peur
+      for (const a of habitants) {
+        if (!a.vivant || a === h) continue;
+        if (Math.hypot(a.x - h.x, a.z - h.z) > 10) continue;
+        a.peur = Math.max(0, a.peur - dt * 0.05);
+        a.sociabilite = Math.min(1, a.sociabilite + dt * 0.004);
+      }
+      break;
+    }
     case 'cuire':
       if (village.farine >= dt * 1.0) { village.farine -= dt * 1.0; village.pain += dt * 2.2; }
       break;
@@ -987,7 +997,10 @@ const SEUIL_FOULE = 4, SEUIL_REVOLTE = 4;
 // choisi, celui à qui personne ne parlait déjà. Et si c'est le boulanger,
 // le village se coupe le pain tout seul.
 function designerBouc() {
-  const candidats = habitants.filter(h => h.vivant && h.role !== 'pretre' && h.role !== 'seigneur');
+  // on ne désigne jamais l'étranger : seul, sans terre et sans menace, il
+  // intrigue plus qu'il n'inquiète — et c'est précisément ce qui le sauve
+  const candidats = habitants.filter(h => h.vivant &&
+    h.role !== 'pretre' && h.role !== 'seigneur' && h.role !== 'colporteur');
   if (!candidats.length) return null;
   candidats.sort((a, b) => a.sociabilite - b.sociabilite);
   const bouc = candidats[0];
@@ -1103,6 +1116,33 @@ function succession() {
   noter(`${nouvelle.prenom}, que son homme a laissée, s'est installée dans la cabane.`, true);
 }
 
+// LE COLPORTEUR. Il n'appartient pas à la foire : il arrive quand il veut
+// et repart de même. Il loge à la cabane, chez celle que le village tient
+// déjà à distance — les deux à l'écart se tiennent compagnie. Il apporte
+// des choses qu'on ne voit pas ailleurs, et on ne l'accuse pas.
+function majColporteur() {
+  const c = village.colporteur;
+  if (c && c.vivant) {
+    village.joursColporteur--;
+    if (village.joursColporteur <= 0) {
+      c.vivant = false;
+      village.colporteur = null;
+      noter(`${c.prenom} a repris la route avant le jour. Son ballot était plus léger.`);
+    }
+    return;
+  }
+  village.colporteur = null;
+  if (alea() > 0.22) return;
+  const venu = creerHabitant('colporteur', CABANE);
+  venu.sociabilite = entre(0.6, 1);
+  venu.superstition = entre(0, 0.25);
+  habitants.push(venu);
+  ajouterObjet(venu);
+  village.colporteur = venu;
+  village.joursColporteur = Math.round(entre(2, 6));
+  noter(`${venu.prenom}, colporteur, est entré par la route du nord. Il logera à la cabane.`, true);
+}
+
 function finDeJournee() {
   if (village.pain < 1) noter('Il ne reste plus de pain au village.');
 
@@ -1141,6 +1181,7 @@ function finDeJournee() {
 
   village.autorite = Math.max(0, village.autorite - 0.02);   // elle retombe si rien n'effraie
   if (village.sorciereChassee) succession();
+  majColporteur();
 
   if (village.jour % 6 === 0) lancerFoire();
   else if (village.jour > 3 && alea() < 0.14) lancerDragon();
@@ -1247,8 +1288,13 @@ const TOUS_MAT = [matDecor, matGens, matDragon, matEtal, matSol, matTrace];
 
 // le noir qui cache. polygonOffset repousse les faces d'un cheveu vers le
 // fond pour que les arêtes posées dessus ne clignotent pas.
+// LA correction de la v0.10 : quad() et tri() ne garantissent pas le sens
+// de rotation des triangles, et le moteur élimine par défaut ceux qui
+// tournent à l'envers. La moitié des faces manquait donc, et le filaire
+// laissait voir tout l'arrière. Recto-verso : le sens n'a plus d'importance.
 const matNoir = new THREE.MeshBasicMaterial({
-  color: 0x000000, polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1,
+  color: 0x000000, side: THREE.DoubleSide,
+  polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1,
 });
 
 function ligneDe(segments, mat) {
@@ -1416,18 +1462,69 @@ function brancherPanneau(idPanneau, idOuvre, idFerme) {
 brancherPanneau('menu', 'btn-menu', 'btn-menu-fermer');
 brancherPanneau('changelog', 'version', 'btn-fermer');
 
-// La musique. Deux pièges appris sur Forge Line, tous les deux évités ici :
+// LA MUSIQUE, en Web Audio et pas en <audio loop>.
+//
+// Pourquoi : un élément <audio> rouvre son flux à chaque tour et laisse
+// un blanc audible. Pire, un MP3 porte en plus du SILENCE D'ENCODAGE au
+// début et à la fin (le codec travaille par blocs et complète le dernier),
+// donc même une boucle parfaite entendrait ce vide. Ici le fichier est
+// décodé une fois en mémoire, et la boucle est calée à l'échantillon près
+// sur le premier et le dernier son réels — le silence des bords est sauté.
+//
+// Deux pièges appris sur Forge Line, évités tous les deux :
 //   1. un navigateur refuse de jouer avant un vrai geste de l'utilisateur ;
 //   2. la tentative de déblocage à usage unique ne suffit pas — sur un
 //      appareil réel le premier geste n'aboutit pas toujours, et le son ne
 //      revient alors jamais. On réessaie donc à CHAQUE geste tant que la
 //      lecture n'a pas démarré.
-const audio = $('musique');
-let musiqueLancee = false;
-function tenterMusique() {
-  if (musiqueLancee || volumes.musique === 0) return;
-  audio.volume = volumes.musique / 100;
-  audio.play().then(() => { musiqueLancee = true; }).catch(() => { /* on retentera au geste suivant */ });
+let ctxAudio = null, gainMusique = null, tamponMusique = null, sourceMusique = null;
+let bornes = { debut: 0, fin: 0 };
+
+// cherche le premier et le dernier échantillon audibles : c'est ce qui
+// enlève le blanc d'encodage aux deux bouts
+function chercherBornes(buf) {
+  // Seuil très bas et rognage PLAFONNÉ : au premier essai, un seuil de
+  // 0,0025 avait pris la fin du fondu pour du silence et coupait 3,5 s de
+  // musique. On ne cherche que le vide numérique du codec, et on ne
+  // s'autorise jamais à mordre plus d'un tiers de seconde de chaque côté.
+  const SEUIL = 0.0004, MAX_ROGNE = 0.35;
+  const n = buf.length, c = buf.getChannelData(0), sr = buf.sampleRate;
+  const limite = Math.floor(MAX_ROGNE * sr);
+  let d = 0, f = n - 1;
+  while (d < limite && Math.abs(c[d]) < SEUIL) d++;
+  while (f > n - 1 - limite && Math.abs(c[f]) < SEUIL) f--;
+  return { debut: d / sr, fin: (f + 1) / sr };
+}
+
+async function chargerMusique() {
+  if (tamponMusique) return;
+  const rep = await fetch('assets/musique.mp3');
+  const donnees = await rep.arrayBuffer();
+  tamponMusique = await ctxAudio.decodeAudioData(donnees);
+  bornes = chercherBornes(tamponMusique);
+}
+
+async function tenterMusique() {
+  if (volumes.musique === 0) return;
+  try {
+    if (!ctxAudio) {
+      ctxAudio = new (window.AudioContext || window.webkitAudioContext)();
+      gainMusique = ctxAudio.createGain();
+      gainMusique.gain.value = volumes.musique / 100;
+      gainMusique.connect(ctxAudio.destination);
+    }
+    if (ctxAudio.state !== 'running') await ctxAudio.resume();
+    if (ctxAudio.state !== 'running') return;      // pas encore débloqué : on retentera
+    await chargerMusique();
+    if (sourceMusique) return;                     // déjà en train de jouer
+    sourceMusique = ctxAudio.createBufferSource();
+    sourceMusique.buffer = tamponMusique;
+    sourceMusique.loop = true;
+    sourceMusique.loopStart = bornes.debut;
+    sourceMusique.loopEnd = bornes.fin;
+    sourceMusique.connect(gainMusique);
+    sourceMusique.start(0, bornes.debut);
+  } catch (e) { /* on retentera au geste suivant */ }
 }
 for (const ev of ['pointerdown', 'keydown', 'touchstart']) {
   addEventListener(ev, tenterMusique, { passive: true });
@@ -1445,13 +1542,15 @@ function brancherVolume(cle, idCurseur, idValeur, cleStockage) {
   curseur.addEventListener('input', () => {
     volumes[cle] = parseInt(curseur.value, 10);
     valeur.textContent = volumes[cle] + ' %';
-    if (cle === 'musique') { audio.volume = volumes.musique / 100; tenterMusique(); }
+    if (cle === 'musique') {
+      if (gainMusique) gainMusique.gain.value = volumes.musique / 100;
+      tenterMusique();
+    }
     try { localStorage.setItem(cleStockage, String(volumes[cle])); } catch (e) { /* ignore */ }
   });
 }
 brancherVolume('sfx', 'vol-sfx', 'vol-sfx-val', 'dh_volSfx');
 brancherVolume('musique', 'vol-mus', 'vol-mus-val', 'dh_volMusique');
-audio.volume = volumes.musique / 100;
 
 // le tableau du menu : qui habite ici, et ce qu'il est en train de faire
 function majTableau() {
@@ -1469,7 +1568,11 @@ $('h-seg').textContent = (SEG_DECOR.length / 6) + habitants.reduce((n, h) => n +
 
 addEventListener('resize', majCadrage);
 window.DH = { scene, camera, controls, renderer, village, habitants, chronique, LIEUX,
-              MOULINS, hauteur, lancerDragon, lancerFoire, THREE };
+              MOULINS, hauteur, lancerDragon, lancerFoire, tenterMusique,
+              etatAudio: () => ({ ctx: ctxAudio && ctxAudio.state, bornes,
+                                  duree: tamponMusique && tamponMusique.duration,
+                                  joue: !!sourceMusique }),
+              THREE };
 
 noter('Le village se réveille.');
 majAffichage(); majTableau();
