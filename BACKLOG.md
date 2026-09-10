@@ -991,6 +991,14 @@ ne peux pas juger, je construis l'outil qui lui permet de juger.
 Vérifié au navigateur : décodage, tracé, calage (120 bpm × 16 noires
 donne exactement 8,000 s), pose au clic, tempo tapé, aucune erreur.
 
+**Le métronome, sans toucher au fichier.** Objection de Pierre : « si je
+voulais mettre un métronome, j'en aurais mis un, et après tu ne pourrais
+plus l'enlever. » Juste — donc le clic est fabriqué à la volée pendant la
+lecture, jamais mélangé au morceau : un bouton l'allume, un bouton
+l'éteint, le MP3 d'origine ne bouge pas d'un échantillon. Premier temps
+de chaque mesure plus aigu. S'il tombe sur les notes, le tempo est le bon
+et le calage sur la grille sera juste.
+
 **Rien n'a été changé dans le jeu** tant que Pierre n'a pas tranché.
 
 ---

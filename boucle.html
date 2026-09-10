@@ -61,6 +61,7 @@
     <button id="couture">écouter la couture seule</button>
     <button id="tout">écouter tout le fichier</button>
     <button id="tap">taper le tempo</button>
+    <button id="clic" aria-pressed="false">clic</button>
     <span class="fin" id="tempoTape">—</span>
   </div>
 
@@ -81,6 +82,10 @@
   <p class="note">La fin se place exactement à <i>début + noires × 60 / tempo</i>. Si tu connais le
   tempo de ton morceau, c'est la façon la plus juste : la boucle tombe pile sur la mesure,
   au sample près.</p>
+  <p class="note">Le bouton <b>clic</b> pose un métronome au tempo affiché, <b>par-dessus la
+  lecture seulement</b> — il est fabriqué à la volée, il s'éteint quand tu veux, et il
+  n'entre jamais dans ton fichier. S'il tombe sur tes notes, le tempo est le bon et le
+  calage sur la grille sera juste.</p>
 
   <h2>À ME RECOPIER</h2>
   <div id="resultat">—</div>
@@ -91,6 +96,7 @@ const $ = (id) => document.getElementById(id);
 const FICHIER = 'assets/musique.mp3';
 
 let ctx = null, tampon = null, source = null, mode = 'boucle';
+let clicActif = false, clicTimer = null, clicProchain = 0;
 let debut = 0, fin = 1, duree = 1;
 
 // ---- chargement et dessin ----
@@ -157,11 +163,47 @@ function maj() {
   dessiner();
 }
 
+// ---- le métronome ----
+// Fabriqué à la volée pendant la lecture, jamais mélangé au fichier : on
+// l'allume pour vérifier que le tempo tombe sur les notes, on l'éteint,
+// et le morceau d'origine n'a pas bougé d'un échantillon.
+function bip(t, fort) {
+  const o = ctx.createOscillator(), g2 = ctx.createGain();
+  o.frequency.value = fort ? 1600 : 1050;
+  g2.gain.setValueAtTime(0.0001, t);
+  g2.gain.exponentialRampToValueAtTime(fort ? 0.5 : 0.28, t + 0.002);
+  g2.gain.exponentialRampToValueAtTime(0.0001, t + 0.055);
+  o.connect(g2); g2.connect(ctx.destination);
+  o.start(t); o.stop(t + 0.07);
+}
+function demarrerClic() {
+  arreterClic();
+  const bpm = parseFloat($('bpm').value) || 120;
+  const pas = 60 / bpm;
+  clicProchain = ctx.currentTime + 0.06;
+  let n = 0;
+  clicTimer = setInterval(() => {
+    if (!clicActif) return;
+    while (clicProchain < ctx.currentTime + 0.25) {      // on programme un peu en avance
+      bip(clicProchain, n % 4 === 0);                    // le premier temps de chaque mesure est plus haut
+      clicProchain += pas; n++;
+    }
+  }, 60);
+}
+function arreterClic() { if (clicTimer) { clearInterval(clicTimer); clicTimer = null; } }
+
+$('clic').addEventListener('click', (ev) => {
+  clicActif = !clicActif;
+  ev.target.setAttribute('aria-pressed', String(clicActif));
+  if (clicActif && ctx) demarrerClic(); else arreterClic();
+});
+
 // ---- lecture ----
 function stop() { if (source) { try { source.stop(); } catch (e) {} source = null; } }
 function jouer(quoi) {
   stop();
   mode = quoi;
+  if (clicActif) demarrerClic();      // le clic repart en phase avec la lecture
   source = ctx.createBufferSource();
   source.buffer = tampon;
   source.connect(ctx.destination);
@@ -205,7 +247,7 @@ cv.addEventListener('contextmenu', (e) => { e.preventDefault(); poserDepuisX(e.c
 
 $('rDebut').addEventListener('input', (e) => { debut = Math.min(e.target.value/1000*duree, fin - 0.05); maj(); });
 $('rFin').addEventListener('input', (e) => { fin = Math.max(e.target.value/1000*duree, debut + 0.05); maj(); });
-$('bpm').addEventListener('input', maj);
+$('bpm').addEventListener('input', () => { maj(); if (clicActif) demarrerClic(); });
 
 $('caler').addEventListener('click', () => {
   const bpm = parseFloat($('bpm').value), n = parseInt($('noires').value, 10);
