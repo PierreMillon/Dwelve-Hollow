@@ -1,0 +1,181 @@
+// LE SIMULATEUR SANS RENDU
+//
+// Fait vivre des villages entiers sans dessiner un trait, et rend des
+// chiffres. C'est l'instrument qui manquait : quatre défauts d'équilibrage
+// ont été trouvés à la main en une nuit, en regardant la page tourner à
+// ×100 — lent, peu fiable, et ça a laissé passer un voleur qui mangeait
+// toute la production du four.
+//
+//   node sim/equilibre.mjs                     un aperçu, 12 villages × 60 jours
+//   node sim/equilibre.mjs --runs=40 --jours=120
+//   node sim/equilibre.mjs --detail            le journal du premier village
+//   node sim/equilibre.mjs --check             test de non-régression (code de sortie)
+//
+// Règle pour la suite : toute constante qui touche à la nourriture, à la
+// peur, au soupçon ou à l'usure relance --check avant d'être poussée.
+
+import { creerMonde } from './monde.mjs';
+
+const arg = (nom, defaut) => {
+  const t = process.argv.find(a => a.startsWith(`--${nom}=`));
+  return t ? Number(t.split('=')[1]) : defaut;
+};
+const drapeau = (nom) => process.argv.includes(`--${nom}`);
+
+const JOUR = 90;          // secondes simulées par journée, comme dans la page
+const TRANCHE = 0.2;      // même pas de simulation que la page
+
+function unVillage(graine, jours) {
+  const M = creerMonde(graine);
+  const pas = Math.round(jours * JOUR / TRANCHE);
+
+  const s = {
+    graine, jours,
+    joursSansPain: 0, joursFamine: 0, joursMoulinCasse: 0,
+    faimCumul: 0, peurCumul: 0, rancuneCumul: 0, tensionCumul: 0, mesures: 0,
+    buchers: 0, departs: 0, revoltes: 0, dragons: 0, foires: 0, successions: 0,
+    surnoms: 0, couples: 0, bloque: false,
+  };
+
+  for (let k = 0; k < pas; k++) {
+    M.avancer(TRANCHE);
+
+    // On mesure toutes les minutes simulées, pas une fois par jour : la
+    // peur retombe en quarante secondes, donc un relevé quotidien à heure
+    // fixe la rate complètement et affiche 0,00 alors qu'un dragon vient
+    // de passer. C'est le premier défaut que le simulateur a révélé —
+    // sur lui-même.
+    if (k % Math.round(60 / TRANCHE) === 0) {
+      const vivants = M.habitants.filter(h => h.vivant);
+      const moy = (f) => vivants.reduce((t, h) => t + f(h), 0) / (vivants.length || 1);
+      s.faimCumul += moy(h => h.faim);
+      s.peurCumul += moy(h => h.peur);
+      s.rancuneCumul += moy(h => h.rancune);
+      s.tensionCumul += M.village.tension;
+      if (M.village.pain < 1) s.joursSansPain++;
+      if (moy(h => h.faim) > 0.85) s.joursFamine++;
+      if (M.MOULINS.some(m => m.etat <= 0.12)) s.joursMoulinCasse++;
+      s.peurMax = Math.max(s.peurMax || 0, moy(h => h.peur));
+      s.mesures++;
+    }
+  }
+
+  for (const e of M.chronique) {
+    if (/bûcher a brûlé/.test(e.txt)) s.buchers++;
+    else if (/a pris la route avant eux/.test(e.txt)) s.departs++;
+    else if (/montent vers le manoir/.test(e.txt)) s.revoltes++;
+    else if (/ombre passe sur les toits/.test(e.txt)) s.dragons++;
+    else if (/Foire aux bestiaux/.test(e.txt)) s.foires++;
+    else if (/s'est installée dans la cabane/.test(e.txt)) s.successions++;
+    else if (/On a commencé à l'appeler/.test(e.txt)) s.surnoms++;
+  }
+  s.couples = M.habitants.filter(h => h.vivant && h.aime).length / 2;
+  s.vivants = M.habitants.filter(h => h.vivant).length;
+  s.pain = Math.round(M.village.pain);
+  s.ble = Math.round(M.village.ble);
+  s.farine = Math.round(M.village.farine);
+  s.autorite = M.village.autorite;
+  s.chronique = M.chronique;
+  return s;
+}
+
+function agreger(lots) {
+  const n = lots.length;
+  const m = (f) => lots.reduce((t, s) => t + f(s), 0) / n;
+  return {
+    villages: n,
+    pctSansPain: m(s => s.joursSansPain / s.mesures) * 100,
+    pctFamine: m(s => s.joursFamine / s.mesures) * 100,
+    pctMoulinCasse: m(s => s.joursMoulinCasse / s.mesures) * 100,
+    faim: m(s => s.faimCumul / s.mesures),
+    peur: m(s => s.peurCumul / s.mesures),
+    rancune: m(s => s.rancuneCumul / s.mesures),
+    tension: m(s => s.tensionCumul / s.mesures),
+    buchers: m(s => s.buchers), departs: m(s => s.departs),
+    revoltes: m(s => s.revoltes), dragons: m(s => s.dragons),
+    successions: m(s => s.successions), surnoms: m(s => s.surnoms),
+    couples: m(s => s.couples), vivants: m(s => s.vivants),
+    autorite: m(s => s.autorite),
+  };
+}
+
+const pct = (v) => `${v.toFixed(1).padStart(5)} %`;
+const num = (v) => v.toFixed(2).padStart(6);
+
+function afficher(a, titre) {
+  console.log(`\n${titre}  (${a.villages} villages)`);
+  console.log('  ── la nourriture ─────────────────────────────');
+  console.log(`  journées sans pain        ${pct(a.pctSansPain)}`);
+  console.log(`  journées de famine        ${pct(a.pctFamine)}   (faim moyenne > 0,85)`);
+  console.log(`  faim moyenne              ${num(a.faim)}`);
+  console.log(`  journées moulin cassé     ${pct(a.pctMoulinCasse)}`);
+  console.log('  ── les tensions ──────────────────────────────');
+  console.log(`  peur moyenne              ${num(a.peur)}`);
+  console.log(`  rancune moyenne           ${num(a.rancune)}`);
+  console.log(`  tension moyenne           ${num(a.tension)}`);
+  console.log(`  autorité du prêtre        ${num(a.autorite)}`);
+  console.log('  ── ce qui arrive, par village ────────────────');
+  console.log(`  dragons                   ${num(a.dragons)}`);
+  console.log(`  foires                    ${num(a.foires ?? 0)}`);
+  console.log(`  bûchers                   ${num(a.buchers)}`);
+  console.log(`  départs avant la foule    ${num(a.departs)}`);
+  console.log(`  révoltes                  ${num(a.revoltes)}`);
+  console.log(`  successions à la cabane   ${num(a.successions)}`);
+  console.log(`  surnoms gagnés            ${num(a.surnoms)}`);
+  console.log(`  couples formés            ${num(a.couples)}`);
+  console.log(`  habitants en vie          ${num(a.vivants)}`);
+}
+
+// ---- les cibles de non-régression ----
+// Elles disent ce qu'est un village en bonne santé. Un village où l'on
+// manque de pain trois jours sur quatre n'en est pas un.
+const CIBLES = [
+  ['journées sans pain',    (a) => a.pctSansPain,  0,    35,  '%'],
+  ['journées de famine',    (a) => a.pctFamine,    0,    20,  '%'],
+  ['faim moyenne',          (a) => a.faim,         0.15, 0.70, ''],
+  // 32 % et non 25 : un moulin cassé un quart du temps n'est pas un
+  // défaut, c'est le dessein. C'est la seule violence du dragon et le
+  // premier maillon de la chaîne qui affame le village. La cible dit
+  // « ils sont réparés », pas « ils ne cassent jamais ».
+  ['journées moulin cassé', (a) => a.pctMoulinCasse, 0,  32,  '%'],
+  ['rancune moyenne',       (a) => a.rancune,      0,    0.55, ''],
+  ['tension moyenne',       (a) => a.tension,      0.10, 0.60, ''],
+  ['habitants en vie',      (a) => a.vivants,      12,   30,  ''],
+];
+
+function verifier(a) {
+  console.log('\n  ── non-régression ────────────────────────────');
+  let echecs = 0;
+  for (const [nom, f, lo, hi, u] of CIBLES) {
+    const v = f(a), ok = v >= lo && v <= hi;
+    if (!ok) echecs++;
+    console.log(`  ${ok ? '  ok' : 'RATÉ'}  ${nom.padEnd(24)} ${v.toFixed(2).padStart(7)}${u}   attendu ${lo}–${hi}${u}`);
+  }
+  return echecs;
+}
+
+// ---- exécution ----
+const runs = arg('runs', drapeau('check') ? 24 : 12);
+const jours = arg('jours', drapeau('check') ? 80 : 60);
+const graine0 = arg('graine', 1);
+
+const t0 = Date.now();
+const lots = [];
+for (let i = 0; i < runs; i++) lots.push(unVillage(graine0 + i * 7919, jours));
+const dt = (Date.now() - t0) / 1000;
+const a = agreger(lots);
+a.foires = lots.reduce((t, s) => t + s.foires, 0) / lots.length;
+
+afficher(a, `${runs} villages × ${jours} jours`);
+console.log(`\n  ${(runs * jours / dt).toFixed(0)} années de village par seconde  (${dt.toFixed(1)} s au total)`);
+
+if (drapeau('detail')) {
+  console.log(`\n  ── le journal du premier village (graine ${lots[0].graine}) ──`);
+  for (const e of lots[0].chronique.slice(0, 40)) console.log('   ' + e.txt);
+}
+
+if (drapeau('check')) {
+  const echecs = verifier(a);
+  console.log(echecs ? `\n  ${echecs} cible(s) ratée(s).\n` : '\n  toutes les cibles tenues.\n');
+  process.exit(echecs ? 1 : 0);
+}

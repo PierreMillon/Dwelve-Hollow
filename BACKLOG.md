@@ -1003,8 +1003,99 @@ et le calage sur la grille sera juste.
 
 ---
 
+## Le simulateur sans rendu — fait (principe n°6)
+
+Le chantier promis depuis le premier jour, et devenu bloquant : quatre
+défauts d'équilibrage trouvés à la main en une nuit, un par passe, en
+instrumentant la page et en la regardant tourner à ×100.
+
+### La séparation
+
+`sim/monde.mjs` — **la simulation, et rien d'autre.** Aucune ligne de
+rendu, aucun appel au DOM, aucune dépendance à three.js. `creerMonde(graine)`
+rend un monde indépendant : on peut en faire tourner plusieurs dans le même
+processus.
+
+`index.html` ne fait plus que dessiner ce que le monde raconte. La
+frontière passe par les positions : un lieu retient désormais le **nom**
+de sa forme (`'eglise'`, `'chaumiere'`) et c'est la page qui va chercher
+la géométrie. Les arrivées (succession à la cabane, colporteur) passent
+par une file que le rendu vient vider, au lieu d'appeler directement une
+fonction de rendu.
+
+Résultat : 1 300 lignes de simulation d'un côté, 1 120 de rendu et
+d'interface de l'autre.
+
+### Ce que ça donne
+
+`sim/equilibre.mjs` fait vivre **environ 150 années de village par
+seconde**. La page à ×100 en faisait une par seconde. C'est un facteur
+d'à peu près 150 sur le temps de mesure, et surtout : le résultat est
+reproductible et chiffré au lieu d'être regardé.
+
+    node sim/equilibre.mjs              un aperçu
+    node sim/equilibre.mjs --detail     le journal du premier village
+    node sim/equilibre.mjs --check      non-régression, code de sortie
+
+`sim/balayage.mjs` essaie des combinaisons de constantes et dit
+lesquelles tiennent les cibles.
+
+### Ce qu'il a trouvé en dix minutes
+
+**Sur lui-même d'abord** : la première version mesurait une fois par
+journée, à heure fixe. La peur retombe en quarante secondes — le relevé
+la ratait complètement et affichait 0,00 alors qu'un dragon venait de
+passer. Corrigé : une mesure par minute simulée.
+
+**Le pain.** 18 combinaisons × 6 villages × 45 jours en 31 secondes.
+Avant : le village manquait de pain 77 % des journées et connaissait la
+famine une journée sur deux. Retenu au balayage : `painParSeconde` 5,0,
+`painParRepas` 1,0, `faimParSeconde` 0,007.
+
+**Les moulins, qui étaient la vraie cause.** Le premier `--check` à 80
+jours a montré ce que le balayage à 45 jours cachait : moulins cassés
+41 % du temps, donc pas de farine, donc pas de pain. Second balayage sur
+l'usure, la réparation et les dégâts du dragon. Retenu : usure divisée
+par trois, réparation presque doublée, et **les dégâts du dragon
+inchangés** — casser les moulins est sa seule violence et toute la chaîne
+du drame en dépend.
+
+État final, 24 villages × 80 jours, toutes cibles tenues :
+
+| | avant | après |
+|---|---|---|
+| journées sans pain | 77 % | **34 %** |
+| journées de famine | 50 % | **15 %** |
+| faim moyenne | 0,78 | **0,52** |
+| journées moulin cassé | 41 % | **29 %** |
+
+Une cible a été **déplacée** en connaissance de cause : les moulins
+cassés passent de 25 % à 32 %. Un moulin en panne un quart du temps n'est
+pas un défaut, c'est le dessein — la cible doit dire « ils sont réparés »,
+pas « ils ne cassent jamais ».
+
+### Règle pour la suite
+
+Toute constante qui touche à la nourriture, à la peur, au soupçon ou à
+l'usure relance `node sim/equilibre.mjs --check` avant d'être poussée.
+
+### Réserve
+
+Le rendu tourne à 11 images/s au repos en rendu **logiciel** (1100 × 760),
+contre des relevés de 15 à 17 la veille. Les conditions exactes de ces
+mesures-là ne sont pas reproductibles, donc **aucune régression n'est
+établie ni écartée** — à revérifier sur un vrai appareil, où toute la
+scène ne fait de toute façon que ~1 100 segments.
+
+---
+
 ## 📜 Historique
 
+- **2026-09-10 (matin, suite)** — Le simulateur sans rendu : simulation
+  extraite dans `sim/monde.mjs`, runner `sim/equilibre.mjs` (~150 années
+  de village par seconde) avec cibles de non-régression, et
+  `sim/balayage.mjs`. Deux balayages ont réglé le pain et les moulins,
+  que quatre passes à la main n'avaient pas trouvés.
 - **2026-09-10 (matin)** — Boucle musicale : cause trouvée (5,35 s de
   silence en fin de fichier), quatre analyses automatiques non
   concluantes, et construction de `boucle.html` pour que Pierre cale la
