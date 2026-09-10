@@ -1824,6 +1824,73 @@ personnes.
 
 ---
 
+## Le soupçon porte enfin sur quelqu'un (v0.21)
+
+### Le trou
+
+Le soupçon était un nombre **sans destinataire**. Chacun avait « du
+soupçon » ; personne ne soupçonnait quelqu'un. Le village accusait donc
+le moins sociable par une ligne de tri, pas par une conviction.
+
+Et tout le chapitre des légendes en dépendait : un chasseur de monstres
+qui se trompe de coupable n'a aucun sens si personne ne soupçonne
+personne en particulier.
+
+### Ce qui a été construit
+
+Chaque habitant tient sa propre table : combien il soupçonne chacun des
+autres. Elle se remplit par **cinq sources, toutes concrètes** :
+
+1. **Le malheur cherche un visage.** Quand quelque chose de mauvais
+   arrive — la huche vidée, le moulin arrêté, la bête égorgée, un
+   meurtre — le village regarde qui était le plus près. Parfois c'est
+   vraiment le coupable : il a le droit de tomber juste.
+2. **Les chiens.** Là où ils ont aboyé, on regarde qui était.
+3. **Le sabbat.** On soupçonne ceux qu'on a vus monter à la cabane.
+4. **L'absence.** Chaque jour, un peu de soupçon se porte sur qui n'est
+   pas venu sur la place.
+5. **La contagion.** Deux voisins qui se parlent échangent un nom, pas
+   seulement une inquiétude. Un soupçon né d'un seul regard devient
+   l'affaire de tout le village.
+
+Et il **s'efface**, d'autant moins vite qu'on a de la souvenance.
+
+**On ne soupçonne pas volontiers celui qu'on aime** : le lien divise le
+soupçon par presque six. La foule s'exclut donc toute seule de ceux qui
+tiennent à la victime — sans qu'aucune règle ne dise « épargner ses
+amis ».
+
+### Le bûcher n'est plus une règle
+
+`designerBouc` ne trie plus par sociabilité. Il prend **la somme de ce
+que chacun soupçonne**, et épargne le prêtre, le seigneur, le colporteur
+et les enfants.
+
+### Mesuré
+
+- **4,1 bûchers par village sur six ans** — contre 0,5 avant. Le village
+  s'est remis à brûler, et pour des raisons.
+- **Le village tombe juste une fois sur dix.** Neuf fois sur dix il brûle
+  quelqu'un qui n'avait ni volé ni couru la nuit. C'est le chiffre le
+  plus important du jeu.
+- Environ 1,5 nom différent soupçonné en même temps : il y a presque
+  toujours une opinion minoritaire — de quoi permettre qu'un chasseur se
+  trompe.
+- Coût mesuré : une vingtaine d'entrées de soupçon dans tout le village.
+  Négligeable à cette échelle. À mille habitants, c'est cette table qui
+  fixerait le plafond, pas la vitesse — à revoir alors.
+
+### Deux réglages, trouvés au balayage
+
+`oubliSoupcon` est **le** levier des bûchers, bien plus que le poids de
+l'accusation : à 0,0012 le village s'exterminait (15,7 bûchers), à 0,005
+il en fait 4,1.
+
+Et `poidsAccuser` est redescendu de 26 à 9 — 26 était le réglage d'un
+monde où le soupçon ne mordait pas.
+
+---
+
 ## 📜 Historique
 
 - **2026-09-10 (après-midi, suite)** — Lumière des torches calculée par

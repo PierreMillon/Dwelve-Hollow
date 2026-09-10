@@ -51,7 +51,7 @@ export const REGLAGES = {
   plafondLassitude: 2.2,
   // Les conduites rares ne sont plus tirées au sort : elles doivent
   // l'emporter franchement quand leur moment vient, ou ne jamais venir.
-  poidsAccuser: 26,     // balayage : à 6, un village nourri et plein d'enfants ne brûle plus personne
+  poidsAccuser: 9,      // balayage : 26 était le réglage d'avant le soupçon ciblé
   seuilFoule: 3,        // balayage : à 4, un village amoindri ne fait plus jamais foule
   cycleLune: 8,         // jours d'un cycle lunaire complet
   joursParSaison: 8,    // quatre saisons, donc une année de 32 jours et 4 lunes
@@ -65,6 +65,7 @@ export const REGLAGES = {
   // cesse d'être un événement. Le seuil a dû monter quand la souvenance
   // a fait grimper les rancunes.
   seuilLoup: 1.45,     // mesuré : une pleine lune sur trois
+  oubliSoupcon: 0.005,   // balayage : c'est LE levier des bûchers
   boisParSeconde: 0.30,   // ce qu'un bûcheron rapporte
   boisRepare: 0.25,       // ce qu'une réparation consomme
   boisChauffe: 0.9,       // par jour d'hiver, pour tout le village
@@ -450,6 +451,12 @@ function creerHabitant(role, logis) {
               moissons: 0, foires: 0, deuils: 0 },
     memoire: [],            // ce qu'il a fait, et ce qu'on lui a fait
     liens: new Map(),       // affinité avec chaque autre, 0 à 1
+    // LE SOUPÇON A UN DESTINATAIRE. Avant, chacun avait « du soupçon »
+    // sans soupçonner personne, et le village accusait mécaniquement le
+    // moins sociable. Maintenant chacun tient sa propre liste, et deux
+    // habitants peuvent ne pas soupçonner le même. C'est ce qui permet
+    // qu'un chasseur de monstres se trompe.
+    soupconne: new Map(),
     aime: null,
     occupation: 'flâner', prochainChoix: 0, vivant: true,
   };
@@ -530,6 +537,66 @@ function souvenir(h, txt) {
   if (h.memoire.length > 14) h.memoire.shift();
 }
 const lien = (a, b) => a.liens.get(b) || 0;
+/* ---- LE SOUPÇON, ET SUR QUI ---- */
+// combien « qui » soupçonne « cible »
+const soupconDe = (qui, cible) => qui.soupconne.get(cible) || 0;
+
+function soupconner(qui, cible, montant) {
+  if (!qui || !cible || qui === cible || !qui.vivant || !cible.vivant) return;
+  // on ne soupçonne pas volontiers celui qu'on aime, ni celui qu'on tait
+  const proche = Math.max(lien(qui, cible), qui.secret === cible ? qui.secretForce : 0);
+  const v = Math.min(1, soupconDe(qui, cible) + montant * (1 - proche * 0.85));
+  qui.soupconne.set(cible, v);
+  // soupçonner quelqu'un, c'est aussi être inquiet en général
+  qui.soupcon = Math.min(1, Math.max(qui.soupcon, v * 0.9));
+}
+
+// celui que « qui » soupçonne le plus, et de combien
+function plusSoupconne(qui) {
+  let pire = null, score = 0;
+  for (const [c, v] of qui.soupconne) if (c.vivant && v > score) { score = v; pire = c; }
+  return { qui: pire, valeur: score };
+}
+
+// celui que TOUT le village soupçonne le plus — la somme des soupçons,
+// pas une règle qui désignerait le plus faible
+function soupconneDuVillage(exclus = () => false) {
+  const total = new Map();
+  for (const h of habitants) {
+    if (!h.vivant) continue;
+    for (const [c, v] of h.soupconne) {
+      if (!c.vivant || exclus(c)) continue;
+      total.set(c, (total.get(c) || 0) + v);
+    }
+  }
+  let pire = null, score = 0;
+  for (const [c, v] of total) if (v > score) { score = v; pire = c; }
+  return { qui: pire, valeur: score };
+}
+
+// LE MALHEUR CHERCHE UN VISAGE. Quand quelque chose de mauvais arrive,
+// ceux qui sont là soupçonnent celui qui était le plus près — et si
+// personne n'était près, celui qu'on voit le moins.
+function malheur(x, z, force, sauf = null) {
+  let proche = null, d2 = 26 * 26;
+  for (const h of habitants) {
+    if (!h.vivant || h === sauf) continue;
+    const d = (h.x - x) ** 2 + (h.z - z) ** 2;
+    if (d < d2) { d2 = d; proche = h; }
+  }
+  if (!proche) {
+    // personne sur les lieux : le village se rabat sur celui qui n'y est
+    // jamais. C'est la même injustice qu'avant, mais elle a une raison.
+    proche = habitants.filter(h => h.vivant && h.role !== 'pretre' && h.role !== 'seigneur')
+      .sort((a, b) => (a.sociabilite + a.seuil) - (b.sociabilite + b.seuil))[0];
+  }
+  if (!proche) return;
+  for (const h of habitants) {
+    if (!h.vivant || h === proche) continue;
+    soupconner(h, proche, force * (0.4 + h.superstition));
+  }
+}
+
 function rapprocher(a, b, k) {
   a.liens.set(b, Math.min(1, lien(a, b) + k));
   b.liens.set(a, Math.min(1, lien(b, a) + k));
@@ -755,7 +822,7 @@ function majPleineLune(dt) {
     const m = MOULINS[village.jour % MOULINS.length];
     m.etat = Math.max(0.1, m.etat - 0.2);
     noter('Au matin, une bête égorgée, une porte défoncée, la huche vide.', true);
-    for (const h of habitants) if (h.vivant) h.soupcon = Math.min(1, h.soupcon + 0.10 * h.superstition);
+    malheur(village.loup.x, village.loup.z, 0.30);
 
     // LE PRINCIPE DE JACK L'ÉVENTREUR. Très rarement, quelqu'un meurt —
     // et ce n'est pas toujours le loup. Un homme que la rancune ronge se
@@ -797,9 +864,12 @@ function majPleineLune(dt) {
   if (sorciere && !village.sabbat) { village.sabbat = true; village.arrive.sabbats++; }
   if (village.sabbat) {
     const veillent = habitants.filter(h => h.vivant && h.occupation === 'veiller').length;
+    const auSabbat = habitants.filter(h => h.vivant && h.occupation === 'veiller');
     if (veillent >= 2) for (const h of habitants) {
       if (!h.vivant || h.occupation === 'veiller') continue;
       h.soupcon = Math.min(1, h.soupcon + dt * 0.008 * h.superstition * veillent);
+      // et on soupçonne ceux qu'on a vus monter à la cabane
+      for (const v of auSabbat) soupconner(h, v, dt * 0.010 * h.superstition);
     }
   }
 
@@ -1064,6 +1134,11 @@ function simuler(dt) {
     // qui n'oublie rien ne pardonne pas non plus : la rancune et le
     // chagrin s'effacent d'autant moins vite que la mémoire est bonne
     const oubli = 1 / (1 + h.souvenance * 2.5);
+    // les soupçons s'effacent aussi — moins vite chez qui retient tout
+    if (h.soupconne.size) for (const [c, v] of h.soupconne) {
+      const n = v - dt * R.oubliSoupcon * oubli;
+      if (n <= 0.01 || !c.vivant) h.soupconne.delete(c); else h.soupconne.set(c, n);
+    }
     h.rancune = Math.max(0, h.rancune - dt * 0.013 * oubli);
     h.chagrin = Math.max(0, h.chagrin - dt * 0.004 * oubli);   // il faut du temps
     // Le remords s'use lentement et se confesse : prier l'efface plus
@@ -1336,6 +1411,7 @@ function majMoulins(dt) {
     if (m.etat <= 0.12 && !m.reparationSignalee) {
       m.reparationSignalee = true;
       noter(`${m.nom} s'est arrêté. La meule ne tourne plus.`, true);
+      malheur(m.x, m.z, 0.16);
     }
   }
 }
@@ -1366,6 +1442,13 @@ function voisinage(dt) {
         const k = dt * 0.35;
         a.soupcon += (m - a.soupcon) * k * (0.4 + b.sociabilite);
         b.soupcon += (m - b.soupcon) * k * (0.4 + a.sociabilite);
+
+        // ET UN NOM PASSE AVEC. On se dit qui l'on soupçonne, et l'autre
+        // en garde une part. C'est ainsi qu'un soupçon né d'un seul
+        // regard devient l'affaire de tout le village.
+        const pa = plusSoupconne(a), pb = plusSoupconne(b);
+        if (pa.qui && pa.qui !== b) soupconner(b, pa.qui, dt * 0.05 * pa.valeur * (0.3 + a.sociabilite));
+        if (pb.qui && pb.qui !== a) soupconner(a, pb.qui, dt * 0.05 * pb.valeur * (0.3 + b.sociabilite));
       }
 
       // et quand deux personnes ne se quittent plus, ça finit par se dire
@@ -1394,11 +1477,15 @@ const SEUIL_FOULE = R.seuilFoule, SEUIL_REVOLTE = 4;
 function designerBouc() {
   // on ne désigne jamais l'étranger : seul, sans terre et sans menace, il
   // intrigue plus qu'il n'inquiète — et c'est précisément ce qui le sauve
-  const candidats = habitants.filter(h => h.vivant &&
-    h.role !== 'pretre' && h.role !== 'seigneur' && h.role !== 'colporteur');
-  if (!candidats.length) return null;
-  candidats.sort((a, b) => a.sociabilite - b.sociabilite);
-  const bouc = candidats[0];
+  const epargne = (h) => h.role === 'pretre' || h.role === 'seigneur' ||
+                         h.role === 'colporteur' || h.role === 'enfant';
+  // Ce n'est plus une règle qui désigne le plus faible : c'est la somme
+  // de ce que chacun soupçonne. Le village peut donc tomber juste, et il
+  // peut se tromper — les deux arrivent, et pour de vraies raisons.
+  const { qui: vise } = soupconneDuVillage(epargne);
+  const bouc = vise || habitants.filter(h => h.vivant && !epargne(h))
+                                .sort((a, b) => a.sociabilite - b.sociabilite)[0];
+  if (!bouc) return null;
   village.accuse = bouc;
   if (village.autorite > 0.5) noter(`Du haut de la chaire, on a nommé ${nommer(bouc)}.`, true);
   else noter(`Les regards se sont tournés vers ${nommer(bouc)}.`, true);
@@ -1778,6 +1865,9 @@ function majBetes(dt) {
   if (aboie && !village.aboiement) {
     noter("Les chiens n'ont pas cessé d'aboyer vers les champs.", true);
     signaler('rumeur');
+    // Ils ont aboyé quelque part, et le village regarde qui était là.
+    const chien = village.betes.find(b => b.type === 'chien' && b.alerte > 0.5);
+    if (chien) malheur(chien.x, chien.z, 0.18);
   }
   village.aboiement = aboie ? 1 : 0;
 }
@@ -1792,6 +1882,17 @@ function majRats(dt) {
 
 function finDeJournee() {
   naissances();
+  // CELUI QU'ON NE VOIT JAMAIS. Chaque jour, un peu de soupçon se porte
+  // sur qui n'est pas venu sur la place. Ce n'est pas une punition de
+  // l'écart : c'est ce que fait un village.
+  {
+    const dehors = habitants.filter(h => h.vivant && h.role !== 'enfant' &&
+      Math.hypot(h.x - PLACE.x, h.z - PLACE.z) > 22);
+    for (const abs of dehors) for (const h of habitants) {
+      if (!h.vivant || h === abs) continue;
+      soupconner(h, abs, 0.006 * h.superstition);
+    }
+  }
   // L'HIVER SE CHAUFFE. Sans bois on ne meurt pas de froid, mais l'usure
   // monte — et l'usure décide de l'âge auquel on s'éteint.
   if (village.saison === 3) {
@@ -1819,7 +1920,9 @@ function finDeJournee() {
     // le village sait qu'on l'a volé, mais pas par qui — et c'est
     // exactement ce qui nourrit le soupçon de travers
     noter("La huche était plus vide qu'elle n'aurait dû l'être.");
-    for (const h of habitants) if (h.vivant) h.soupcon = Math.min(1, h.soupcon + 0.12 * h.superstition);
+    // On regarde qui rôdait près du four. Parfois c'est le voleur —
+    // le village a le droit de tomber juste.
+    malheur(FOUR.x, FOUR.z, 0.22);
   }
   village.volsCetteNuit = 0;
 

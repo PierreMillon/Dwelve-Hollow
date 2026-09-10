@@ -78,8 +78,8 @@ const ecart = (m) => Object.entries(BORNES).reduce((t, [k, [lo, hi]]) =>
 // le poids des deux conduites qui font l'histoire depuis qu'il n'y a plus
 // de dé pour les faire sortir toutes seules.
 const GRILLE = {
-  poidsAccuser: [6, 14, 26],
-  seuilFoule: [3, 2],
+  poidsAccuser: [26, 9, 3],
+  oubliSoupcon: [0.0012, 0.0035],
 };
 
 const cles = Object.keys(GRILLE);
