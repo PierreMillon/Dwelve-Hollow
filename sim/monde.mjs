@@ -85,6 +85,10 @@ export const REGLAGES = {
   // LA MÉMOIRE. Ce qu'on doit à quelqu'un divise ce qu'on lui soupçonne.
   poidsDette: 5,
   detteQuiSauve: 0.55,  // au-delà, on parle devant la foule
+  // Un étranger sur cinquante sait un métier que le village a perdu.
+  // À ce taux-là c'est une légende et non une réparation : mesuré, zéro
+  // fois en 96 années de village. Le chemin est vérifié à part.
+  etrangerSavant: 0.02,
 };
 
 export function creerMonde(GRAINE = 1, reglages = {}) {
@@ -399,8 +403,18 @@ function attacheDe(h) {
   const n = best.nom.replace(/^(le |la |les |l')/, '');
   return (best.nom.startsWith('les ') ? 'des ' : "du ") + n;
 }
+// « de Beaufort », mais « d'Aiguebelle » : la particule s'élide.
+const deLignee = (nom) => (/^[AEIOUYÉÈÊ]/.test(nom) ? `d'${nom}` : `de ${nom}`);
+
+// L'ORDRE DES NOMS. Le surnom gagné l'emporte toujours — c'est celui
+// qui vient de l'histoire et non de l'état civil. Vient ensuite le nom
+// de maison, porté du berceau à la tombe : on l'a lu cent fois avant le
+// jour où la chronique écrit qu'il n'y a plus personne pour le porter,
+// et c'est de là que vient le coup. Le métier ne sert plus qu'à ceux
+// qui n'ont pas de maison — le prêtre, la guérisseuse, ceux qui passent.
 function nomComplet(h) {
   if (h.surnom) return `${h.prenom} dit${h.feminin ? 'e' : ''} ${h.surnom}`;
+  if (h.lignee) return `${h.prenom} ${deLignee(h.lignee)}`;
   if (!homonymes(h)) return h.prenom;
   if (!h.attache) h.attache = attacheDe(h);
   const metier = NOM_ROLE[h.role] || '';
@@ -409,6 +423,7 @@ function nomComplet(h) {
 // le métier s'accorde : « Aliénor, la colportrice » et non « le colporteur »
 const metierDe = (h) => (NOM_ROLE[h.role] || '').replace(/^(le |la |l')/, h.feminin ? 'la ' : 'le ');
 const nommer = (h) => h.surnom ? `${h.prenom} dit${h.feminin ? 'e' : ''} ${h.surnom}`
+                    : h.lignee ? `${h.prenom} ${deLignee(h.lignee)}`
                                : `${h.prenom}, ${metierDe(h)}`;
 // Les vingt et une occupations possibles. Chacun en a une lecture
 // légèrement différente, fixée à sa naissance : c'est ce qui remplace le
@@ -550,7 +565,7 @@ const village = {
             naissances: 0, vieillesses: 0, majorites: 0,
             etrangers: 0, chasseurs: 0, imposteurs: 0, vampire: 0,
             extinctions: 0, metiersPerdus: 0, ruines: 0,
-            sauvetages: 0, paroles: 0 },
+            sauvetages: 0, paroles: 0, etablis: 0 },
   // LE TROISIÈME ACTE. Tout le reste de ce village revient : la faim
   // passe, la peur retombe, le moulin se répare, un enfant reprend le
   // métier. Voici la liste de ce qui ne reviendra pas. Elle ne fait que
@@ -1810,6 +1825,36 @@ function finirAccusation(v, jusquauBout) {
 // L'ÉTRANGER. Il arrive, il loge à l'auberge, il repart. On ne sait rien
 // de lui, et c'est exactement pour ça qu'on le soupçonne — ou qu'il en
 // profite.
+// CELUI QUI POSE SON BALLOT. Un étranger sur cinquante sait un métier
+// que le village a perdu. Presque jamais : à ce taux-là c'est une
+// légende, pas une mécanique de réparation. Et il ne repart pas — un
+// savoir qui passe et s'en va n'aurait rien rendu du tout. Il s'établit,
+// il reprend une maison vide s'il en reste une debout, et il fonde un
+// nom. C'est le seul contrepoids à l'extinction, et il est plus rare
+// qu'elle.
+function etablir(h) {
+  const r = [...village.perdus][0];          // le plus anciennement perdu
+  if (!r) return false;
+  village.perdus.delete(r);
+  h.role = r;
+  h.savoir.add(r);
+  h.joursRestants = Infinity;
+  const vide = LIEUX.find(l => l.type === 'chaumiere' && l.vide && !l.ruine);
+  if (vide) { h.logis = vide; vide.vide = false; vide.abandon = 0; }
+  else h.logis = CHAUMIERES[h.rang % CHAUMIERES.length];
+  h.x = h.logis.x; h.z = h.logis.z; h.cible = null;
+  const libre = LIGNEES.find(n => !village.lignees.has(n));
+  if (libre) {
+    h.lignee = libre;
+    h.logis.lignee = h.logis.lignee || libre;
+    village.lignees.set(libre, { nom: libre, logis: h.logis, eteinte: false, jour: 0 });
+  }
+  village.arrive.etablis++;
+  noter(`${h.prenom} a posé son ballot et n'est pas reparti. Il sait ${NOM_ROLE[r]}.`, true, h, 'perte');
+  suiteDe(r, `${nommer(h)} l'a rapporté d'ailleurs.`);
+  return true;
+}
+
 function majEtrangers() {
   for (const h of habitants) {
     if (!h.vivant || h.role !== 'etranger') continue;
@@ -1828,6 +1873,8 @@ function majEtrangers() {
   nouveaux.push(venu);
   village.arrive.etrangers++;
   noter(`Un homme est descendu à l'auberge. Personne ne sait qui c'est.`, true, venu);
+  // et une fois sur cinquante, ce qu'il sait faire manquait ici
+  if (village.perdus.size && aleaEvenements() < R.etrangerSavant && etablir(venu)) return;
   // le village se méfie de ce qu'il ne connaît pas
   for (const h of habitants) if (h.vivant && h !== venu) soupconner(h, venu, 0.10 * h.superstition);
 }
@@ -2182,9 +2229,18 @@ function majRats(dt) {
    elles se constatent, un matin, dans la chronique.
    ================================================================ */
 
-function perdre(quoi, texte) {
-  village.pertes.push({ jour: village.jour, annee: village.annee, quoi, texte });
+function perdre(quoi, texte, cle = null) {
+  village.pertes.push({ jour: village.jour, annee: village.annee, quoi, texte, cle, suite: null });
   noter(texte, true, null, 'perte');
+}
+
+// La perte ne s'efface pas de la liste quand elle trouve une suite : elle
+// a eu lieu, et elle a duré. On écrit la suite en dessous.
+function suiteDe(cle, texte) {
+  for (let i = village.pertes.length - 1; i >= 0; i--) {
+    const p = village.pertes[i];
+    if (p.cle === cle && !p.suite) { p.suite = { jour: village.jour, annee: village.annee, texte }; return; }
+  }
 }
 
 // ---- LES LIGNÉES ----
@@ -2274,7 +2330,7 @@ function majMetiers() {
       tailleur: 'Le chantier de l\'église s\'arrête ici.',
       ebeniste: 'Plus personne ne travaille le bois pour le plaisir.',
     }[r] || '';
-    perdre('metier', `Plus personne ne sait ${NOM_ROLE[r]}. ${suite}`.trim());
+    perdre('metier', `Plus personne ne sait ${NOM_ROLE[r]}. ${suite}`.trim(), r);
   }
 }
 

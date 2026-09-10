@@ -2124,13 +2124,45 @@ villages, sans quoi la dette n'est qu'un nombre rangé dans un coin.
 Les quatorze cibles tiennent, et les deux propriétés de détermination
 avec.
 
+### Quatre points tranchés par Pierre, et faits (v0.24b)
+
+**Le nom de maison se porte de son vivant.** « Aliénor de Beaufort »,
+avec la particule élidée devant une voyelle (« d'Aiguebelle »). L'ordre
+des noms est maintenant : le surnom gagné l'emporte toujours, puis le nom
+de maison, et le métier ne sert plus qu'à ceux qui n'en ont pas — le
+prêtre, la guérisseuse, ceux qui passent. On lit donc le nom cent fois
+avant le jour où la chronique écrit qu'il n'y a plus personne pour le
+porter, et le coup vient de là.
+
+**Le rythme des pertes reste.** Une perte définitive toutes les cinq
+années de village environ. Rare, donc elle marque.
+
+**Un étranger sur cinquante sait un métier perdu**, et il ne repart pas :
+un savoir qui passe et s'en va n'aurait rien rendu. Il s'établit, reprend
+une maison vide si elle est encore debout, et fonde un nom — le seul
+contrepoids à l'extinction, et il est plus rare qu'elle. Mesuré à ce
+taux : **zéro fois en 96 années de village**. C'est bien une légende et
+non une réparation ; le chemin est vérifié à part, en forçant le réglage
+`etrangerSavant` à 1. La ligne de perte, elle, ne s'efface pas : la suite
+s'écrit en dessous, parce que la perte a eu lieu et qu'elle a duré.
+
+**Les titres de la fiche s'accordent.** « ELLE SOUPÇONNE », « ELLE DOIT ».
+
+### Une quatrième copie de la règle des noms, trouvée en vérifiant
+
+Le bandeau de la fiche disait « Aliénor, la dame » quand la chronique
+disait « Aliénor de Beaufort » : la fiche recopiait la règle au lieu de
+l'appeler. La liste des liens faisait pareil. Les deux appellent
+maintenant `nomComplet()`, et la fiche a gagné une ligne « métier » pour
+que rien ne soit perdu. Il n'y a plus qu'un seul endroit qui nomme.
+
 ### Reste à faire
 
-- Le nom de maison n'apparaît pas dans les noms affichés (« Aliénor de
-  Beaufort ») : il ne devient lisible que le jour où plus personne ne le
-  porte. À trancher avec Pierre — c'est peut-être exactement bien ainsi.
-- Le colporteur et l'étranger pourraient rapporter un métier perdu. Non
-  fait volontairement : ce serait le faire revenir.
+- L'entrée « Dwelve Hollow » au menu du site : en attente. Je ne peux pas
+  vérifier depuis le conteneur que l'URL GitHub Pages répond (le proxy
+  refuse `pierremillon.github.io`). Pierre donnera le lien.
+- Les 11 images par seconde en rendu logiciel : jamais établi comme une
+  régression, jamais mesuré sur une vraie machine.
 
 ---
 

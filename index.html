@@ -100,6 +100,8 @@
   }
   #memoire .perte { color: var(--ph-line); margin-bottom: 4px; }
   #memoire .perte span { color: var(--ph-dim); }
+  #memoire .suite { color: var(--ph-dim); margin: -2px 0 5px 12px; }
+  #memoire .suite span { opacity: 0.7; }
   #memoire .rien { color: var(--ph-dim); }
   #m-filtres { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 6px; }
   #m-filtres button { padding: 1px 6px; line-height: 1.4; }
@@ -242,11 +244,11 @@
   <div id="f-pourquoi"></div>
   <div class="section">BESOINS</div>
   <div id="f-besoins"></div>
-  <div class="section">IL SOUPÇONNE</div>
+  <div class="section" id="f-t-soupcons">IL SOUPÇONNE</div>
   <div id="f-soupcons"></div>
   <div class="section">LIENS</div>
   <div id="f-liens"></div>
-  <div class="section">IL DOIT</div>
+  <div class="section" id="f-t-dettes">IL DOIT</div>
   <div id="f-dettes"></div>
   <div class="section">SOUVENIRS</div>
   <div id="f-memoire"></div>
@@ -2084,15 +2086,19 @@ function majFiche() {
   const h = selection;
   if (!h || !h.vivant) { selectionner(null); return; }
 
-  $('f-nom').textContent = h.surnom
-    ? `${h.prenom} dit${h.feminin ? 'e' : ''} ${h.surnom}`
-    : `${h.prenom}, ${metierDe(h)}`;
+  $('f-nom').textContent = nomComplet(h);
   $('f-occ').textContent = h.occupation + (h.cible ? ` → ${h.cible.nom}` : '');
 
   // Le nom de maison ne sert à rien tant que quelqu'un le porte. Il ne
   // devient lisible que le jour où il n'y a plus personne pour ça.
+  // le jeu accorde tout le reste depuis la v0.13 ; ces deux titres
+  // avaient été oubliés
+  $('f-t-soupcons').textContent = h.feminin ? 'ELLE SOUPÇONNE' : 'IL SOUPÇONNE';
+  $('f-t-dettes').textContent = h.feminin ? 'ELLE DOIT' : 'IL DOIT';
+
   const savus = [...h.savoir].filter(r => r !== h.role).map(r => NOM_ROLE[r]);
   $('f-etat').innerHTML =
+    `<div class="ligne"><span class="pq">métier</span> ${metierDe(h)}</div>` +
     (h.lignee ? `<div class="ligne"><span class="pq">maison</span> ${h.lignee}</div>` : '') +
     `<div class="ligne"><span class="pq">âge</span> ${Math.floor(h.age)} ans</div>` +
     (savus.length ? `<div class="ligne"><span class="pq">sait aussi</span> ${savus.join(', ')}</div>` : '');
@@ -2137,7 +2143,7 @@ function majFiche() {
   $('f-liens').innerHTML = ditesRegles +
     (h.aime && h.aime.vivant ? `<div class="ligne premier">promis${e(h)} à ${h.aime.prenom}</div>` : '') + tu +
     (proches.length ? proches.map(([a, v]) =>
-      `<div class="ligne"><span class="pq">${v.toFixed(2)}</span> ${a.prenom}, ${NOM_ROLE[a.role]}</div>`).join('')
+      `<div class="ligne"><span class="pq">${v.toFixed(2)}</span> ${nomComplet(a)}</div>`).join('')
       : (tu || ditesRegles ? '' : '<div class="ligne"><span class="pq">personne, pour l\'instant</span></div>'));
 
   // CE QU'IL DOIT. Ce n'est pas de l'affection : on peut devoir beaucoup
@@ -2194,7 +2200,11 @@ function majMemoire() {
   const pertes = $('m-pertes');
   pertes.innerHTML = village.pertes.length
     ? village.pertes.slice().reverse().map(p =>
-        `<div class="perte">${p.texte}<span> · an ${p.annee}</span></div>`).join('')
+        `<div class="perte">${p.texte}<span> · an ${p.annee}</span></div>` +
+        // La perte garde sa ligne même quand elle trouve une suite : elle
+        // a eu lieu, et elle a duré deux années.
+        (p.suite ? `<div class="suite">${p.suite.texte}<span> · an ${p.suite.annee}</span></div>` : '')
+      ).join('')
     : '<div class="rien">rien encore. Tout se répare toujours.</div>';
 
   const lignes = $('m-lignes');
