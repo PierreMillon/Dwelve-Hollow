@@ -618,8 +618,139 @@ n'importe quel nouveau bâtiment.
 
 ---
 
+## v0.9 — le deuxième acte, le relief, le volume
+
+### Le volume (demandé : « qu'on ne voie pas les arêtes arrière »)
+
+Chaque forme produit maintenant **deux** listes : ses arêtes (qu'on voit)
+et ses triangles (qu'on ne voit pas). Les triangles sont peints en **noir**
+et ne servent qu'à cacher ce qui passe derrière. Sans eux, l'avant et
+l'arrière d'un bâtiment se superposaient et le dessin devenait un
+enchevêtrement illisible. `polygonOffset` repousse les faces d'un cheveu
+pour que les arêtes posées dessus ne clignotent pas.
+
+**Trois plans de lecture**, ajoutés après coup en regardant le résultat :
+tout au même vert et à la même intensité, le village redevenait un filet.
+Le relief est à 16 % d'opacité, la route / le ruisseau / les sillons à
+45 %, les bâtiments à 100 %.
+
+### Le relief et l'eau
+
+Le sol n'est plus un plan. Une **butte** au nord-est (c'est elle qui porte
+le moulin à vent) et un **ruisseau** qui traverse toute la carte, creusé
+dans le terrain par la même fonction de hauteur. Un **pont** est posé
+automatiquement là où la route franchit l'eau — le point de croisement est
+cherché le long du tracé, pas codé en dur.
+
+**Rien ne se bâtit sur la route ni dans l'eau** : chaque emplacement est
+tiré au sort puis rejeté s'il est trop près de l'une, de l'autre, ou d'un
+bâtiment déjà posé.
+
+### Les moulins (cassables et réparables)
+
+Un **moulin à eau** sur le ruisseau, un **moulin à vent** sur la butte.
+Ce sont eux qui changent le blé en farine : la chaîne devient
+blé → farine → pain, et **le boulanger n'a plus rien sans eux**. Ils
+s'usent en tournant, le dragon leur arrache une aile au passage, et le
+charpentier ou le forgeron vont les remettre en marche. Leurs pièces
+mobiles (roue à aubes, ailes) tournent tant que la meule tourne.
+
+### Les métiers
+
+Charpentier, tailleur de pierre, ébéniste, forgeron, voleur, colporteur,
+en plus des rôles existants — dix-sept habitants. Chacun a maintenant un
+**prénom accordé à son rôle** (le seigneur s'appelait Aliénor avant
+correction). Le forgeron fait les outils, qui doublent le rendement des
+moissons et s'usent ; l'ébéniste fait des meubles ; le tailleur embellit
+l'église, ce qui renforce l'autorité du prêtre.
+
+**Le voleur n'est pas seulement le voleur** : *n'importe quel* habitant
+assez cupide vole la nuit si la huche est pleine. Le village constate au
+matin qu'il manque du pain, sans jamais savoir qui — et c'est ce qui
+nourrit le soupçon de travers.
+
+**Sur le colporteur** : demandé « marchand juif colporteur ». Le métier
+est là, la religion n'est pas codée comme attribut de personnage. Le
+moteur central de ce jeu désigne « le plus différent » et le chasse ou le
+brûle ; lui accrocher une appartenance réelle, ce serait faire produire
+au jeu des pogroms en boucle. Ce qui rend le colporteur vulnérable dans
+la simulation, c'est qu'il est **étranger au village** — mécaniquement
+identique, historiquement juste.
+
+### Le deuxième acte
+
+La réserve notée en v0.8 est levée. Une fois la sorcière partie, trois
+mécanismes prennent le relais, et aucun n'est scripté :
+
+- **L'autorité du prêtre se nourrit de la peur.** Chaque prière faite
+  dans l'effroi la fait monter ; il encaisse le crédit du départ du
+  dragon, qu'il y soit pour quelque chose ou non. Au-delà d'un seuil, il
+  lève la **dîme** — et ceux qui croient le moins le prennent mal.
+- **L'impôt du seigneur** ne tombe pas quand il a faim, mais quand il
+  voit les réserves pleines : c'est sa cupidité qui décide du taux. Avoir
+  faim pendant que le grenier du manoir est plein est le seul endroit où
+  la faim se change en **rancune**.
+- **La révolte** est le pendant de l'accusation : même seuil de
+  regroupement, mais elle ne cherche pas un faible, elle monte au manoir.
+  Le seigneur brave sort seul sur le perron et ils redescendent ; le
+  seigneur peureux rend le grain. Deux nombres qui s'opposent.
+- **Le bouc émissaire.** Faute de sorcière, le village désigne le **moins
+  sociable** — celui à qui personne ne parlait déjà. Si c'est le
+  boulanger, le village se coupe le pain tout seul.
+- **Le seigneur peut s'interposer** au moment du bûcher, s'il est brave
+  ET sur place. L'autorité du prêtre en pâtit.
+- **La succession** (idée de Pierre, et la meilleure) : une place vide à
+  l'écart ne le reste jamais longtemps. Quelques jours après, une femme
+  que son homme a laissée s'installe dans la cabane, et tout peut
+  recommencer. C'est ce qui empêche l'histoire de s'arrêter au premier
+  bûcher.
+
+### La musique
+
+Celle de Pierre, en boucle, branchée sur le curseur du menu. Le piège de
+Forge Line est évité : le déblocage n'est pas à usage unique, on réessaie
+à chaque geste tant que la lecture n'a pas démarré (sur un appareil réel,
+le premier geste n'aboutit pas toujours et le son ne revient jamais).
+
+### Défauts trouvés en mesurant
+
+1. **Boucle infinie de révolte** : la foule se dispersait, mais personne
+   ne changeait d'avis — donc elle se reformait à l'image suivante, en
+   boucle, à la fréquence de rafraîchissement. Corrigé par un répit de
+   deux jours et une remise à zéro du choix d'occupation.
+2. **Le voleur avalait toute l'économie** : à 3 pains par seconde, il
+   prenait à lui seul plus que le four ne produisait (185 pains produits,
+   90 mangés, et la huche vide en permanence). Un vol doit se sentir, pas
+   ruiner. Ramené à 0,35.
+3. **La dîme et l'impôt tombaient chaque jour**, donc la rancune montait
+   sans jamais pouvoir redescendre et se bloquait à 1 : tout le village
+   passait ses journées à se révolter au lieu de travailler. Espacés,
+   allégés, et la colère s'épuise trois fois plus vite.
+4. **Les moulins cassaient avant le 7e jour** sans qu'aucun dragon ne
+   soit passé. Usure divisée par trois.
+5. **L'impôt ne pouvait jamais tomber** : il se déclenchait sur le blé,
+   que les moulins vidaient plus vite que les paysans ne le
+   remplissaient. Il se lève désormais sur blé + farine.
+6. **Les lignes de sol coûtaient plus cher que tout le village réuni**
+   (20 images/s au lieu de 41) — un trait épais coûte sa surface.
+   Échantillonnage divisé par deux.
+
+### Réserve honnête
+
+Le pain reste rare : le boulanger est toujours un point de rupture unique
+et la huche est souvent vide. C'est cohérent avec le récit, mais l'équilibre
+n'est pas encore bon. **C'est exactement ce que le simulateur sans rendu du
+principe n°6 servirait à régler** — instrumenter la page à la main atteint
+sa limite. À faire avant d'ajouter d'autres mécaniques.
+
+---
+
 ## 📜 Historique
 
+- **2026-09-10 (suite)** — Deuxième acte (autorité du prêtre, dîme, impôt,
+  révolte, bouc émissaire, succession de la sorcière), relief et ruisseau,
+  volume par faces noires, deux moulins cassables, six métiers de plus,
+  musique de Pierre. Six défauts trouvés en mesurant. v0.9.
 - **2026-09-10** — Le village : plan, seize habitants à traits et besoins,
   économie du blé et du pain, rumeur contagieuse, seuil de foule, foire et
   dragon, chronique. Quatre défauts d'équilibrage trouvés en instrumentant

@@ -115,7 +115,7 @@
   <span class="title">DWELVE HOLLOW</span>
 </div>
 
-<button id="version">v0.8</button>
+<button id="version">v0.9</button>
 
 <div id="saison">jour <b id="s-jour">1</b> · <b id="s-phase">aube</b> · pain <b id="s-pain">0</b> · peur <b id="s-peur">0 %</b></div>
 
@@ -142,9 +142,8 @@
       <label for="vol-mus">musique <span class="val" id="vol-mus-val">60 %</span></label>
       <input type="range" id="vol-mus" min="0" max="100" value="60">
     </div>
-    <p class="note">Aucun son n'est encore branché — les curseurs sont en place et leur
-    réglage est conservé, ils prendront effet dès que les bruitages et la musique
-    existeront.</p>
+    <p class="note">La musique est celle de Pierre, en boucle. Les bruitages ne sont pas
+    encore branchés — le curseur est en place et son réglage est conservé.</p>
 
     <h2 style="margin-top:26px">LE VILLAGE</h2>
     <table id="tableau-roles"></table>
@@ -198,6 +197,8 @@
   </div>
 </div>
 
+<audio id="musique" src="assets/musique.mp3" loop preload="auto"></audio>
+
 <script type="importmap">
 { "imports": { "three": "./vendor/three/three.module.js" } }
 </script>
@@ -236,164 +237,383 @@ const entre = (a, b) => a + alea() * (b - a);
 const parmi = (t) => t[Math.floor(alea() * t.length)];
 
 /* ================================================================
-   2. FORMES — tout est une liste d'arêtes, écrite à la main
-   Pas de maillage, pas de conversion : on empile directement des
-   couples de points. C'est ce qui rend chaque bâtiment lisible et
-   modifiable ligne par ligne, et ce qui coûte le moins cher à dessiner.
+   2. FORMES — arêtes ET faces
+   Chaque forme produit deux choses : la liste de ses arêtes (ce qu'on
+   voit) et la liste de ses triangles (ce qu'on ne voit pas). Les
+   triangles sont peints en NOIR et ne servent qu'à cacher ce qu'il y a
+   derrière : c'est ce qui donne du volume au filaire au lieu d'un
+   enchevêtrement transparent où l'avant et l'arrière se mélangent.
    ================================================================ */
 function trait(S, ax, ay, az, bx, by, bz) { S.push(ax, ay, az, bx, by, bz); }
+function tri(T, a, b, c) { T.push(a[0],a[1],a[2], b[0],b[1],b[2], c[0],c[1],c[2]); }
+function quad(T, a, b, c, d) { tri(T, a, b, c); tri(T, a, c, d); }
 
-function boite(S, x, y, z, w, h, d) {
-  const X = w / 2, Z = d / 2, y2 = y + h;
+function boite(S, T, x, y, z, w, h, d) {
+  const X = w/2, Z = d/2, y2 = y + h;
   const c = [[-X,-Z],[X,-Z],[X,Z],[-X,Z]];
   for (let i = 0; i < 4; i++) {
-    const [ax, az] = c[i], [bx, bz] = c[(i + 1) % 4];
-    trait(S, x+ax, y,  z+az, x+bx, y,  z+bz);   // bas
-    trait(S, x+ax, y2, z+az, x+bx, y2, z+bz);   // haut
-    trait(S, x+ax, y,  z+az, x+ax, y2, z+az);   // montant
+    const [ax, az] = c[i], [bx, bz] = c[(i+1)%4];
+    trait(S, x+ax, y,  z+az, x+bx, y,  z+bz);
+    trait(S, x+ax, y2, z+az, x+bx, y2, z+bz);
+    trait(S, x+ax, y,  z+az, x+ax, y2, z+az);
+    if (T) quad(T, [x+ax,y,z+az], [x+bx,y,z+bz], [x+bx,y2,z+bz], [x+ax,y2,z+az]);
+  }
+  if (T) quad(T, [x-X,y2,z-Z], [x+X,y2,z-Z], [x+X,y2,z+Z], [x-X,y2,z+Z]);
+}
+// toit à deux pentes, faîtage le long de X
+function toit(S, T, x, y, z, w, h, d) {
+  const X = w/2, Z = d/2, y2 = y + h;
+  trait(S, x-X, y2, z, x+X, y2, z);
+  for (const sg of [-1, 1]) {
+    trait(S, x-X, y, z+sg*Z, x-X, y2, z);
+    trait(S, x+X, y, z+sg*Z, x+X, y2, z);
+    trait(S, x-X, y, z+sg*Z, x+X, y, z+sg*Z);
+    if (T) quad(T, [x-X,y,z+sg*Z], [x+X,y,z+sg*Z], [x+X,y2,z], [x-X,y2,z]);   // le pan
+  }
+  if (T) for (const sg of [-1, 1]) {
+    tri(T, [x+sg*X,y,z-Z], [x+sg*X,y,z+Z], [x+sg*X,y2,z]);                    // le pignon
   }
 }
-// toit à deux pentes ; faîtage le long de X
-function toit(S, x, y, z, w, h, d) {
-  const X = w / 2, Z = d / 2, y2 = y + h;
-  trait(S, x-X, y2, z, x+X, y2, z);                       // faîtage
-  for (const s of [-1, 1]) {
-    trait(S, x-X, y, z+s*Z, x-X, y2, z);
-    trait(S, x+X, y, z+s*Z, x+X, y2, z);
-    trait(S, x-X, y, z+s*Z, x+X, y, z+s*Z);               // gouttière
-  }
-}
-// applique une rotation autour de Y puis une translation à un bloc de segments
-function poser(dest, src, x, z, angle) {
-  const c = Math.cos(angle), s = Math.sin(angle);
+// rotation autour de Y, puis translation — vaut aussi bien pour une
+// liste d'arêtes que pour une liste de triangles
+function poser(dest, src, x, y, z, angle) {
+  const c = Math.cos(angle), sn = Math.sin(angle);
   for (let i = 0; i < src.length; i += 3) {
-    dest.push(src[i]*c + src[i+2]*s + x, src[i+1], -src[i]*s + src[i+2]*c + z);
+    dest.push(src[i]*c + src[i+2]*sn + x, src[i+1] + y, -src[i]*sn + src[i+2]*c + z);
   }
 }
-function bloc(fn) { const S = []; fn(S); return S; }
+function bloc(fn) { const o = { a: [], f: [] }; fn(o.a, o.f); return o; }
 
 const FORMES = {
-  chaumiere: (l = 4.4, p = 5.6, hm = 2.6, ht = 1.7) => bloc((S) => {
-    boite(S, 0, 0, 0, l, hm, p); toit(S, 0, hm, 0, l, ht, p);
+  chaumiere: (l = 4.4, p = 5.6, hm = 2.6, ht = 1.7) => bloc((S, T) => {
+    boite(S, T, 0, 0, 0, l, hm, p); toit(S, T, 0, hm, 0, l, ht, p);
   }),
-  boulangerie: () => bloc((S) => {
-    boite(S, 0, 0, 0, 5.4, 3, 6.6); toit(S, 0, 3, 0, 5.4, 2, 6.6);
-    boite(S, 1.7, 3, -2, 1, 3.4, 1);                       // la cheminée : on la reconnaît de loin
+  boulangerie: () => bloc((S, T) => {
+    boite(S, T, 0, 0, 0, 5.4, 3, 6.6); toit(S, T, 0, 3, 0, 5.4, 2, 6.6);
+    boite(S, T, 1.7, 3, -2, 1, 3.4, 1);                      // la cheminée : on la reconnaît de loin
   }),
-  atelier: () => bloc((S) => {
-    boite(S, 0, 0, 0, 4.6, 2.7, 5.2); toit(S, 0, 2.7, 0, 4.6, 1.4, 5.2);
-    boite(S, 0, 0, 3.6, 4.6, 2.2, 0.1);                     // l'auvent ouvert sur la rue
+  atelier: () => bloc((S, T) => {
+    boite(S, T, 0, 0, 0, 4.6, 2.7, 5.2); toit(S, T, 0, 2.7, 0, 4.6, 1.4, 5.2);
+    boite(S, null, 0, 0, 3.6, 4.6, 2.2, 0.1);                // l'auvent, ouvert : pas de face pleine
   }),
-  eglise: () => bloc((S) => {
-    boite(S, 0, 0, 0, 7, 5, 13); toit(S, 0, 5, 0, 7, 3, 13);
-    boite(S, 0, 0, -7.4, 4, 12, 4);                         // le clocher
-    toit(S, 0, 12, -7.4, 4, 3.2, 4);
-    trait(S, 0, 15.2, -7.4, 0, 17.6, -7.4);                 // la croix
+  eglise: () => bloc((S, T) => {
+    boite(S, T, 0, 0, 0, 7, 5, 13); toit(S, T, 0, 5, 0, 7, 3, 13);
+    boite(S, T, 0, 0, -7.4, 4, 12, 4);                       // le clocher
+    toit(S, T, 0, 12, -7.4, 4, 3.2, 4);
+    trait(S, 0, 15.2, -7.4, 0, 17.6, -7.4);                  // la croix
     trait(S, -0.8, 16.6, -7.4, 0.8, 16.6, -7.4);
   }),
-  manoir: () => bloc((S) => {
-    boite(S, 0, 0, 0, 9, 6, 7.5); toit(S, 0, 6, 0, 9, 2.6, 7.5);
-    boite(S, -3.4, 0, 0, 3, 9, 3);  toit(S, -3.4, 9, 0, 3, 1.8, 3);   // la tour d'angle
-    boite(S,  3.4, 0, 0, 3, 9, 3);  toit(S,  3.4, 9, 0, 3, 1.8, 3);
+  manoir: () => bloc((S, T) => {
+    boite(S, T, 0, 0, 0, 9, 6, 7.5); toit(S, T, 0, 6, 0, 9, 2.6, 7.5);
+    boite(S, T, -3.4, 0, 0, 3, 9, 3);  toit(S, T, -3.4, 9, 0, 3, 1.8, 3);
+    boite(S, T,  3.4, 0, 0, 3, 9, 3);  toit(S, T,  3.4, 9, 0, 3, 1.8, 3);
   }),
-  cabane: () => bloc((S) => {   // basse, de guingois, à l'écart du reste
-    boite(S, 0, 0, 0, 3.2, 2, 3.6); toit(S, 0, 2, 0, 3.2, 2.6, 3.6);
-    trait(S, -2.4, 0, -2.4, -1.6, 2.8, -1.6);               // un mât planté de travers
+  cabane: () => bloc((S, T) => {
+    boite(S, T, 0, 0, 0, 3.2, 2, 3.6); toit(S, T, 0, 2, 0, 3.2, 2.6, 3.6);
+    trait(S, -2.4, 0, -2.4, -1.6, 2.8, -1.6);                // un mât planté de travers
   }),
-  puits: () => bloc((S) => {
-    boite(S, 0, 0, 0, 2, 1, 2);
-    for (const s of [-1, 1]) trait(S, s*0.9, 1, 0, s*0.9, 3, 0);
+  puits: () => bloc((S, T) => {
+    boite(S, T, 0, 0, 0, 2, 1, 2);
+    for (const sg of [-1, 1]) trait(S, sg*0.9, 1, 0, sg*0.9, 3, 0);
     trait(S, -0.9, 3, 0, 0.9, 3, 0);
-    trait(S, 0, 3, 0, 0, 2.2, 0);                           // le seau au bout de sa corde
+    trait(S, 0, 3, 0, 0, 2.2, 0);
   }),
-  etal: () => bloc((S) => {                                 // dressé les jours de foire
-    boite(S, 0, 0, 0, 2.6, 1, 1.6);
-    for (const s of [-1, 1]) trait(S, s*1.3, 1, 0, s*1.3, 2.4, 0);
+  etal: () => bloc((S, T) => {
+    boite(S, T, 0, 0, 0, 2.6, 1, 1.6);
+    for (const sg of [-1, 1]) trait(S, sg*1.3, 1, 0, sg*1.3, 2.4, 0);
     trait(S, -1.3, 2.4, 0, 1.3, 2.4, 0);
-    trait(S, -1.5, 2.1, -0.9, 1.5, 2.4, 0);                 // la toile tendue de travers
+    trait(S, -1.5, 2.1, -0.9, 1.5, 2.4, 0);
+  }),
+  pont: (l = 13) => bloc((S, T) => {                          // là où la route franchit le ruisseau
+    boite(S, T, 0, -0.5, 0, 5.4, 0.7, l);
+    for (const sg of [-1, 1]) {
+      trait(S, sg*2.7, 0.2, -l/2, sg*2.7, 1.3, -l/2);
+      trait(S, sg*2.7, 0.2,  l/2, sg*2.7, 1.3,  l/2);
+      trait(S, sg*2.7, 1.3, -l/2, sg*2.7, 1.3,  l/2);        // le garde-corps
+    }
+  }),
+  moulinEau: () => bloc((S, T) => {
+    boite(S, T, 0, 0, 0, 4.4, 4, 5);  toit(S, T, 0, 4, 0, 4.4, 2, 5);
+    boite(S, T, 2.6, 0.6, 0, 0.6, 0.6, 0.6);                  // le palier de l'axe
+  }),
+  roue: (r = 2.6) => bloc((S) => {                            // la roue à aubes, dans le courant
+    const N = 10;
+    for (let i = 0; i < N; i++) {
+      const a = i / N * Math.PI * 2, b = (i + 1) / N * Math.PI * 2;
+      for (const o of [-0.5, 0.5]) {
+        trait(S, 0, Math.cos(a)*r, Math.sin(a)*r + o*0, o, Math.cos(b)*r, Math.sin(b)*r);
+        trait(S, o, Math.cos(a)*r, Math.sin(a)*r, o, 0, 0);    // le rayon
+      }
+      trait(S, -0.5, Math.cos(a)*r, Math.sin(a)*r, 0.5, Math.cos(a)*r, Math.sin(a)*r);  // l'aube
+    }
+  }),
+  moulinVent: () => bloc((S, T) => {                          // la tour, sur la butte
+    boite(S, T, 0, 0, 0, 4, 7, 4); toit(S, T, 0, 7, 0, 4, 2.2, 4);
+    trait(S, 0, 3, -2.2, 0, 3, -2.9);                         // l'axe qui sort de la façade
+  }),
+  ailes: (l = 5.2) => bloc((S) => {                           // les quatre ailes
+    for (let i = 0; i < 4; i++) {
+      const a = i / 4 * Math.PI * 2, c = Math.cos(a), sn = Math.sin(a);
+      trait(S, 0, 0, 0, c*l, sn*l, 0);
+      trait(S, c*l*0.35 - sn*0.7, sn*l*0.35 + c*0.7, 0, c*l - sn*0.7, sn*l + c*0.7, 0);
+      trait(S, c*l*0.35, sn*l*0.35, 0, c*l*0.35 - sn*0.7, sn*l*0.35 + c*0.7, 0);
+      trait(S, c*l, sn*l, 0, c*l - sn*0.7, sn*l + c*0.7, 0);
+    }
+  }),
+  bucher: () => bloc((S, T) => {                              // dressé quand la foule s'y met
+    for (let i = 0; i < 3; i++) {
+      const y = i * 0.35, a = i * 0.6;
+      for (let k = -1; k <= 1; k++) {
+        const o = k * 0.55;
+        trait(S, Math.cos(a)*1.4 + Math.sin(a)*o, y, -Math.sin(a)*1.4 + Math.cos(a)*o,
+                -Math.cos(a)*1.4 + Math.sin(a)*o, y,  Math.sin(a)*1.4 + Math.cos(a)*o);
+      }
+    }
+    trait(S, 0, 1.05, 0, 0, 3.4, 0);                          // le poteau
   }),
 };
 
-// silhouettes des habitants : ce qui les distingue, c'est la taille et
-// un détail au sommet — en filaire monochrome, seule la forme parle
 function silhouette(role) {
-  const S = [];
+  const o = { a: [], f: [] };
+  const S = o.a, T = o.f;
   const h = { seigneur: 1.9, dame: 1.75, pretre: 1.85, sorciere: 1.7, boulanger: 1.75,
               artisan: 1.75, paysan: 1.7, marchand: 1.75 }[role] || 1.7;
-  boite(S, 0, 0, 0, 0.5, h * 0.62, 0.4);                    // le corps
-  trait(S, 0, h * 0.62, 0, 0, h, 0);                        // le cou et la tête
-  if (role === 'pretre')   { trait(S, -0.3, h + 0.15, 0, 0.3, h + 0.15, 0); trait(S, 0, h, 0, 0, h + 0.45, 0); }
-  if (role === 'sorciere') { for (const s of [-1, 1]) trait(S, s*0.35, h, 0, 0, h + 0.75, 0); }   // le chapeau pointu
-  if (role === 'seigneur' || role === 'dame') { trait(S, -0.4, h + 0.1, 0, 0.4, h + 0.1, 0); }    // le large bord
-  if (role === 'boulanger') { boite(S, 0, h * 0.62, 0.3, 0.7, 0.2, 0.2); }                        // la planche à pain
-  if (role === 'marchand')  { boite(S, 0.45, 0.3, 0, 0.4, 0.5, 0.4); }                            // le ballot
-  return S;
+  boite(S, T, 0, 0, 0, 0.5, h*0.62, 0.4);
+  trait(S, 0, h*0.62, 0, 0, h, 0);
+  if (role === 'pretre')   { trait(S, -0.3, h+0.15, 0, 0.3, h+0.15, 0); trait(S, 0, h, 0, 0, h+0.45, 0); }
+  if (role === 'sorciere') { for (const sg of [-1, 1]) trait(S, sg*0.35, h, 0, 0, h+0.75, 0); }
+  if (role === 'seigneur' || role === 'dame') { trait(S, -0.4, h+0.1, 0, 0.4, h+0.1, 0); }
+  if (role === 'boulanger') { boite(S, T, 0, h*0.62, 0.3, 0.7, 0.2, 0.2); }
+  if (role === 'marchand')  { boite(S, T, 0.45, 0.3, 0, 0.4, 0.5, 0.4); }
+  return o;
 }
 
-const DRAGON = bloc((S) => {
-  const c = [[0,0,-5.5],[1.1,0.6,-1.5],[1.4,0.3,2],[0.6,0.2,5],[0,0.1,9]];   // le corps, de la gueule à la queue
+const DRAGON = bloc((S, T) => {
+  const c = [[0,0,-5.5],[1.1,0.6,-1.5],[1.4,0.3,2],[0.6,0.2,5],[0,0.1,9]];
   for (let i = 0; i < c.length - 1; i++) {
-    for (const s of [-1, 1]) trait(S, s*c[i][0], c[i][1], c[i][2], s*c[i+1][0], c[i+1][1], c[i+1][2]);
+    for (const sg of [-1, 1]) trait(S, sg*c[i][0], c[i][1], c[i][2], sg*c[i+1][0], c[i+1][1], c[i+1][2]);
     trait(S, -c[i][0], c[i][1], c[i][2], c[i][0], c[i][1], c[i][2]);
+    quad(T, [-c[i][0],c[i][1],c[i][2]], [c[i][0],c[i][1],c[i][2]],
+            [c[i+1][0],c[i+1][1],c[i+1][2]], [-c[i+1][0],c[i+1][1],c[i+1][2]]);
   }
-  for (const s of [-1, 1]) {                                 // les ailes, deux grands triangles
-    trait(S, s*1.2, 0.5, -0.5, s*9, 3.2, 1.5);
-    trait(S, s*9, 3.2, 1.5, s*1.2, 0.3, 4);
-    trait(S, s*9, 3.2, 1.5, s*4.5, 1.2, 2);
+  for (const sg of [-1, 1]) {
+    trait(S, sg*1.2, 0.5, -0.5, sg*9, 3.2, 1.5);
+    trait(S, sg*9, 3.2, 1.5, sg*1.2, 0.3, 4);
+    trait(S, sg*9, 3.2, 1.5, sg*4.5, 1.2, 2);
+    tri(T, [sg*1.2,0.5,-0.5], [sg*9,3.2,1.5], [sg*1.2,0.3,4]);
   }
 });
 
 /* ================================================================
-   3. LE VILLAGE — plan et lieux
+   3. LE TERRAIN, LE RUISSEAU, LA ROUTE, PUIS LE VILLAGE
+   Le sol n'est plus un plan : une butte au nord-est, un ruisseau creusé
+   qui traverse toute la carte. Tout le reste s'y pose — et rien ne peut
+   être bâti sur la route ni dans l'eau.
    ================================================================ */
-const LIEUX = [];
-function lieu(nom, type, x, z, angle = 0, forme = null) {
-  const l = { nom, type, x, z, angle };
-  LIEUX.push(l);
-  if (forme) poser(SEG_DECOR, forme, x, z, angle);
-  return l;
-}
-const SEG_DECOR = [];
+const SEG_DECOR = [], FACE_DECOR = [];   // les bâtiments : le premier plan
+const SEG_SOL = [];                      // le relief : presque effacé
+const SEG_TRACE = [];                    // route, ruisseau, sillons : entre les deux
 
-const PLACE   = { nom: 'la place', type: 'place', x: 0, z: 0 };
-LIEUX.push(PLACE);
-lieu('le puits', 'puits', 2.5, 2, 0, FORMES.puits());
-const EGLISE  = lieu("l'église", 'eglise', -2, -26, 0, FORMES.eglise());
-const MANOIR  = lieu('le manoir', 'manoir', 24, -6, -0.45, FORMES.manoir());
-const FOUR    = lieu('la boulangerie', 'boulangerie', -14, 6, 0.3, FORMES.boulangerie());
-const ATELIERS = [
-  lieu("l'atelier du charron", 'atelier', 13, 10, -0.7, FORMES.atelier()),
-  lieu("l'atelier du forgeron", 'atelier', -13, 17, 0.5, FORMES.atelier()),
-];
-const CABANE  = lieu('la cabane', 'cabane', -34, 30, 0.9, FORMES.cabane());   // à l'écart, et ça compte
-const CHAUMIERES = [];
-for (let i = 0; i < 7; i++) {
-  const a = -0.6 + i * 0.72 + entre(-0.12, 0.12);
-  const r = entre(19, 27);
-  CHAUMIERES.push(lieu('une chaumière', 'chaumiere', Math.cos(a) * r, Math.sin(a) * r + 6,
-                       entre(-0.5, 0.5), FORMES.chaumiere(entre(3.8, 5), entre(5, 6.4))));
+// --- le ruisseau : une polyligne qui serpente d'ouest en est ---
+const RUISSEAU = [];
+for (let i = 0; i <= 22; i++) {
+  const t = i / 22, x = -110 + 220 * t;
+  RUISSEAU.push([x, -6 + 62 * t + 15 * Math.sin(t * 6.1) + 6 * Math.sin(t * 13.7)]);
 }
-const CHAMPS = [];
-for (let i = 0; i < 3; i++) {
-  const x = -18 + i * 17, z = 40;
-  CHAMPS.push(lieu('les champs', 'champ', x, z));
-  const w = 13, d = 11;                                       // sillons dessinés à même le sol
-  for (let s = 0; s <= 6; s++) {
-    const zz = z - d/2 + (d * s) / 6;
-    trait(SEG_DECOR, x - w/2, 0.02, zz, x + w/2, 0.02, zz);
-  }
-  trait(SEG_DECOR, x - w/2, 0.02, z - d/2, x - w/2, 0.02, z + d/2);
-  trait(SEG_DECOR, x + w/2, 0.02, z - d/2, x + w/2, 0.02, z + d/2);
-}
-// la route : elle vient du nord, passe la place et s'en va vers les champs
-(function route() {
-  const pts = [[-4, -60], [-3, -40], [-1, -18], [0, 0], [2, 18], [4, 40], [6, 62]];
+// --- la route : elle vient du nord et s'en va vers les champs ---
+const ROUTE = [[-4,-70],[-3,-46],[-1,-20],[0,0],[2,18],[4,42],[6,70]];
+
+function distPolyligne(pts, x, z) {
+  let best = Infinity;
   for (let i = 0; i < pts.length - 1; i++) {
-    for (const c of [-2.2, 2.2]) {
-      trait(SEG_DECOR, pts[i][0] + c, 0.01, pts[i][1], pts[i+1][0] + c, 0.01, pts[i+1][1]);
+    const [ax, az] = pts[i], [bx, bz] = pts[i+1];
+    const dx = bx - ax, dz = bz - az;
+    const l2 = dx*dx + dz*dz;
+    let t = l2 ? ((x - ax) * dx + (z - az) * dz) / l2 : 0;
+    t = Math.max(0, Math.min(1, t));
+    best = Math.min(best, Math.hypot(x - (ax + t*dx), z - (az + t*dz)));
+  }
+  return best;
+}
+const distRuisseau = (x, z) => distPolyligne(RUISSEAU, x, z);
+const distRoute = (x, z) => distPolyligne(ROUTE, x, z);
+
+// --- le relief ---
+const BUTTE = { x: 34, z: -40, r: 30, h: 8 };
+const LARGEUR_EAU = 7, PROFONDEUR_EAU = 2.4;
+function hauteur(x, z) {
+  let y = 0;
+  const d = Math.hypot(x - BUTTE.x, z - BUTTE.z);
+  if (d < BUTTE.r) y += BUTTE.h * Math.pow(Math.cos(d / BUTTE.r * Math.PI / 2), 2);
+  const e = distRuisseau(x, z);
+  if (e < LARGEUR_EAU) y -= PROFONDEUR_EAU * Math.pow(Math.cos(e / LARGEUR_EAU * Math.PI / 2), 2);
+  return y;
+}
+
+// --- le sol : un maillage noir qui cache ce qui est derrière, et
+//     quelques lignes de niveau qui suivent le relief ---
+(function terrain() {
+  const R = 108, PAS = 6;
+  for (let x = -R; x < R; x += PAS) {
+    for (let z = -R; z < R; z += PAS) {
+      const p = (a, b) => [a, hauteur(a, b) - 0.06, b];   // légèrement en dessous : les traits gagnent
+      quad(FACE_DECOR, p(x, z), p(x+PAS, z), p(x+PAS, z+PAS), p(x, z+PAS));
+    }
+  }
+  // les lignes du sol épousent le relief. Mesuré : en échantillonnant
+  // tous les 5, elles pesaient à elles seules plus que tout le village
+  // réuni (20 images/s au lieu de 41) — un trait épais coûte sa surface.
+  const PAS_L = 18, ECH = 12;
+  for (let a = -R; a <= R; a += PAS_L) {
+    for (let k = -R; k < R; k += ECH) {
+      trait(SEG_SOL, a, hauteur(a, k) + 0.02, k, a, hauteur(a, k+ECH) + 0.02, k+ECH);
+      trait(SEG_SOL, k, hauteur(k, a) + 0.02, a, k+ECH, hauteur(k+ECH, a) + 0.02, a);
     }
   }
 })();
+
+// --- l'eau : deux rives et quelques rides en travers ---
+(function eau() {
+  const niveau = (x, z) => hauteur(x, z) + PROFONDEUR_EAU * 0.55;
+  for (let i = 0; i < RUISSEAU.length - 1; i++) {
+    const [ax, az] = RUISSEAU[i], [bx, bz] = RUISSEAU[i+1];
+    const dx = bx - ax, dz = bz - az, l = Math.hypot(dx, dz);
+    const nx = -dz / l, nz = dx / l;                       // la normale, pour écarter les deux rives
+    for (const sg of [-1, 1]) {
+      const w = 2.6 + Math.sin(i * 1.7) * 0.8;
+      trait(SEG_TRACE, ax + nx*sg*w, niveau(ax, az), az + nz*sg*w,
+                       bx + nx*sg*w, niveau(bx, bz), bz + nz*sg*w);
+    }
+    if (i % 2 === 0) {                                    // une ride en travers, de temps en temps
+      const w = 1.7;
+      trait(SEG_TRACE, ax + nx*w, niveau(ax, az), az + nz*w, ax - nx*w, niveau(ax, az), az - nz*w);
+    }
+  }
+})();
+
+// --- la route, posée sur le relief, et son pont là où elle franchit l'eau ---
+let POINT_PONT = null;
+(function route() {
+  for (let i = 0; i < ROUTE.length - 1; i++) {
+    for (let k = 0; k < 8; k++) {
+      const t0 = k/8, t1 = (k+1)/8;
+      const px = (t) => ROUTE[i][0] + (ROUTE[i+1][0] - ROUTE[i][0]) * t;
+      const pz = (t) => ROUTE[i][1] + (ROUTE[i+1][1] - ROUTE[i][1]) * t;
+      for (const c of [-2.4, 2.4]) {
+        trait(SEG_TRACE, px(t0)+c, hauteur(px(t0)+c, pz(t0)) + 0.03, pz(t0),
+                         px(t1)+c, hauteur(px(t1)+c, pz(t1)) + 0.03, pz(t1));
+      }
+    }
+  }
+  // où la route croise-t-elle le ruisseau ? on cherche le long du tracé
+  let best = Infinity;
+  for (let z = -70; z <= 70; z += 0.5) {
+    const t = (z + 70) / 140, x = -4 + 10 * t;
+    const d = distRuisseau(x, z);
+    if (d < best) { best = d; POINT_PONT = { x, z }; }
+  }
+  if (POINT_PONT && best < 4) {
+    const o = FORMES.pont(LARGEUR_EAU * 2.2);
+    poser(SEG_DECOR, o.a, POINT_PONT.x, hauteur(POINT_PONT.x, POINT_PONT.z) + PROFONDEUR_EAU * 0.9, POINT_PONT.z, 0.25);
+    poser(FACE_DECOR, o.f, POINT_PONT.x, hauteur(POINT_PONT.x, POINT_PONT.z) + PROFONDEUR_EAU * 0.9, POINT_PONT.z, 0.25);
+  }
+})();
+
+// --- les lieux ---
+const LIEUX = [];
+let MOULIN_EAU = null, MOULIN_VENT = null;
+function lieu(nom, type, x, z, angle = 0, forme = null) {
+  const y = hauteur(x, z);
+  const l = { nom, type, x, z, y, angle };
+  LIEUX.push(l);
+  if (forme) { poser(SEG_DECOR, forme.a, x, y, z, angle); poser(FACE_DECOR, forme.f, x, y, z, angle); }
+  return l;
+}
+// on ne bâtit ni sur la route, ni dans l'eau, ni sur un voisin
+const BATIS = [];
+function placeLibre(x, z, rayon = 7) {
+  if (distRoute(x, z) < 6.5 + rayon * 0.35) return false;
+  if (distRuisseau(x, z) < LARGEUR_EAU + 3) return false;
+  for (const b of BATIS) if (Math.hypot(b.x - x, b.z - z) < rayon + b.r) return false;
+  return true;
+}
+function chercherPlace(cx, cz, etendue, rayon) {
+  for (let essai = 0; essai < 300; essai++) {
+    const a = alea() * Math.PI * 2, r = Math.sqrt(alea()) * etendue;
+    const x = cx + Math.cos(a) * r, z = cz + Math.sin(a) * r;
+    if (placeLibre(x, z, rayon)) { BATIS.push({ x, z, r: rayon }); return { x, z }; }
+  }
+  return { x: cx, z: cz };   // faute de mieux, mais ça n'arrive pas avec ces marges
+}
+
+const PLACE = { nom: 'la place', type: 'place', x: 0, z: 0, y: hauteur(0, 0) };
+LIEUX.push(PLACE);
+BATIS.push({ x: 0, z: 0, r: 11 });
+lieu('le puits', 'puits', 3.6, 2.4, 0, FORMES.puits());
+
+const pEglise = chercherPlace(-14, -30, 8, 12);
+const EGLISE = lieu("l'église", 'eglise', pEglise.x, pEglise.z, 0.15, FORMES.eglise());
+const pManoir = chercherPlace(30, -12, 8, 11);            // adossé à la butte
+const MANOIR = lieu('le manoir', 'manoir', pManoir.x, pManoir.z, -0.45, FORMES.manoir());
+const pFour = chercherPlace(-17, 8, 6, 8);
+const FOUR = lieu('la boulangerie', 'boulangerie', pFour.x, pFour.z, 0.3, FORMES.boulangerie());
+const ATELIERS = [];
+for (const [cx, cz, nom] of [[16, 12, "l'atelier du charron"], [-15, 20, "l'atelier du forgeron"]]) {
+  const q = chercherPlace(cx, cz, 6, 7);
+  ATELIERS.push(lieu(nom, 'atelier', q.x, q.z, entre(-0.7, 0.7), FORMES.atelier()));
+}
+const pCabane = chercherPlace(-40, 34, 7, 6);             // à l'écart, et ça compte
+const CABANE = lieu('la cabane', 'cabane', pCabane.x, pCabane.z, 0.9, FORMES.cabane());
+
+const CHAUMIERES = [];
+for (let i = 0; i < 7; i++) {
+  const a = -0.5 + i * 0.78, r = entre(20, 30);
+  const q = chercherPlace(Math.cos(a) * r, Math.sin(a) * r + 6, 9, 7);
+  CHAUMIERES.push(lieu('une chaumière', 'chaumiere', q.x, q.z, entre(-0.6, 0.6),
+                       FORMES.chaumiere(entre(3.8, 5), entre(5, 6.4))));
+}
+
+// LES DEUX MOULINS. Ils ne sont pas décoratifs : ce sont eux qui
+// changent le blé en farine, et le boulanger n'a plus rien sans eux.
+// L'un se pose sur le ruisseau (donc il échappe à la règle qui interdit
+// de bâtir dans l'eau), l'autre au sommet de la butte — c'est d'ailleurs
+// à ça que sert un relief.
+const MOULINS = [];
+function poserMoulin(nom, type, x, z, angle, forme, mobile, axe) {
+  const y = hauteur(x, z);
+  const l = { nom, type, x, z, y, angle, etat: 1, tourne: 0, axe };
+  LIEUX.push(l); MOULINS.push(l);
+  BATIS.push({ x, z, r: 8 });
+  poser(SEG_DECOR, forme.a, x, y, z, angle);
+  poser(FACE_DECOR, forme.f, x, y, z, angle);
+  l.formeMobile = mobile;
+  return l;
+}
+{
+  // le moulin à eau : on le pose sur la rive, à mi-parcours du ruisseau
+  const i = Math.floor(RUISSEAU.length * 0.42);
+  const [rx, rz] = RUISSEAU[i], [bx, bz] = RUISSEAU[i + 1];
+  const ang = Math.atan2(bx - rx, bz - rz);
+  const nx = -(bz - rz), nz = (bx - rx), l = Math.hypot(nx, nz);
+  MOULIN_EAU = poserMoulin('le moulin à eau', 'moulin', rx + nx/l * 4.6, rz + nz/l * 4.6,
+                           ang, FORMES.moulinEau(), FORMES.roue(), 'roue');
+  MOULIN_VENT = poserMoulin('le moulin à vent', 'moulin', BUTTE.x, BUTTE.z,
+                            0.6, FORMES.moulinVent(), FORMES.ailes(), 'ailes');
+}
+
+const CHAMPS = [];
+for (let i = 0; i < 3; i++) {
+  const q = chercherPlace(-22 + i * 20, 46, 8, 10);
+  CHAMPS.push(lieu('les champs', 'champ', q.x, q.z));
+  const w = 13, d = 11;
+  for (let k = 0; k <= 6; k++) {
+    const zz = q.z - d/2 + (d * k) / 6;
+    for (let m = 0; m < 4; m++) {                          // les sillons suivent le sol
+      const x0 = q.x - w/2 + (w * m) / 4, x1 = q.x - w/2 + (w * (m+1)) / 4;
+      trait(SEG_TRACE, x0, hauteur(x0, zz) + 0.04, zz, x1, hauteur(x1, zz) + 0.04, zz);
+    }
+  }
+}
 
 /* ================================================================
    4. LES HABITANTS
@@ -405,28 +625,43 @@ for (let i = 0; i < 3; i++) {
    ================================================================ */
 const ROLES = [
   ['seigneur', 1], ['dame', 1], ['pretre', 1], ['boulanger', 1],
-  ['artisan', 3], ['sorciere', 1], ['paysan', 8],
+  ['charpentier', 1], ['tailleur', 1], ['ebeniste', 1], ['forgeron', 1],
+  ['voleur', 1], ['sorciere', 1], ['paysan', 7],
 ];
 const NOM_ROLE = {
   seigneur: 'le seigneur', dame: 'la dame', pretre: 'le prêtre', boulanger: 'le boulanger',
-  artisan: "l'artisan", sorciere: 'la sorcière', paysan: 'le paysan', marchand: 'le marchand',
+  charpentier: 'le charpentier', tailleur: 'le tailleur de pierre', ebeniste: "l'ébéniste",
+  forgeron: 'le forgeron', voleur: 'le voleur', sorciere: 'la sorcière',
+  paysan: 'le paysan', colporteur: 'le colporteur',
 };
 
+const PRENOMS_H = ['Guillaume','Thibaut','Jehan','Renaud','Gautier','Colin','Foulques','Enguerrand',
+                   'Aymeric','Bertrand','Girart','Milon'];
+const PRENOMS_F = ['Aliénor','Perrine','Mahaut','Blanche','Aude','Isabeau','Ermengarde','Sibylle',
+                   'Emmeline','Guibourc'];
+const FEMININ = { dame: 1, sorciere: 1 };
+let iH = 0, iF = 0;
+function prenomPour(role) {
+  const f = FEMININ[role] || (role === 'paysan' && alea() < 0.45);
+  return f ? PRENOMS_F[iF++ % PRENOMS_F.length] : PRENOMS_H[iH++ % PRENOMS_H.length];
+}
+
 const habitants = [];
+const nommer = (h) => `${h.prenom}, ${NOM_ROLE[h.role]}`;
 function creerHabitant(role, logis) {
   return {
-    role, logis,
+    role, logis, prenom: prenomPour(role),
     x: logis.x + entre(-2, 2), z: logis.z + entre(-2, 2), cible: null,
     vitesse: entre(2.4, 3.4),
     // caractère : cinq nombres, jamais une branche de code
     piete: role === 'pretre' ? entre(0.8, 1) : entre(0, 1),
     courage: role === 'seigneur' ? entre(0.6, 1) : entre(0, 1),
-    cupidite: entre(0, 1),
+    cupidite: role === 'voleur' ? entre(0.8, 1) : entre(0, 1),
     sociabilite: entre(0.1, 1),
     superstition: role === 'pretre' ? entre(0.5, 1) : entre(0, 1),
     // besoins : ils montent seuls, ce sont eux le moteur
     faim: entre(0, 0.4), fatigue: entre(0, 0.3), foi: entre(0, 0.5), peur: 0,
-    soupcon: entre(0, 0.15),
+    soupcon: entre(0, 0.15), rancune: 0,
     occupation: 'flâner', prochainChoix: 0, vivant: true,
   };
 }
@@ -449,12 +684,23 @@ function creerHabitant(role, logis) {
    ================================================================ */
 const village = {
   jour: 1, heure: 0.28,          // 0 = minuit, 0.5 = midi
-  ble: 12, pain: 8,
+  ble: 12, farine: 5, pain: 8, outils: 6, meubles: 0, chantier: 0,
+  volsCetteNuit: 0,
+  jourSansSorciere: 0, bucher: null,
   foire: 0,                      // durée restante, en journées
   dragon: null,
   sorciereChassee: false,
-  foule: false,
+  foule: false, fouleRevolte: false,
+  repitFoule: 0, repitRevolte: 0,   // en jours : une foule dispersée ne se reforme pas dans la seconde
   etals: [],
+  // LE DEUXIÈME ACTE. Une fois la sorcière partie, le village doit
+  // continuer à produire du drame tout seul. Deux pouvoirs s'installent
+  // dans le vide qu'elle laisse — l'un vit de la peur, l'autre de la
+  // richesse — et chacun prélève sa part sur le même village.
+  autorite: 0.2,                 // celle du prêtre : la peur la nourrit
+  impot: 0,                      // ce que le seigneur a mis de côté au manoir
+  accuse: null,                  // celui que le village a désigné, faute de sorcière
+  jourDime: 0, jourImpot: 0,
 };
 const chronique = [];
 function noter(txt, fort = false) {
@@ -484,8 +730,20 @@ function poidsDes(h) {
   p.push(['fuir', h.peur * h.peur * (1 - h.courage) * 7]);
   // l'accusation ne demande pas un scénario : il suffit que la peur, la
   // superstition et le soupçon soient hauts en même temps
-  if (!village.sorciereChassee && h.role !== 'sorciere') {
-    p.push(['accuser', h.soupcon * h.superstition * (0.25 + h.peur) * 3.5]);
+  const cible = village.sorciereChassee ? village.accuse : habitants.find(a => a.role === 'sorciere' && a.vivant);
+  if (cible && cible !== h) {
+    // le prêtre écouté rend l'accusation plus facile : son autorité vient
+    // s'ajouter à la superstition de chacun
+    const poussee = h.superstition + village.autorite * 0.8;
+    p.push(['accuser', h.soupcon * poussee * (0.25 + h.peur) * 3.5]);
+  }
+  // la rancune, elle, ne cherche pas un coupable faible : elle monte au manoir
+  p.push(['se révolter', h.rancune * h.rancune * h.courage * 3]);
+  // Voler n'est pas reserve au voleur : n'importe quel cupide s'y met la
+  // nuit si la huche est pleine. C'est ce qui fait que le village ne peut
+  // JAMAIS savoir qui l'a fait, et qu'il accuse a cote.
+  if (h.cupidite > 0.72 && nuit && (village.pain > 3 || village.farine > 6)) {
+    p.push(['voler', (h.cupidite - 0.6) * (1 - h.piete) * 4]);
   }
   if (jour) {
     const travail = 1.1 * (1 - h.fatigue) * (1 - h.peur * 0.9);
@@ -493,9 +751,16 @@ function poidsDes(h) {
     if (h.role === 'boulanger') {
       // il voit bien que la huche est vide, et plus elle l'est, plus il s'y met
       const urgence = village.pain < 1 ? 5 : (village.pain < 4 ? 3.2 : 1);
-      p.push(['cuire', travail * (village.ble > 0 ? 1.6 : 0.2) * urgence]);
+      p.push(['cuire', travail * (village.farine > 0 ? 1.6 : 0.2) * urgence]);
     }
-    if (h.role === 'artisan') p.push(['forger', travail]);
+    // réparer passe avant tout dès qu'un moulin faiblit : sans moulin, pas
+    // de farine, et sans farine le four ne sert plus à rien
+    const casse = MOULINS.reduce((m, x) => Math.min(m, x.etat), 1);
+    if (h.role === 'charpentier') { p.push(['réparer', travail * (1 - casse) * 8]); p.push(['menuiser', travail * 0.7]); }
+    if (h.role === 'forgeron')    { p.push(['forger', travail * 1.2]); p.push(['réparer', travail * (1 - casse) * 4]); }
+    if (h.role === 'ebeniste')    p.push(['menuiser', travail * 1.2]);
+    if (h.role === 'tailleur')    p.push(['tailler', travail * 1.2]);
+    if (h.role === 'colporteur')  p.push(['colporter', travail * 2]);
     if (h.role === 'pretre') p.push(['officier', travail * 1.4]);
     if (h.role === 'sorciere') p.push(['herboriser', travail]);
     if (h.role === 'seigneur') p.push(['inspecter', travail * (0.6 + h.cupidite)]);
@@ -518,10 +783,19 @@ function lieuDe(h, occ) {
     case 'manger': return alea() < 0.5 ? h.logis : PLACE;
     case 'prier': case 'officier': return EGLISE;
     case 'flâner': return PLACE;
-    case 'accuser': return village.foule ? CABANE : PLACE;   // on se rassemble d'abord, on marche ensuite
+    case 'accuser': {   // on se rassemble d'abord sur la place, on marche ensuite
+      if (!village.foule) return PLACE;
+      return village.sorciereChassee ? (village.accuse ? village.accuse.logis : PLACE) : CABANE;
+    }
+    case 'se révolter': return village.fouleRevolte ? MANOIR : PLACE;
     case 'moissonner': return parmi(CHAMPS);
     case 'cuire': return FOUR;
     case 'forger': return parmi(ATELIERS);
+    case 'réparer': return MOULINS.reduce((a, b) => (a.etat <= b.etat ? a : b));
+    case 'menuiser': return parmi(ATELIERS);
+    case 'tailler': return EGLISE;
+    case 'voler': return alea() < 0.5 ? FOUR : PLACE;
+    case 'colporter': return PLACE;
     case 'herboriser': return CABANE;
     case 'inspecter': return parmi([PLACE, ...CHAMPS, FOUR]);
     case 'visiter': return parmi([PLACE, EGLISE, ...CHAUMIERES]);
@@ -558,6 +832,10 @@ function simuler(dt) {
     h.foi = Math.min(1, h.foi + dt * 0.006);
     h.peur = Math.max(0, h.peur - dt * 0.022);
     h.soupcon = Math.max(0, h.soupcon - dt * 0.006);
+    h.rancune = Math.max(0, h.rancune - dt * 0.013);
+    // avoir faim pendant que le grenier du manoir est plein, ça ne se
+    // pardonne pas : c'est le seul endroit où la faim se change en colère
+    if (h.faim > 0.8 && village.impot > 10) h.rancune = Math.min(1, h.rancune + dt * 0.02);
     // la faim qui dure cherche un coupable — c'est ce lien qui fait
     // qu'un dragon qui ne tue personne finit quand même en bûcher
     if (h.faim > 0.85) h.soupcon = Math.min(1, h.soupcon + dt * 0.02 * h.superstition);
@@ -573,8 +851,9 @@ function simuler(dt) {
   }
   village.peur = vivants ? peurTotale / vivants : 0;
 
+  majMoulins(dt);
   rumeur(dt);
-  majFoule();
+  majRassemblements();
   majAffichage();
 }
 
@@ -601,16 +880,49 @@ function agir(h, dt) {
     case 'prier': case 'officier':
       h.foi = Math.max(0, h.foi - dt * 0.11);
       h.peur = Math.max(0, h.peur - dt * 0.09);
+      // on ne prie jamais autant que quand on a peur, et c'est le prêtre
+      // qui encaisse le crédit : son autorité se nourrit de nos frayeurs
+      if (h.peur > 0.35) village.autorite = Math.min(1, village.autorite + dt * 0.03);
       // le prêtre apaise tout le monde autour de lui, pas seulement lui
       if (h.role === 'pretre') for (const a of habitants) {
         if (a.vivant && Math.hypot(a.x - h.x, a.z - h.z) < 14) a.peur = Math.max(0, a.peur - dt * 0.05);
       }
       break;
     case 'moissonner':
-      if (village.ble < PLAFOND_BLE) village.ble += dt * 0.55;
+      // avec de bons outils on moissonne bien mieux ; les outils s'usent
+      if (village.ble < PLAFOND_BLE) {
+        village.ble += dt * (village.outils > 0 ? 0.8 : 0.45);
+        village.outils = Math.max(0, village.outils - dt * 0.02);
+      }
       break;
+    case 'forger': village.outils = Math.min(20, village.outils + dt * 0.35); break;
+    case 'menuiser': village.meubles += dt * 0.25; break;
+    case 'tailler':
+      // l'église s'embellit, et une belle église se fait mieux écouter
+      village.chantier += dt * 0.1;
+      village.autorite = Math.min(1, village.autorite + dt * 0.004);
+      break;
+    case 'voler': {
+      // Mesuré : à 3 pains par seconde, le voleur avalait à lui seul toute
+      // la production du four (185 pains produits, 90 mangés, et pourtant
+      // la huche vide en permanence). Un vol doit se sentir, pas ruiner.
+      village.pain = Math.max(0, village.pain - dt * 0.35);
+      village.farine = Math.max(0, village.farine - dt * 0.3);
+      village.volsCetteNuit += dt * 0.35;
+      break;
+    }
+    case 'colporter': village.ble += dt * 0.6; break;
     case 'cuire':
-      if (village.ble >= dt * 1.1) { village.ble -= dt * 1.1; village.pain += dt * 2.2; }
+      if (village.farine >= dt * 1.0) { village.farine -= dt * 1.0; village.pain += dt * 2.2; }
+      break;
+    case 'réparer':
+      if (h.cible && h.cible.etat !== undefined) {
+        h.cible.etat = Math.min(1, h.cible.etat + dt * 0.07);
+        if (h.cible.reparationSignalee && h.cible.etat > 0.9) {
+          h.cible.reparationSignalee = false;
+          noter(`${nommer(h)} a remis ${h.cible.nom} en marche.`);
+        }
+      }
       break;
     case 'herboriser':
       // la sorcière soigne : elle enlève de la fatigue à qui passe la voir
@@ -621,6 +933,26 @@ function agir(h, dt) {
     case 'flâner':
       if (h.sociabilite > 0.5) h.foi = Math.max(0, h.foi - dt * 0.01);
       break;
+  }
+}
+
+// Les moulins sont de l'infrastructure, pas des personnages : l'eau et le
+// vent font le travail tout seuls. Mais ils s'usent, et un moulin arrêté
+// coupe la chaîne blé → farine → pain d'un coup, sans que personne
+// n'ait rien décidé.
+function majMoulins(dt) {
+  for (const m of MOULINS) {
+    const marche = m.etat > 0.12 && village.ble > 0;
+    m.tourne += dt * (marche ? (m.axe === 'roue' ? 1.6 : 1.1) : 0);
+    if (!marche) continue;
+    const debit = dt * 0.26 * m.etat;   // plus lent que la moisson, sinon le blé reste à zéro
+    village.ble = Math.max(0, village.ble - debit);
+    village.farine += debit * 0.92;
+    m.etat = Math.max(0, m.etat - dt * 0.0016);            // l'usure de la meule
+    if (m.etat <= 0.12 && !m.reparationSignalee) {
+      m.reparationSignalee = true;
+      noter(`${m.nom} s'est arrêté. La meule ne tourne plus.`, true);
+    }
   }
 }
 
@@ -644,39 +976,177 @@ function rumeur(dt) {
   }
 }
 
-// SEUIL DE REGROUPEMENT — le meilleur moment des trois jeux précédents,
-// repris ici : personne n'a écrit « faire une chasse aux sorcières ». Il
-// suffit que quatre accusateurs se retrouvent au même endroit.
-const SEUIL_FOULE = 4;
-function majFoule() {
-  if (village.sorciereChassee) return;
-  const accusateurs = habitants.filter(h => h.vivant && h.occupation === 'accuser' &&
-    h.soupcon > 0.55 &&
-    Math.hypot(h.x - PLACE.x, h.z - PLACE.z) < 12);
-  if (!village.foule && accusateurs.length >= SEUIL_FOULE) {
-    village.foule = true;
-    noter(`${accusateurs.length} villageois se rassemblent sur la place. Ils parlent de la cabane.`, true);
-    for (const h of accusateurs) { h.cible = CABANE; h.prochainChoix += 30; }
+// SEUIL DE REGROUPEMENT — le motif repris de Bastion Orbit. Personne
+// n'écrit « faire une chasse aux sorcières » ni « déclencher une
+// révolte » : il suffit qu'assez de gens du même avis se retrouvent au
+// même endroit. Deux colères, deux seuils, deux destinations.
+const SEUIL_FOULE = 4, SEUIL_REVOLTE = 4;
+
+// Faute de sorcière, le village en désigne un autre. La règle est d'une
+// simplicité qui fait froid dans le dos : c'est le moins sociable qui est
+// choisi, celui à qui personne ne parlait déjà. Et si c'est le boulanger,
+// le village se coupe le pain tout seul.
+function designerBouc() {
+  const candidats = habitants.filter(h => h.vivant && h.role !== 'pretre' && h.role !== 'seigneur');
+  if (!candidats.length) return null;
+  candidats.sort((a, b) => a.sociabilite - b.sociabilite);
+  const bouc = candidats[0];
+  village.accuse = bouc;
+  if (village.autorite > 0.5) noter(`Du haut de la chaire, on a nommé ${nommer(bouc)}.`, true);
+  else noter(`Les regards se sont tournés vers ${nommer(bouc)}.`, true);
+  return bouc;
+}
+
+function cibleAccusee() {
+  if (!village.sorciereChassee) return habitants.find(h => h.role === 'sorciere' && h.vivant) || null;
+  if (village.accuse && village.accuse.vivant) return village.accuse;
+  return null;
+}
+
+function majRassemblements() {
+  const visee = cibleAccusee();
+  const chauds = habitants.filter(h => h.vivant && h.occupation === 'accuser' && h.soupcon > 0.55);
+  if (!visee && chauds.length >= SEUIL_FOULE) designerBouc();
+
+  if (visee) {
+    const surLaPlace = chauds.filter(h => h !== visee && Math.hypot(h.x - PLACE.x, h.z - PLACE.z) < 13);
+    if (!village.foule && village.jour >= village.repitFoule && surLaPlace.length >= SEUIL_FOULE) {
+      village.foule = true;
+      village.bucher = { x: PLACE.x - 5, z: PLACE.z - 5 };
+      noter(`${surLaPlace.length} villageois se rassemblent. Ils vont chercher du bois.`, true);
+      for (const h of surLaPlace) { h.cible = visee.logis; h.prochainChoix += 30; }
+    }
+    if (village.foule) {
+      const arrives = chauds.filter(h => h !== visee &&
+        Math.hypot(h.x - visee.logis.x, h.z - visee.logis.z) < 7);
+      if (arrives.length >= 2) {
+        // Le seigneur peut s'interposer, mais seulement s'il est brave ET
+        // sur place. Deux nombres qui s'opposent, rien de scripté.
+        const sgr = habitants.find(h => h.role === 'seigneur' && h.vivant);
+        const protege = sgr && sgr.courage > 0.65 &&
+          Math.hypot(sgr.x - visee.logis.x, sgr.z - visee.logis.z) < 22;
+        village.foule = false; village.bucher = null;
+        village.repitFoule = village.jour + 2;
+        if (protege) {
+          noter(`${nommer(sgr)} s'est interposé. La foule s'est défaite.`, true);
+          village.autorite = Math.max(0, village.autorite - 0.2);
+          // tout le monde change d'avis, pas seulement les arrivés — sinon
+          // les autres relancent une foule dans la seconde
+          for (const h of chauds) { h.soupcon *= 0.3; h.prochainChoix = 0; }
+        } else {
+          const courageMoyen = arrives.reduce((t, h) => t + h.courage, 0) / arrives.length;
+          finirAccusation(visee, courageMoyen > 0.5);
+        }
+      }
+    }
   }
-  if (village.foule) {
-    const arrivés = habitants.filter(h => h.vivant && h.occupation === 'accuser' &&
-      Math.hypot(h.x - CABANE.x, h.z - CABANE.z) < 6);
-    if (arrivés.length >= 2) {
-      village.sorciereChassee = true; village.foule = false;
-      const s = habitants.find(h => h.role === 'sorciere');
-      if (s) s.vivant = false;
-      noter('La cabane est vide. La sorcière a pris la route avant eux.', true);
-      for (const h of habitants) { h.soupcon = 0; h.prochainChoix = 0; }
+
+  const furieux = habitants.filter(h => h.vivant && h.occupation === 'se révolter');
+  if (!village.fouleRevolte && village.jour >= village.repitRevolte && furieux.length >= SEUIL_REVOLTE) {
+    village.fouleRevolte = true;
+    noter(`${furieux.length} villageois montent vers le manoir.`, true);
+    for (const h of furieux) { h.cible = MANOIR; h.prochainChoix += 25; }
+  }
+  if (village.fouleRevolte) {
+    const devant = furieux.filter(h => Math.hypot(h.x - MANOIR.x, h.z - MANOIR.z) < 9);
+    if (devant.length >= 2) {
+      village.fouleRevolte = false;
+      village.repitRevolte = village.jour + 2;
+      const sgr = habitants.find(h => h.role === 'seigneur' && h.vivant);
+      if (sgr && sgr.courage > 0.6) {
+        noter(`${nommer(sgr)} est sorti seul sur le perron. Ils sont redescendus.`);
+        for (const h of habitants) if (h.vivant) h.rancune *= 0.5;   // tout le village se calme, pas seulement ceux d'en haut
+      } else {
+        const rendu = Math.round(village.impot * 0.7);
+        village.ble += rendu; village.impot -= rendu;
+        noter(`Le manoir a rendu ${rendu} mesures de grain.`, true);
+        for (const h of habitants) if (h.vivant) h.rancune *= 0.25;
+      }
+      // ils redescendent tous : sans ça, ils gardent l'occupation
+      // « se révolter » et la foule se reforme à l'image suivante
+      for (const h of furieux) h.prochainChoix = 0;
     }
   }
 }
 
+function finirAccusation(v, jusquauBout) {
+  v.vivant = false;
+  if (v.role === 'sorciere') { village.sorciereChassee = true; village.jourSansSorciere = 0; }
+  if (village.accuse === v) village.accuse = null;
+  if (jusquauBout) noter(`Le bûcher a brûlé sur la place. ${nommer(v)} n'est plus.`, true);
+  else noter(`${nommer(v)} a pris la route avant eux. La maison est vide.`, true);
+  // le village vient de se priver de ce que cette personne faisait
+  const manque = {
+    boulanger: 'Il ne reste personne pour tenir le four.',
+    charpentier: 'Il ne reste personne pour remonter une meule.',
+    forgeron: "Les outils s'useront sans être refaits.",
+    sorciere: 'Plus personne ne sait quoi faire des simples.',
+  }[v.role];
+  if (manque) noter(manque);
+  village.autorite = Math.min(1, village.autorite + 0.1);   // le prêtre avait « raison »
+  for (const h of habitants) { h.soupcon *= 0.2; h.prochainChoix = 0; }
+}
+
+// LA SUCCESSION. Une place vide à l'écart ne le reste jamais longtemps :
+// une femme que son homme a laissée s'y installe, et tout peut
+// recommencer. C'est ce qui empêche l'histoire de s'arrêter au premier
+// bûcher.
+function succession() {
+  village.jourSansSorciere++;
+  if (village.jourSansSorciere < 4 || alea() > 0.45) return;
+  const nouvelle = creerHabitant('sorciere', CABANE);
+  nouvelle.superstition = entre(0, 0.3);
+  habitants.push(nouvelle);
+  ajouterObjet(nouvelle);
+  village.sorciereChassee = false;
+  village.jourSansSorciere = 0;
+  noter(`${nouvelle.prenom}, que son homme a laissée, s'est installée dans la cabane.`, true);
+}
+
 function finDeJournee() {
-  if (village.pain < 1) noter("Il ne reste plus de pain au village.");
+  if (village.pain < 1) noter('Il ne reste plus de pain au village.');
+
+  if (village.volsCetteNuit > 1.2) {
+    // le village sait qu'on l'a volé, mais pas par qui — et c'est
+    // exactement ce qui nourrit le soupçon de travers
+    noter("La huche était plus vide qu'elle n'aurait dû l'être.");
+    for (const h of habitants) if (h.vivant) h.soupcon = Math.min(1, h.soupcon + 0.12 * h.superstition);
+  }
+  village.volsCetteNuit = 0;
+
+  // LA DÎME. Un prêtre écouté prélève sa part, et ceux qui croient le
+  // moins le prennent mal. Deux pouvoirs se servent sur le même village.
+  const pretre = habitants.find(h => h.role === 'pretre' && h.vivant);
+  if (pretre && village.autorite > 0.5 && village.pain > 4 && village.jour >= village.jourDime + 3) {
+    village.jourDime = village.jour;
+    const part = Math.round(village.pain * 0.22);
+    village.pain -= part;
+    noter(`La dîme est levée : ${part} pains partent à l'église.`);
+    for (const h of habitants) if (h.vivant) h.rancune = Math.min(1, h.rancune + 0.09 * (1 - h.piete));
+  }
+
+  // L'IMPÔT. Le seigneur ne prélève pas quand il a faim : il prélève
+  // quand il voit les greniers pleins. C'est sa cupidité qui décide.
+  const sgr = habitants.find(h => h.role === 'seigneur' && h.vivant);
+  const reserve = village.ble + village.farine;
+  if (sgr && reserve > 24 && village.jour >= village.jourImpot + 4) {
+    village.jourImpot = village.jour;
+    const taux = 0.15 + sgr.cupidite * 0.2;
+    const surBle = Math.round(village.ble * taux), surFarine = Math.round(village.farine * taux);
+    const part = surBle + surFarine;
+    village.ble -= surBle; village.farine -= surFarine; village.impot += part;
+    noter(`Le manoir a levé l'impôt : ${part} mesures de grain.`);
+    for (const h of habitants) if (h.vivant && h !== sgr) h.rancune = Math.min(1, h.rancune + 0.10 * h.courage);
+  }
+
+  village.autorite = Math.max(0, village.autorite - 0.02);   // elle retombe si rien n'effraie
+  if (village.sorciereChassee) succession();
+
   if (village.jour % 6 === 0) lancerFoire();
   else if (village.jour > 3 && alea() < 0.14) lancerDragon();
-  if (village.sorciereChassee && village.jour % 4 === 0) {
-    // le village se punit lui-même : sans elle, les maux ne se soignent plus
+
+  const guerisseuse = habitants.find(h => h.role === 'sorciere' && h.vivant);
+  if (!guerisseuse && village.jour % 4 === 0) {
     for (const h of habitants) if (h.vivant) h.fatigue = Math.min(1, h.fatigue + 0.18);
     noter('Les fièvres traînent. Plus personne ne sait quoi faire des simples.');
   }
@@ -707,7 +1177,13 @@ function majDragon(dt) {
   d.a += dt * 0.28;
   d.r += (d.parti ? 26 : (34 - d.r) * dt * 0.5);
   d.y += (d.parti ? dt * 5 : (26 - d.y) * dt * 0.4);
-  if (!d.parti && d.t > 26) { d.parti = true; noter("Le dragon s'éloigne. Personne n'a rien tenté."); }
+  if (!d.parti && d.t > 26) {
+    d.parti = true;
+    noter("Le dragon s'éloigne. Personne n'a rien tenté.");
+    // le prêtre encaisse le crédit de son départ, qu'il y soit pour quelque chose ou non
+    village.autorite = Math.min(1, village.autorite + 0.16);
+    if (village.autorite > 0.55) noter("À l'église, on dit que les prières y sont pour quelque chose.");
+  }
   if (d.parti && d.r > 200) { village.dragon = null; return; }
   if (d.parti) return;
   // Le dragon ne tue personne. Il fait peur — et c'est la peur qui
@@ -720,14 +1196,29 @@ function majDragon(dt) {
     h.soupcon = Math.min(0.5, h.soupcon + effroi * h.superstition * 0.3);
     if (alea() < dt * 0.4) h.prochainChoix = 0;      // on change d'avis sur-le-champ
   }
+  // il ne touche personne, mais il casse : une aile arrachée, une roue
+  // fracassée. C'est sa seule violence, et elle suffit à affamer.
+  for (const m of MOULINS) {
+    if (alea() < dt * 0.09 && m.etat > 0.15) {
+      m.etat = Math.max(0.05, m.etat - entre(0.35, 0.7));
+      if (m.etat <= 0.12 && !m.reparationSignalee) {
+        m.reparationSignalee = true;
+        noter(`Sur son passage, ${m.nom} a perdu une aile.`, true);
+      }
+    }
+  }
 }
 
 /* ================================================================
    7. RENDU
+   Deux couches superposées : les arêtes en vert, et par-dessous des
+   faces PEINTES EN NOIR qui ne se voient pas mais cachent tout ce qui
+   passe derrière. C'est ce qui donne du volume — sans elles, l'avant et
+   l'arrière d'un bâtiment se superposent et le dessin devient illisible.
    ================================================================ */
 const scene = new THREE.Scene();
 const ISO_POLAIRE = Math.acos(1 / Math.sqrt(3));   // 54,7356° : les arêtes du sol tombent à 30°
-let demiHauteur = 46;
+let demiHauteur = 52;
 const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.01, 4000);
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setClearColor(0x000000, 1);
@@ -740,50 +1231,91 @@ controls.autoRotate = true;
 controls.autoRotateSpeed = 0.35;
 controls.minPolarAngle = ISO_POLAIRE;    // tangage verrouillé : on tourne et on zoome, rien d'autre
 controls.maxPolarAngle = ISO_POLAIRE;
-controls.minZoom = 0.5; controls.maxZoom = 8;
+controls.minZoom = 0.45; controls.maxZoom = 8;
 controls.target.set(0, 4, 4);
 
 const LINE = 0x46ffa0;
-function materiau(opacite = 1) {
+function materiau(op = 1) {
   // transparence classique, jamais alphaToCoverage : ce dernier requantifie
   // le fondu du nuanceur en 4 paliers et l'escalier revient (mesuré en v0.7)
-  return new LineMaterial({ color: LINE, linewidth: 1.7, transparent: true, opacity: opacite, alphaToCoverage: false });
+  return new LineMaterial({ color: LINE, linewidth: 1.7, transparent: true, opacity: op, alphaToCoverage: false });
 }
-const matDecor = materiau(1), matGens = materiau(1), matDragon = materiau(1), matEtal = materiau(1);
-const TOUS_MAT = [matDecor, matGens, matDragon, matEtal];
+const matDecor = materiau(), matGens = materiau(), matDragon = materiau(), matEtal = materiau();
+const matSol = materiau(0.16), matTrace = materiau(0.45);
+matSol.linewidth = 1.1; matTrace.linewidth = 1.3;
+const TOUS_MAT = [matDecor, matGens, matDragon, matEtal, matSol, matTrace];
 
-function objetDe(segments, mat) {
+// le noir qui cache. polygonOffset repousse les faces d'un cheveu vers le
+// fond pour que les arêtes posées dessus ne clignotent pas.
+const matNoir = new THREE.MeshBasicMaterial({
+  color: 0x000000, polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1,
+});
+
+function ligneDe(segments, mat) {
   const g = new LineSegmentsGeometry(); g.setPositions(segments);
   return new LineSegments2(g, mat);
 }
-scene.add(objetDe(SEG_DECOR, matDecor));
+function faceDe(triangles) {
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(triangles, 3));
+  return new THREE.Mesh(g, matNoir);
+}
+function ensemble(forme, mat) {
+  const o = new THREE.Group();
+  if (forme.f && forme.f.length) o.add(faceDe(forme.f));
+  o.add(ligneDe(forme.a, mat));
+  return o;
+}
 
-const grille = new THREE.GridHelper(160, 32, LINE, LINE);
-grille.material.transparent = true; grille.material.opacity = 0.09;
-scene.add(grille);
+scene.add(ensemble({ a: SEG_DECOR, f: FACE_DECOR }, matDecor));
+scene.add(ligneDe(SEG_SOL, matSol));
+scene.add(ligneDe(SEG_TRACE, matTrace));
 
-for (const h of habitants) {
-  h.objet = objetDe(silhouette(h.role), matGens);
+// les habitants
+function ajouterObjet(h) {
+  h.objet = ensemble(silhouette(h.role), matGens);
   scene.add(h.objet);
 }
-const objDragon = objetDe(DRAGON, matDragon);
+for (const h of habitants) ajouterObjet(h);
+
+// les parties mobiles des moulins : elles tournent tant que la meule tourne
+for (const m of MOULINS) {
+  const socle = new THREE.Group();
+  socle.position.set(m.x, m.y, m.z);
+  socle.rotation.y = m.angle;
+  const piece = ligneDe(m.formeMobile.a, matDecor);
+  if (m.axe === 'roue') piece.position.set(3.1, 1.6, 0);      // la roue, dans le courant
+  else piece.position.set(0, 8.4, -2.7);                      // les ailes, sur la façade
+  socle.add(piece);
+  scene.add(socle);
+  m.piece = piece;
+}
+
+const objDragon = ensemble(DRAGON, matDragon);
 objDragon.visible = false;
 scene.add(objDragon);
 
-const groupeEtals = new THREE.Group();
-scene.add(groupeEtals);
+const groupeEtals = new THREE.Group(); scene.add(groupeEtals);
 let etalsDressés = false;
+const groupeBucher = new THREE.Group(); scene.add(groupeBucher);
+let bucherDresse = false;
 
-function majRendu() {
+function majRendu(dt) {
   const l = lumiere();
   matDecor.opacity = 0.42 + l * 0.58;      // la nuit tombe sur le décor
   matGens.opacity = 0.55 + l * 0.45;
-  grille.material.opacity = 0.03 + l * 0.07;
+  matSol.opacity = 0.05 + l * 0.13;
+  matTrace.opacity = 0.18 + l * 0.3;
 
   for (const h of habitants) {
+    if (!h.objet) continue;
     h.objet.visible = h.vivant;
-    if (!h.vivant) continue;
-    h.objet.position.set(h.x, 0, h.z);
+    if (h.vivant) h.objet.position.set(h.x, hauteur(h.x, h.z), h.z);
+  }
+
+  for (const m of MOULINS) {
+    if (m.axe === 'roue') m.piece.rotation.x = m.tourne;
+    else m.piece.rotation.z = m.tourne;
   }
 
   const d = village.dragon;
@@ -797,10 +1329,24 @@ function majRendu() {
   if (foire !== etalsDressés) {
     groupeEtals.clear();
     if (foire) for (const e of village.etals) {
-      const S = []; poser(S, FORMES.etal(), e.x, e.z, e.angle);
-      groupeEtals.add(objetDe(S, matEtal));
+      const o = FORMES.etal(), a = [], f = [];
+      poser(a, o.a, e.x, hauteur(e.x, e.z), e.z, e.angle);
+      poser(f, o.f, e.x, hauteur(e.x, e.z), e.z, e.angle);
+      groupeEtals.add(ensemble({ a, f }, matEtal));
     }
     etalsDressés = foire;
+  }
+
+  const bucher = !!village.bucher;
+  if (bucher !== bucherDresse) {
+    groupeBucher.clear();
+    if (bucher) {
+      const o = FORMES.bucher(), a = [], f = [];
+      poser(a, o.a, village.bucher.x, hauteur(village.bucher.x, village.bucher.z), village.bucher.z, 0);
+      poser(f, o.f, village.bucher.x, hauteur(village.bucher.x, village.bucher.z), village.bucher.z, 0);
+      groupeBucher.add(ensemble({ a, f }, matEtal));
+    }
+    bucherDresse = bucher;
   }
 }
 
@@ -814,7 +1360,7 @@ function majCadrage() {
   for (const m of TOUS_MAT) m.resolution.set(innerWidth, innerHeight);
 }
 {
-  const dist = 260, sinP = Math.sin(ISO_POLAIRE);
+  const dist = 300, sinP = Math.sin(ISO_POLAIRE);
   camera.position.set(dist * sinP * Math.sin(Math.PI / 4), dist * Math.cos(ISO_POLAIRE),
                       dist * sinP * Math.cos(Math.PI / 4));
   majCadrage(); controls.update();
@@ -870,6 +1416,23 @@ function brancherPanneau(idPanneau, idOuvre, idFerme) {
 brancherPanneau('menu', 'btn-menu', 'btn-menu-fermer');
 brancherPanneau('changelog', 'version', 'btn-fermer');
 
+// La musique. Deux pièges appris sur Forge Line, tous les deux évités ici :
+//   1. un navigateur refuse de jouer avant un vrai geste de l'utilisateur ;
+//   2. la tentative de déblocage à usage unique ne suffit pas — sur un
+//      appareil réel le premier geste n'aboutit pas toujours, et le son ne
+//      revient alors jamais. On réessaie donc à CHAQUE geste tant que la
+//      lecture n'a pas démarré.
+const audio = $('musique');
+let musiqueLancee = false;
+function tenterMusique() {
+  if (musiqueLancee || volumes.musique === 0) return;
+  audio.volume = volumes.musique / 100;
+  audio.play().then(() => { musiqueLancee = true; }).catch(() => { /* on retentera au geste suivant */ });
+}
+for (const ev of ['pointerdown', 'keydown', 'touchstart']) {
+  addEventListener(ev, tenterMusique, { passive: true });
+}
+
 const volumes = { sfx: 100, musique: 60 };
 function brancherVolume(cle, idCurseur, idValeur, cleStockage) {
   const curseur = $(idCurseur), valeur = $(idValeur);
@@ -882,11 +1445,13 @@ function brancherVolume(cle, idCurseur, idValeur, cleStockage) {
   curseur.addEventListener('input', () => {
     volumes[cle] = parseInt(curseur.value, 10);
     valeur.textContent = volumes[cle] + ' %';
+    if (cle === 'musique') { audio.volume = volumes.musique / 100; tenterMusique(); }
     try { localStorage.setItem(cleStockage, String(volumes[cle])); } catch (e) { /* ignore */ }
   });
 }
 brancherVolume('sfx', 'vol-sfx', 'vol-sfx-val', 'dh_volSfx');
 brancherVolume('musique', 'vol-mus', 'vol-mus-val', 'dh_volMusique');
+audio.volume = volumes.musique / 100;
 
 // le tableau du menu : qui habite ici, et ce qu'il est en train de faire
 function majTableau() {
@@ -904,7 +1469,7 @@ $('h-seg').textContent = (SEG_DECOR.length / 6) + habitants.reduce((n, h) => n +
 
 addEventListener('resize', majCadrage);
 window.DH = { scene, camera, controls, renderer, village, habitants, chronique, LIEUX,
-              lancerDragon, lancerFoire, THREE };
+              MOULINS, hauteur, lancerDragon, lancerFoire, THREE };
 
 noter('Le village se réveille.');
 majAffichage(); majTableau();
