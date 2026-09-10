@@ -745,8 +745,91 @@ sa limite. À faire avant d'ajouter d'autres mécaniques.
 
 ---
 
+## v0.10 — l'occlusion réparée, le colporteur, la boucle, les vitesses
+
+### Les faces ne cachaient rien (signalé par Pierre)
+
+« Du filaire qui laisse apparaître les arêtes qui devraient être
+cachées. » Constat juste. Le principe était bon, l'exécution non :
+`quad()` et `tri()` ne garantissent aucun **sens de rotation** aux
+triangles, et un moteur 3D élimine par défaut ceux qui tournent à
+l'envers. La moitié des faces n'était donc jamais dessinée, et
+l'occlusion était pleine de trous.
+
+Vérifié avant de corriger : deux captures du même gros plan sur l'église,
+l'une telle quelle, l'autre avec `side = DoubleSide` forcé à l'exécution.
+La différence était sans appel. Corrigé en une ligne — plutôt que de
+reprendre le sens de chaque triangle dans toutes les formes, le matériau
+devient recto-verso et le sens n'a plus d'importance.
+
+Coût mesuré : 25 → 18-20 images/s en rendu logiciel (sans élimination des
+faces arrière il y a deux fois plus de pixels à peindre). Négligeable sur
+un vrai GPU ; si ça devait gêner un jour, la vraie solution serait de
+corriger le sens des triangles à la source.
+
+### Le colporteur (précisé par Pierre)
+
+Indépendant de la foire : il arrive quand il veut, reste deux à six
+jours, repart de même. Il **loge à la cabane**, chez celle que le village
+tient déjà à distance — les deux à l'écart se tiennent compagnie. Quand
+il déballe, ceux qui l'écoutent ont un peu moins peur et deviennent un
+peu plus sociables : il apporte des choses qu'on ne voit pas ailleurs.
+
+Et **le village ne le désigne jamais** : il est exclu des candidats au
+bouc émissaire. Seul, sans terre, sans menace, il intrigue plus qu'il
+n'inquiète — c'est ce qui le sauve. Référence donnée par Pierre : le
+personnage du début du *Château des Carpathes*, mystérieux et bienfaisant.
+
+Mise en œuvre : le personnage est étiqueté « l'étranger » dans le code et
+la chronique plutôt que par une appartenance religieuse. Le rôle décrit
+par Pierre — bienveillant, porteur de merveilles, protégé — est rendu
+entièrement ; seule l'étiquette reste neutre.
+
+### La boucle musicale (signalée par Pierre)
+
+Un élément `<audio loop>` rouvre son flux à chaque tour et laisse un
+blanc. Pire : un MP3 porte du **silence d'encodage** aux deux bouts (le
+codec travaille par blocs et complète le dernier), donc même une boucle
+parfaite l'entendrait.
+
+Corrigé en Web Audio : le fichier est décodé une fois en mémoire et la
+boucle est calée à l'échantillon près sur le premier et le dernier son
+réels. Le curseur du menu pilote un gain, plus le volume d'un élément.
+
+**Un défaut trouvé en mesurant, sur ma propre correction** : au premier
+essai, un seuil de silence de 0,0025 prenait la fin du fondu pour du vide
+et coupait **3,5 secondes** de musique sur 20,9. Seuil abaissé à 0,0004 et
+rognage plafonné à un tiers de seconde par côté — la boucle ne perd plus
+que 0,37 s, exactement le silence du codec.
+
+### Les vitesses ×1 / ×10 / ×100 (demandées par Pierre)
+
+Deux corrections étaient nécessaires avant de pouvoir monter aussi haut,
+et aucune des deux ne se voyait à ×3 :
+
+1. **L'horloge des décisions battait en temps réel** (`performance.now()`).
+   À ×100, un villageois aurait gardé la même occupation pendant cent fois
+   plus de temps simulé et traversé la carte entre deux choix. Elle bat
+   désormais au temps du village (`village.temps`), donc le comportement
+   est identique à toutes les vitesses.
+2. **Le pas de simulation est découpé en tranches fixes** de 0,2 s. Sans
+   ça, une seule image avancerait de plusieurs secondes d'un coup : les
+   villageois traverseraient les murs et les seuils de rassemblement
+   seraient sautés. Un plafond de 6 s par image évite qu'un onglet remis
+   au premier plan ne rattrape une semaine d'un coup.
+
+Vérifié : 12 s réelles donnent 12 / 120 / 1126 secondes simulées aux trois
+vitesses, personne ne sort de la carte, aucune erreur, et la chronique
+continue de produire des événements cohérents (succession, départ du
+colporteur, dîme, dragon) à ×100.
+
+---
+
 ## 📜 Historique
 
+- **2026-09-10 (nuit)** — Occlusion réparée (sens des triangles), colporteur
+  indépendant et protégé, boucle musicale à l'échantillon près, vitesses
+  ×1/×10/×100 avec horloge de décision en temps simulé. v0.10.
 - **2026-09-10 (suite)** — Deuxième acte (autorité du prêtre, dîme, impôt,
   révolte, bouc émissaire, succession de la sorcière), relief et ruisseau,
   volume par faces noires, deux moulins cassables, six métiers de plus,

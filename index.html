@@ -162,7 +162,21 @@
   <div class="contenu">
     <h2>DWELVE HOLLOW — HISTORIQUE</h2>
 
-    <div class="v courante"><b>v0.8</b> — le village. Église, manoir, boulangerie, ateliers,
+    <div class="v courante"><b>v0.10</b> — les faces noires cachent enfin vraiment : la
+      moitié des triangles était orientée à l'envers, donc éliminée par le moteur, ce qui
+      laissait voir toutes les arêtes arrière. Le colporteur devient indépendant de la
+      foire — il va et vient quand il veut, loge à la cabane, calme ceux qui l'écoutent, et
+      le village ne le désigne jamais. La musique boucle à l'échantillon près en Web Audio.
+      Vitesses ×1 / ×10 / ×100, avec une horloge de décision passée en temps simulé.</div>
+
+    <div class="v"><b>v0.9</b> — le deuxième acte : l'autorité du prêtre se nourrit de la
+      peur et lève la dîme, le seigneur lève l'impôt quand les réserves sont pleines, la
+      rancune monte au manoir, et faute de sorcière le village désigne le moins sociable.
+      Une femme que son homme a laissée finit toujours par reprendre la cabane. Relief,
+      ruisseau et pont ; deux moulins cassables et réparables ; six métiers de plus ; la
+      musique de Pierre.</div>
+
+    <div class="v"><b>v0.8</b> — le village. Église, manoir, boulangerie, ateliers,
       chaumières, puits, champs et la cabane de la sorcière à l'écart. Seize habitants avec
       un métier, cinq traits de caractère et des besoins qui montent ; ils choisissent leur
       occupation au tirage pondéré, pas sur un script. Économie du blé et du pain, foire aux
@@ -684,6 +698,7 @@ const village = {
   jour: 1, heure: 0.28,          // 0 = minuit, 0.5 = midi
   ble: 12, farine: 5, pain: 8, outils: 6, meubles: 0, chantier: 0,
   volsCetteNuit: 0,
+  temps: 0,                      // secondes SIMULÉES écoulées — voir la boucle
   colporteur: null, joursColporteur: 0,
   jourSansSorciere: 0, bucher: null,
   foire: 0,                      // durée restante, en journées
@@ -810,6 +825,7 @@ const PLAFOND_BLE = 70;     // au-delà, les greniers débordent et les paysans 
 const PROCHE = 2.6;
 
 function simuler(dt) {
+  village.temps += dt;
   const dtJour = dt / JOUR;
   village.heure += dtJour;
   if (village.heure >= 1) {
@@ -840,10 +856,10 @@ function simuler(dt) {
     if (h.faim > 0.85) h.soupcon = Math.min(1, h.soupcon + dt * 0.02 * h.superstition);
     peurTotale += h.peur;
 
-    if (performance.now() / 1000 > h.prochainChoix) {
+    if (village.temps > h.prochainChoix) {
       h.occupation = choisirOccupation(h);
       h.cible = lieuDe(h, h.occupation);
-      h.prochainChoix = performance.now() / 1000 + entre(4, 9);
+      h.prochainChoix = village.temps + entre(4, 9);
     }
     avancer(h, dt);
     agir(h, dt);
@@ -1435,7 +1451,7 @@ function majAffichage() {
   $('s-peur').textContent = Math.round(village.peur * 100) + ' %';
 }
 
-const VITESSES = [1, 3, 8];
+const VITESSES = [1, 10, 100];
 let iVitesse = 0, enPause = false;
 $('btn-vitesse').addEventListener('click', (e) => {
   iVitesse = (iVitesse + 1) % VITESSES.length;
@@ -1586,8 +1602,18 @@ renderer.setAnimationLoop((maintenant) => {
   precedent = maintenant;
   dt = Math.min(dt, 0.1);                       // un onglet en arrière-plan ne doit pas sauter une semaine
   if (!enPause) {
-    const pas = dt * VITESSES[iVitesse];
-    simuler(pas);
+    // À ×100, une seule image avancerait de plusieurs secondes simulées
+    // d'un coup : les villageois traverseraient la carte en un pas et les
+    // seuils de rassemblement seraient sautés. On découpe donc en
+    // tranches fixes — le résultat est le même à toutes les vitesses,
+    // seule la quantité de tranches change.
+    const TRANCHE = 0.2;
+    let reste = Math.min(dt * VITESSES[iVitesse], 6);   // plafond : un onglet rendu au premier plan ne rattrape pas une semaine
+    while (reste > 0) {
+      const pas = Math.min(TRANCHE, reste);
+      simuler(pas);
+      reste -= pas;
+    }
   }
   majRendu();
   controls.update();
