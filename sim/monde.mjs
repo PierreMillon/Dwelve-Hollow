@@ -273,6 +273,11 @@ const pForet = chercherPlace(-34, -30, 10, 9);
 const FORET = lieu('la forêt', 'foret', pForet.x, pForet.z, 0, 'foret');
 // La grange : la réserve du village, visible de loin. On y lit d'un coup
 // d'œil si l'hiver se passera bien — et c'est là que vont les rats.
+// L'AUBERGE. Elle héberge ceux dont on ne sait rien : les vagabonds de
+// passage et les chasseurs de monstres. C'est le seul toit du village
+// qui ne soit à personne.
+const pAuberge = chercherPlace(-13, 8, 14, 9);
+const AUBERGE = lieu("l'auberge", 'auberge', pAuberge.x, pAuberge.z, entre(-0.4, 0.4), 'auberge');
 const pGrange = chercherPlace(9, -13, 12, 9);
 const GRANGE = lieu('la grange', 'grange', pGrange.x, pGrange.z, entre(-0.5, 0.5), 'grange');
 
@@ -328,7 +333,7 @@ for (let i = 0; i < 3; i++) {
 const ROLES = [
   ['seigneur', 1], ['dame', 1], ['pretre', 1], ['boulanger', 1],
   ['charpentier', 1], ['tailleur', 1], ['ebeniste', 1], ['forgeron', 1],
-  ['voleur', 1], ['sorciere', 1], ['bucheron', 1], ['paysan', 6],
+  ['voleur', 1], ['sorciere', 1], ['bucheron', 1], ['aubergiste', 1], ['paysan', 5],
 ];
 // ce qu'un enfant devenu grand peut reprendre : ni seigneur, ni dame, ni
 // sorcière — ces trois-là ne se transmettent pas comme un métier
@@ -339,7 +344,8 @@ const NOM_ROLE = {
   charpentier: 'le charpentier', tailleur: 'le tailleur de pierre', ebeniste: "l'ébéniste",
   forgeron: 'le forgeron', voleur: 'le voleur', sorciere: 'la sorcière',
   paysan: 'le paysan', colporteur: 'le colporteur', enfant: "l'enfant",
-  bucheron: 'le bûcheron',
+  bucheron: 'le bûcheron', etranger: "l'étranger", chasseur: 'le chasseur de monstres',
+  aubergiste: "l'aubergiste",
 };
 
 const PRENOMS_H = ['Guillaume','Thibaut','Jehan','Renaud','Gautier','Colin','Foulques','Enguerrand',
@@ -395,7 +401,8 @@ const nommer = (h) => h.surnom ? `${h.prenom} dit${h.feminin ? 'e' : ''} ${h.sur
 const OCCUPATIONS = ['dormir', 'manger', 'prier', 'flâner', 'fuir', 'accuser',
   'se révolter', 'courtiser', 'suivre', 'voler', 'moissonner', 'cuire',
   'réparer', 'menuiser', 'forger', 'tailler', 'colporter', 'officier',
-  'herboriser', 'inspecter', 'visiter', 'veiller', 'jouer', 'bûcheronner'];
+  'herboriser', 'inspecter', 'visiter', 'veiller', 'jouer', 'bûcheronner',
+  'servir', 'guetter'];
 
 let rangSuivant = 0;
 function creerHabitant(role, logis) {
@@ -459,6 +466,7 @@ function creerHabitant(role, logis) {
     // habitants peuvent ne pas soupçonner le même. C'est ce qui permet
     // qu'un chasseur de monstres se trompe.
     soupconne: new Map(),
+    pire: { qui: null, valeur: 0 },   // le plus soupçonné, recalculé une fois par pas
     aime: null,
     occupation: 'flâner', prochainChoix: 0, vivant: true,
   };
@@ -496,6 +504,8 @@ const village = {
   lune: 0,                   // 0 nouvelle lune, 1 pleine lune
   sabbat: false,             // les nuits de pleine lune, on veille à la cabane
   loupAgi: false,            // il n'abîme le village qu'une fois par nuit
+  chasseur: null, joursChasseur: 0,   // celui qu'on loge à l'auberge
+  jourVampire: -99,          // la dernière fois qu'on a parlé du seigneur
   loup: null,                // celui que la pleine lune a fait sortir de lui-même
   // Le décompte de ce qui est arrivé DEPUIS LE PREMIER JOUR. La chronique
   // ne garde que ses deux cents dernières lignes — parfait pour lire par
@@ -505,7 +515,8 @@ const village = {
   arrive: { buchers: 0, departs: 0, revoltes: 0, dragons: 0, foires: 0,
             successions: 0, surnoms: 0, noyades: 0, colporteurs: 0,
             sabbats: 0, loups: 0, betes: 0, meurtres: 0, egares: 0, fous: 0,
-            naissances: 0, vieillesses: 0, majorites: 0 },
+            naissances: 0, vieillesses: 0, majorites: 0,
+            etrangers: 0, chasseurs: 0, imposteurs: 0, vampire: 0 },
   pluie: 0,                  // 0 à 1, tiré chaque matin
   temps: 0,                      // secondes SIMULÉES écoulées — voir la boucle
   tension: 0, calmeDepuis: 0,    // voir metteurEnScene()
@@ -713,6 +724,9 @@ function poidsDes(h) {
     if (h.role === 'bucheron')    p.push(['bûcheronner', travail * (village.bois < 40 ? 1.6 : 0.2),
                                           pourquoiTravail + (village.bois < 6 ? ' · il ne reste presque plus de bois' : '')]);
     if (h.role === 'colporteur')  p.push(['colporter', travail * 2, 'il déballe son ballot']);
+    if (h.role === 'aubergiste')  p.push(['servir', travail * 1.6, 'il tient l\'auberge']);
+    if (h.role === 'etranger')    p.push(['flâner', travail * 1.4, 'il regarde le village']);
+    if (h.role === 'chasseur')    p.push(['guetter', travail * 2.2, 'il guette ce qui rôde']);
     if (h.role === 'pretre') p.push(['officier', travail * 1.4, pourquoiTravail]);
     if (h.role === 'sorciere') p.push(['herboriser', travail, pourquoiTravail]);
     if (h.role === 'seigneur') p.push(['inspecter', travail * (0.6 + h.cupidite), `cupidité ${n2(h.cupidite)}`]);
@@ -1057,6 +1071,8 @@ function lieuDe(h, occ) {
     case 'colporter': return PLACE;
     case 'herboriser': case 'veiller': return CABANE;
     case 'bûcheronner': return FORET;
+    case 'servir': return AUBERGE;
+    case 'guetter': return chez(h, [PLACE, FORET, GRANGE, CABANE], 5);
     case 'inspecter': return chez(h, [PLACE, ...CHAMPS, FOUR], 3);
     case 'visiter': return chez(h, [PLACE, EGLISE, ...CHAUMIERES], 4);
     default: return PLACE;
@@ -1420,13 +1436,50 @@ function majMoulins(dt) {
 
 /* ---- le voisinage : la rumeur ET l'affection passent par le même
        endroit, à savoir deux personnes qui se croisent souvent ---- */
+/* ---- LA GRILLE ----
+   Comparer chaque habitant à tous les autres coûtait le carré : mesuré,
+   doubler la population divisait la vitesse par quatre, et le plafond
+   tombait à 250 habitants à ×100.
+   Or deux personnes n'interagissent qu'à moins de cinq mètres. On range
+   donc tout le monde dans des cases de cinq mètres, et on ne compare que
+   ce qui est dans la même case ou dans les huit voisines. Le coût
+   redevient proportionnel au nombre de gens, pas à son carré. */
+const CASE = 5;
+const grille = new Map();
+const clefCase = (x, z) => ((Math.floor(x / CASE) + 512) << 10) | (Math.floor(z / CASE) + 512);
+
+function rangerDansLaGrille() {
+  grille.clear();
+  for (const h of habitants) {
+    if (!h.vivant) continue;
+    const k = clefCase(h.x, h.z);
+    const seau = grille.get(k);
+    if (seau) seau.push(h); else grille.set(k, [h]);
+  }
+}
+
 function voisinage(dt) {
-  for (let i = 0; i < habitants.length; i++) {
-    const a = habitants[i];
-    if (!a.vivant) continue;
-    for (let j = i + 1; j < habitants.length; j++) {
-      const b = habitants[j];
-      if (!b.vivant) continue;
+  rangerDansLaGrille();
+  // On relit la table de soupçons UNE FOIS par personne et par pas, pas
+  // une fois par paire. Mesuré : c'était là le vrai coût quadratique, et
+  // non la boucle des voisins — la grille seule n'avait presque rien
+  // gagné.
+  for (const h of habitants) if (h.vivant) h.pire = plusSoupconne(h);
+  for (const [k, seau] of grille) {
+    for (let i = 0; i < seau.length; i++) {
+      const a = seau[i];
+      if (!a.vivant) continue;
+      // les neuf cases : la sienne et les huit d'autour. On ne regarde
+      // que vers l'avant pour ne pas traiter chaque paire deux fois.
+      for (let dc = 0; dc < 9; dc++) {
+        const ox = (dc % 3) - 1, oz = ((dc / 3) | 0) - 1;
+        const voisin = (ox === 0 && oz === 0) ? seau
+                     : grille.get(k + (ox << 10) + oz);
+        if (!voisin) continue;
+        const debut = (ox === 0 && oz === 0) ? i + 1 : 0;
+        for (let j = debut; j < voisin.length; j++) {
+      const b = voisin[j];
+      if (!b.vivant || b === a) continue;
       if (Math.hypot(a.x - b.x, a.z - b.z) > 5) continue;
 
       // se voir souvent, ça rapproche — sauf si une règle dit le contraire
@@ -1448,7 +1501,7 @@ function voisinage(dt) {
         // ET UN NOM PASSE AVEC. On se dit qui l'on soupçonne, et l'autre
         // en garde une part. C'est ainsi qu'un soupçon né d'un seul
         // regard devient l'affaire de tout le village.
-        const pa = plusSoupconne(a), pb = plusSoupconne(b);
+        const pa = a.pire, pb = b.pire;
         if (pa.qui && pa.qui !== b) soupconner(b, pa.qui, dt * 0.05 * pa.valeur * (0.3 + a.sociabilite));
         if (pb.qui && pb.qui !== a) soupconner(a, pb.qui, dt * 0.05 * pb.valeur * (0.3 + b.sociabilite));
       }
@@ -1459,6 +1512,8 @@ function voisinage(dt) {
         noter(`${a.prenom} et ${b.prenom} se sont promis l'un à l'autre.`, true, a);
         souvenir(a, `s'est promis${e(a)} à ${b.prenom}`);
         souvenir(b, `s'est promis${e(b)} à ${a.prenom}`);
+      }
+        }
       }
     }
   }
@@ -1620,6 +1675,116 @@ function finirAccusation(v, jusquauBout) {
   village.autorite = Math.min(1, village.autorite + 0.1);   // le prêtre avait « raison »
   for (const h of habitants) { h.soupcon *= 0.2; h.prochainChoix = 0; }
   souvenir(v, jusquauBout ? `a été brûlé${e(v)} sur la place` : 'a dû quitter le village');
+}
+
+/* ================================================================
+   LES LÉGENDES
+   Rien de surnaturel n'existe ici. Ce qui existe, c'est un village qui
+   a peur et qui a besoin d'un nom à mettre sur sa peur. L'étranger dont
+   on ne sait rien, le chasseur qui vend une certitude, le seigneur qui
+   prend le blé — chacun devient le monstre qu'il faut au moment voulu.
+   ================================================================ */
+
+// L'ÉTRANGER. Il arrive, il loge à l'auberge, il repart. On ne sait rien
+// de lui, et c'est exactement pour ça qu'on le soupçonne — ou qu'il en
+// profite.
+function majEtrangers() {
+  for (const h of habitants) {
+    if (!h.vivant || h.role !== 'etranger') continue;
+    h.joursRestants--;
+    if (h.joursRestants <= 0) {
+      h.vivant = false;
+      noter(`${h.prenom} a repris la route. On n'a jamais su d'où il venait.`);
+    }
+  }
+  const combien = habitants.filter(h => h.vivant && h.role === 'etranger').length;
+  if (combien >= 2 || aleaEvenements() > 0.05) return;   // mesuré : à 0,12 il en passait un tous les deux jours
+  const venu = creerHabitant('etranger', AUBERGE);
+  venu.joursRestants = Math.round(entre(3, 9));
+  venu.sociabilite = entre(0.1, 0.5);
+  habitants.push(venu);
+  nouveaux.push(venu);
+  village.arrive.etrangers++;
+  noter(`Un homme est descendu à l'auberge. Personne ne sait qui c'est.`, true, venu);
+  // le village se méfie de ce qu'il ne connaît pas
+  for (const h of habitants) if (h.vivant && h !== venu) soupconner(h, venu, 0.10 * h.superstition);
+}
+
+// LE CHASSEUR DE MONSTRES. Il vient quand le village a peur, il est logé
+// gratuitement à l'auberge, et il désigne un coupable. Il peut se
+// tromper. Il peut être un escroc qui ne cherche que le gîte. Le village
+// n'a aucun moyen de faire la différence — et nous non plus, sauf dans sa
+// fiche.
+function majChasseur() {
+  const c = village.chasseur;
+  if (c && c.vivant) {
+    village.joursChasseur--;
+    if (village.joursChasseur > 0) return;
+    village.chasseur = null;
+    if (c.imposteur) {
+      c.vivant = false;
+      village.arrive.imposteurs++;
+      noter(`${c.prenom} est parti avant l'aube, sans rien avoir chassé. L'aubergiste n'a pas été payé.`, true);
+      for (const h of habitants) if (h.vivant) h.foi = Math.max(0, h.foi - 0.1);
+    } else {
+      c.vivant = false;
+      noter(`${c.prenom} a repris la route. Il a juré que la chose ne reviendrait pas.`, true);
+      for (const h of habitants) if (h.vivant) h.peur = Math.max(0, h.peur - 0.25);
+    }
+    return;
+  }
+  // il ne vient que si l'on a peur, et pas deux fois de suite
+  if (village.peur < 0.20 || village.jour < 12 || aleaEvenements() > 0.35) return;
+  const venu = creerHabitant('chasseur', AUBERGE);
+  venu.courage = entre(0.7, 1);
+  venu.superstition = entre(0.6, 1);
+  venu.imposteur = aleaEvenements() < 0.45;      // presque un sur deux
+  venu.joursRestants = 99;
+  habitants.push(venu);
+  nouveaux.push(venu);
+  village.chasseur = venu;
+  village.joursChasseur = Math.round(entre(4, 10));
+  village.arrive.chasseurs++;
+  noter(`Un homme armé s'est présenté. Il dit chasser ce qui rôde, et l'auberge le loge.`, true, venu);
+  souvenir(venu, venu.imposteur ? "n'a jamais chassé quoi que ce soit"
+                                : 'est venu chasser ce qui rôde');
+
+  // IL DÉSIGNE. Le vrai chasseur suit ce que le village soupçonne déjà ;
+  // l'escroc désigne le plus commode — celui qu'on voit le moins.
+  const epargne = (h) => h.role === 'seigneur' || h.role === 'enfant' || h === venu;
+  let vise;
+  if (venu.imposteur) {
+    vise = habitants.filter(h => h.vivant && !epargne(h))
+      .sort((a, b) => (a.sociabilite + a.seuil) - (b.sociabilite + b.seuil))[0];
+  } else {
+    vise = soupconneDuVillage(epargne).qui;
+  }
+  if (!vise) return;
+  noter(`Il a regardé longuement ${nommer(vise)}, et n'a rien dit.`, true, vise);
+  for (const h of habitants) {
+    if (!h.vivant || h === vise) continue;
+    soupconner(h, vise, 0.45 * (0.5 + h.superstition));
+  }
+}
+
+// LE SEIGNEUR QUI BOIT LE SANG. Aucune mécanique nouvelle : il lève
+// l'impôt, c'est tout. Mais quand la faim dure et que le manoir est
+// plein, le village trouve l'image juste — et à partir de là, il le
+// soupçonne comme il soupçonnerait n'importe qui.
+function majVampire() {
+  if (village.jour < village.jourVampire + 20) return;
+  const sgr = habitants.find(h => h.vivant && h.role === 'seigneur');
+  if (!sgr || village.impot < 14) return;
+  const affames = habitants.filter(h => h.vivant && h.faim > 0.6).length;
+  if (affames < 4) return;
+  village.jourVampire = village.jour;
+  village.arrive.vampire++;
+  noter(`On dit tout bas que le seigneur boit le sang du village. Le grenier du manoir est plein.`, true, sgr);
+  for (const h of habitants) {
+    if (!h.vivant || h === sgr) continue;
+    soupconner(h, sgr, 0.28 * (0.4 + h.superstition));
+    h.rancune = Math.min(1, h.rancune + 0.12);
+  }
 }
 
 // LA SUCCESSION. Une place vide à l'écart ne le reste jamais longtemps :
@@ -1958,6 +2123,9 @@ function finDeJournee() {
   village.autorite = Math.max(0, village.autorite - 0.02);   // elle retombe si rien n'effraie
   if (village.sorciereChassee) succession();
   majColporteur();
+  majEtrangers();
+  majChasseur();
+  majVampire();
 
   if (village.jour % 6 === 0) lancerFoire();      // la foire est au calendrier, pas au hasard
   else if (village.jour > 3) metteurEnScene();
@@ -2146,9 +2314,9 @@ function appliquerRegles() {
 // ressort de l'appelant (la page le fait pour les vitesses ×10 et ×100,
 // le simulateur pour aller vite).
 return {
-  GRAINE, R, alea, aleaDeco, entre, parmi,
+  GRAINE, R, alea, aleaDeco, aleaEvenements, entre, parmi,
   village, habitants, chronique, nouveaux, evenements, regles,
-  LIEUX, MOULINS, CHAMPS, CHAUMIERES, ATELIERS, GRANGE, FORET,
+  LIEUX, MOULINS, CHAMPS, CHAUMIERES, ATELIERS, GRANGE, FORET, AUBERGE,
   PLACE, EGLISE, MANOIR, FOUR, CABANE,
   RUISSEAU, ROUTE, BUTTE, POINT_PONT, LARGEUR_EAU, PROFONDEUR_EAU,
   hauteur, distRoute, distRuisseau, distPolyligne,

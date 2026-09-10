@@ -198,7 +198,7 @@
   <span class="title">DWELVE HOLLOW</span>
 </div>
 
-<button id="version">v0.22</button>
+<button id="version">v0.23</button>
 
 <div id="saison">an <b id="s-an">1</b> · <b id="s-saison">printemps</b> · jour <b id="s-jour">1</b> · <b id="s-phase">aube</b> · <b id="s-lune">lune</b> · pain <b id="s-pain">0</b> · peur <b id="s-peur">0 %</b></div>
 
@@ -293,7 +293,18 @@
   <div class="contenu">
     <h2>DWELVE HOLLOW — HISTORIQUE</h2>
 
-    <div class="v courante"><b>v0.22</b> — <b>donner une âme.</b> Quand quelqu'un arrive — un
+    <div class="v courante"><b>v0.23</b> — <b>les légendes.</b> Une auberge, le seul toit du
+      village qui ne soit à personne. Des étrangers y descendent, dont on ne sait rien — et
+      c'est exactement pour ça qu'on les soupçonne. Un <b>chasseur de monstres</b> arrive
+      quand le village a peur : logé gratuitement, il regarde longuement quelqu'un et ne dit
+      rien, et tout le monde le soupçonne aussitôt. Un chasseur sur deux est un escroc qui
+      repart avant l'aube sans avoir rien chassé. Et quand la faim dure pendant que le
+      grenier du manoir est plein, on dit tout bas que le seigneur boit le sang du village
+      — aucune mécanique nouvelle, seulement l'image que le village trouve juste. La grille
+      spatiale triple par ailleurs le plafond de population, et le sexe d'une âme peut être
+      laissé en « surprise ».</div>
+
+    <div class="v"><b>v0.22</b> — <b>donner une âme.</b> Quand quelqu'un arrive — un
       enfant qui naît, un colporteur qui passe, une femme qui reprend la cabane — un
       bouton discret propose de lui donner une âme. Si on n'y touche pas, il s'efface et
       le village s'en est déjà chargé. Si on clique, le village s'arrête, on pose les neuf
@@ -459,7 +470,7 @@ import { creerMonde, graineDepuis } from './sim/monde.mjs';
 const GRAINE = graineDepuis(location.hash.slice(1) || 'dwelve');
 const M = creerMonde(GRAINE);
 const {
-  alea, aleaDeco, entre, parmi, village, habitants, chronique, nouveaux, regles,
+  alea, aleaDeco, aleaEvenements, entre, parmi, village, habitants, chronique, nouveaux, regles,
   LIEUX, MOULINS, CHAMPS, PLACE, EGLISE, MANOIR, FOUR, CABANE, GRANGE, FORET, ATELIERS,
   RUISSEAU, ROUTE, POINT_PONT, LARGEUR_EAU, PROFONDEUR_EAU,
   hauteur, distRoute, distRuisseau,
@@ -544,6 +555,16 @@ const FORMES = {
   cabane: () => bloc((S, T) => {
     boite(S, T, 0, 0, 0, 3.2, 2, 3.6); toit(S, T, 0, 2, 0, 3.2, 2.6, 3.6);
     trait(S, -2.4, 0, -2.4, -1.6, 2.8, -1.6);                // un mât planté de travers
+  }),
+  auberge: () => bloc((S, T) => {
+    boite(S, T, 0, 0, 0, 7, 3.2, 5.4); toit(S, T, 0, 3.2, 0, 7, 2, 5.4);
+    boite(S, T, 0, 3.2, 0, 4, 2.4, 3.4); toit(S, T, 0, 5.6, 0, 4, 1.4, 3.4);  // l'étage, pour loger
+    boite(S, null, 0, 0, 3, 2.4, 2.4, 0.1);                  // la porte, toujours ouverte
+    trait(S, 3.9, 2.6, 0, 3.9, 3.6, 0);                      // la potence de l'enseigne
+    trait(S, 3.5, 3.6, 0, 4.3, 3.6, 0);
+    trait(S, 3.7, 3.6, 0, 3.7, 3.05, 0);
+    trait(S, 4.1, 3.6, 0, 4.1, 3.05, 0);
+    trait(S, 3.7, 3.05, 0, 4.1, 3.05, 0);
   }),
   grange: () => bloc((S, T) => {
     boite(S, T, 0, 0, 0, 6.4, 3.4, 9); toit(S, T, 0, 3.4, 0, 6.4, 2.6, 9);
@@ -1155,9 +1176,11 @@ scene.add(objLune);
 // les corps qui portent une ombre : centre, rayon, hauteur
 const OMBRAGEURS = [];
 const HAUTEURS = { chaumiere: 4.3, boulangerie: 6.4, atelier: 4.1, eglise: 15.2,
-                   manoir: 10.8, cabane: 4.6, moulinEau: 6, moulinVent: 9.2 };
+                   manoir: 10.8, cabane: 4.6, moulinEau: 6, moulinVent: 9.2,
+                   grange: 6, auberge: 7 };
 const RAYONS = { chaumiere: 3.2, boulangerie: 3.9, atelier: 3.3, eglise: 6,
-                 manoir: 5.4, cabane: 2.4, moulinEau: 3.2, moulinVent: 2.8 };
+                 manoir: 5.4, cabane: 2.4, moulinEau: 3.2, moulinVent: 2.8,
+                 grange: 4.2, auberge: 4 };
 for (const l of LIEUX) {
   const h = HAUTEURS[l.forme];
   if (h) OMBRAGEURS.push({ x: l.x, z: l.z, r: RAYONS[l.forme], h });
@@ -1625,7 +1648,7 @@ $('btn-ame').addEventListener('click', () => {
     $('out-' + cle).textContent = (v / 100).toFixed(2).replace('.', ',');
   }
   $('ame-prenom').value = h.prenom;
-  $('ame-sexe').textContent = h.feminin ? 'une fille' : 'un garçon';
+  $('ame-sexe').textContent = 'surprise';        // par défaut, on laisse faire
   // On arrête le village le temps qu'on décide. Sinon, à ×100, un autre
   // enfant naît pendant qu'on hésite sur le troisième curseur — mesuré.
   ameReprend = !enPause;
@@ -1633,9 +1656,12 @@ $('btn-ame').addEventListener('click', () => {
   $('ame').classList.add('ouvert');
 });
 
+// Trois états, et le troisième est le plus intéressant : on ne le saura
+// qu'en lisant la chronique parler d'elle ou de lui.
+const SEXES = ['une fille', 'un garçon', 'surprise'];
 $('ame-sexe').addEventListener('click', () => {
   const b = $('ame-sexe');
-  b.textContent = b.textContent === 'une fille' ? 'un garçon' : 'une fille';
+  b.textContent = SEXES[(SEXES.indexOf(b.textContent) + 1) % SEXES.length];
 });
 
 function refermerAme() {
@@ -1653,7 +1679,10 @@ $('ame-sceller').addEventListener('click', () => {
   for (const [cle] of AME) h[cle] = parseInt($('ame-' + cle).value, 10) / 100;
   const nom = $('ame-prenom').value.trim();
   if (nom) h.prenom = nom.slice(0, 18);
-  h.feminin = $('ame-sexe').textContent === 'une fille';
+  const choix = $('ame-sexe').textContent;
+  // « surprise » : c'est le monde qui tranche, et on ne l'apprend qu'aux
+  // pronoms de la chronique.
+  h.feminin = choix === 'surprise' ? aleaEvenements() < 0.5 : choix === 'une fille';
   h.ame = true;                                    // on saura que c'était toi
   noter(`On a donné un nom à ${h.prenom}.`, true, h);
   souvenir(h, 'a reçu son âme');

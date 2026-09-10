@@ -1952,6 +1952,78 @@ Un `metierDe()` partagé règle ça partout.
 
 ---
 
+## Les légendes (v0.23)
+
+Le chapitre de conception est passé du carnet au code. Rien de surnaturel
+n'a été ajouté : ce qui a été ajouté, c'est de quoi mettre un nom sur la
+peur.
+
+### L'auberge
+
+Le seul toit du village qui ne soit à personne. Elle a un étage — c'est ce
+qui la distingue de loin — et une enseigne à sa potence.
+
+### Les étrangers
+
+Ils descendent à l'auberge, restent trois à neuf jours, repartent. Le
+village se méfie de ce qu'il ne connaît pas : leur seule arrivée porte du
+soupçon sur eux. Mesuré : **11 par village sur six ans** — à 0,12 de
+probabilité il en passait un tous les deux jours, ramené à 0,05.
+
+### Le chasseur de monstres
+
+Il vient quand le village a peur, il est logé gratuitement, et il
+**désigne**. Le vrai suit ce que le village soupçonne déjà ; l'escroc
+désigne le plus commode — celui qu'on voit le moins.
+
+La chronique dit seulement : *« Il a regardé longuement untel, et n'a rien
+dit. »* Le soupçon de tout le village monte alors d'un coup sur cette
+personne.
+
+**Presque un sur deux est un imposteur.** Il repart avant l'aube sans
+avoir rien chassé, l'aubergiste n'est pas payé, et la foi de tout le monde
+en prend un coup. Le vrai, lui, jure que la chose ne reviendra pas — et la
+peur retombe pour de bon, ce qui est peut-être le seul vrai service qu'il
+rende.
+
+Mesuré : **1,25 chasseur par village sur six ans, dont 0,5 imposteur.**
+
+### Le seigneur qui boit le sang
+
+Aucune mécanique nouvelle. Il lève l'impôt, c'est tout. Mais quand la faim
+dure et que le grenier du manoir est plein, le village trouve l'image
+juste — et à partir de là il le soupçonne comme il soupçonnerait
+n'importe qui. **5,6 fois par village sur six ans.**
+
+C'est l'application la plus exacte du principe : *le surnaturel n'existe
+pas dans la simulation, il existe dans la tête du village.*
+
+### La grille spatiale
+
+`voisinage()` comparait chaque habitant à tous les autres. Chacun est
+maintenant rangé dans une case de cinq mètres et ne se compare qu'aux neuf
+cases autour de lui.
+
+**Mesuré, et sans complaisance** : 400 habitants passent de 39 à 94
+secondes simulées par seconde, 800 de 10 à 28. C'est **un triplement du
+plafond**, pas l'ordre de grandeur que j'espérais.
+
+Le profileur a dit pourquoi : le coût restant est dans `lien()` et dans le
+travail par paire lui-même, pas dans le balayage. Et le banc d'essai est
+pessimiste — il entasse tout le monde dans un carré de 90 mètres, alors
+qu'un vrai village s'étale.
+
+Une optimisation faite au passage : la table de soupçons était relue une
+fois par paire ; elle l'est maintenant une fois par personne et par pas.
+
+### Le troisième sexe
+
+Demandé : « ajoute un troisième sexe *surprise* ». Le bouton du créateur
+d'âme a trois états, et « surprise » est le défaut : c'est le monde qui
+tranche, et on ne l'apprend qu'aux pronoms de la chronique.
+
+---
+
 ## 📜 Historique
 
 - **2026-09-10 (après-midi, suite)** — Lumière des torches calculée par
