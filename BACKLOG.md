@@ -1150,7 +1150,148 @@ sache.
 
 ---
 
+## Le monde sans dé (v0.15)
+
+Demandé par Pierre après sa question : « c'est grâce à la fonction random
+non ? On pourrait faire un monde vivant génératif sans aléatoire ? » —
+puis, après réflexion : « Ok pour ta recommandation sur le hasard. »
+
+### Les trois étages du hasard
+
+Le hasard n'est pas supprimé : il est rangé. Trois générateurs séparés,
+et une règle par étage.
+
+1. **La fabrique.** `alea` — le relief, les places, les prénoms, les
+   tempéraments, les penchants, les cadences. Il ne tourne qu'au moment
+   où l'on fabrique quelque chose, y compris en cours de partie quand une
+   nouvelle sorcière s'installe.
+2. **Les décisions.** Aucun tirage. Plus une seule fois, nulle part.
+3. **Les accidents du monde.** `aleaEvenements` — le dragon qui vient, la
+   femme qui reprend la cabane, le colporteur qui passe. Et
+   `aleaDeco` — la pluie, les étals, les bruitages, qui ne décident de
+   rien.
+
+Le corollaire important : l'angle d'arrivée du dragon a quitté `aleaDeco`
+pour `aleaEvenements`, parce qu'il décide de **qui il effraie le
+premier**. Ce n'était pas du décor. Le test de détermination l'a
+attrapé — voir plus bas.
+
+### Ce qui remplace le dé
+
+**Le maximum, pas le tirage.** `choisirOccupation` prend l'occupation qui
+pèse le plus lourd, point. La fiche affiche donc désormais le classement
+qui a réellement décidé, et sa première ligne est la décision — le
+libellé du panneau le dit.
+
+**Le penchant.** Chacun lit les vingt et une occupations avec un
+coefficient qui lui est propre, entre 0,72 et 1,28, fixé à sa naissance.
+C'est ce qui fait que deux paysans dans la même situation ne tranchent
+pas pareil.
+
+**La cadence.** Chacun revient sur sa décision toutes les 4 à 9 secondes,
+son chiffre à lui, et la peur presse tout le monde. Avant, l'intervalle
+était retiré au sort à chaque fois — un tirage par décision et par
+habitant.
+
+**La lassitude.** C'est la pièce maîtresse, et elle a été trouvée par la
+mesure, pas par le raisonnement. Ce qu'on vient de faire perd du poids,
+ce qu'on délaisse en regagne. Sans elle, un homme moissonnerait du lever
+au coucher sans jamais passer à l'église.
+
+**Les lieux.** Plus de `parmi()` : chacun a son champ, son établi, son
+coin de place, par une fonction du rang et du jour. Et deux choix sont
+devenus des raisons — on mange dehors si l'on aime la compagnie, on vole
+là où il y a à prendre.
+
+**La cour.** Elle ne se joue plus à pile ou face. Chaque femme a une
+exigence fixée une fois pour toutes ; chaque rebuffade l'entame un peu,
+mais elle le lasse plus vite qu'il ne l'use. C'est pourquoi la plupart
+des cours s'éteignent et que certaines aboutissent.
+
+**Le moulin.** La secousse du dragon s'accumule sous lui et lâche d'un
+coup, au lieu d'un dé par image. Chaque moulin a sa fragilité, et les
+deux ne lâchent pas ensemble parce qu'ils ne sont pas au même endroit de
+son cercle.
+
+### La faute que ce chantier a révélée, et qui aurait pu coûter cher
+
+Premier essai, sans la lassitude : **les sept cibles de non-régression
+tenaient toutes**, et mieux qu'avant — le pain manquait 1 % du temps au
+lieu de 34 %, la famine tombait à 0,35 %.
+
+Et le village était mort. Zéro bûcher, zéro révolte, zéro succession,
+zéro surnom sur mille journées. Les gens mangeaient, dormaient et
+travaillaient, sans plus jamais rien tenter.
+
+**On ne mesurait que le pain.** Le contrôle disait « en bonne santé »
+d'un village devenu muet. Trois cibles ont été ajoutées — bûchers,
+révoltes, surnoms — et le balayage les mesure aussi. La règle qui en
+sort : *ce qu'on ne mesure pas, on le perd sans s'en apercevoir.*
+
+### Le réglage, par balayage
+
+Douze combinaisons puis huit, sur 6 villages × 120 jours. Un seul levier
+décisif : `degatDragon`. En dessous de 0,07 les moulins ne cassent
+presque plus (6 % du temps), au-dessus de 0,08 ils cassent trop. Retenu :
+**0,078**, avec `poidsAccuser` porté de 3,5 à **6** — c'est la valeur qui
+rend le plus de bûchers.
+
+### Ce que ça donne, mesuré côte à côte
+
+24 villages × 80 jours, mêmes graines, avant et après.
+
+| | avec le dé | sans le dé |
+|---|---|---|
+| journées sans pain | 33,6 % | 26,4 % |
+| journées de famine | 14,6 % | 10,0 % |
+| faim moyenne | 0,52 | 0,39 |
+| journées moulin cassé | 29,1 % | 23,0 % |
+| tension moyenne | 0,38 | 0,28 |
+| bûchers par village | 0,63 | 0,25 |
+| révoltes par village | 1,21 | 3,08 |
+| surnoms gagnés | 6,50 | 6,29 |
+| habitants en vie | 17,42 | 17,54 |
+
+Et la répartition des conduites sur 60 jours est **la même à un point
+près** : dormir 33/36 %, prier 24/23 %, manger 15/22 %, flâner 12/7 %.
+Le répertoire moyen par habitant est identique (6,1 conduites
+différentes), et son minimum s'améliore : 1 avec le dé, 3 sans. Le
+village le plus pauvre en conduites est moins pauvre qu'avant.
+
+Dix-neuf des vingt et une occupations apparaissent encore.
+
+### Le garde-fou
+
+`node sim/equilibre.mjs --check` vérifie maintenant, en plus des dix
+cibles, deux propriétés :
+
+- **même graine, même chronique**, mot pour mot ;
+- **le décor ne change pas l'histoire** — on ajoute trois tirages de
+  décor par pas de simulation, la chronique doit être identique.
+
+C'est le test qu'il aurait fallu avoir hier, quand ajouter un bruitage a
+déplacé toutes les décisions du village. Il tourne aussi seul :
+`node sim/equilibre.mjs --determinisme`.
+
+### Réserve
+
+La prière occupe 23 % du temps de chacun, et le travail beaucoup moins.
+Ce n'est **pas** une conséquence du passage sans dé — la mesure de
+référence donne 23,7 % — mais c'est un déséquilibre réel, qui était là
+avant et qu'on voit mieux maintenant. À traiter à part.
+
+---
+
 ## 📜 Historique
+
+- **2026-09-10 (après-midi)** — Le monde sans dé : plus aucun tirage dans
+  les décisions (maximum + penchant fixe + lassitude + cadence propre),
+  trois générateurs séparés, cour et casse de moulin devenues des seuils.
+  Premier essai vert sur les sept cibles alors que le village était
+  devenu muet : trois cibles de récit ajoutées, et un test de
+  détermination permanent. v0.15.
+  Planche de comparaison des deux éclairages de torche (halo dessiné
+  contre lumière calculée par sommet) remise à Pierre.
 
 - **2026-09-10 (midi)** — Le monde se voit (fumée du four, torches, pluie)
   et s'entend (cloche, marteau, rumeur, dragon), sur une file d'événements

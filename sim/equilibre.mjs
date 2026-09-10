@@ -141,6 +141,13 @@ const CIBLES = [
   ['rancune moyenne',       (a) => a.rancune,      0,    0.55, ''],
   ['tension moyenne',       (a) => a.tension,      0.10, 0.60, ''],
   ['habitants en vie',      (a) => a.vivants,      12,   30,  ''],
+  // Ces trois-là manquaient, et leur absence a failli coûter cher : au
+  // passage du monde sans hasard, les sept cibles du dessus tenaient
+  // toutes pendant que le village devenait muet — zéro bûcher, zéro
+  // révolte, zéro surnom sur mille journées. On ne mesurait que le pain.
+  ['bûchers par village',   (a) => a.buchers,      0.15, 3,   ''],
+  ['révoltes par village',  (a) => a.revoltes,     0.5,  10,  ''],
+  ['surnoms gagnés',        (a) => a.surnoms,      2,    12,  ''],
 ];
 
 function verifier(a) {
@@ -174,8 +181,36 @@ if (drapeau('detail')) {
   for (const e of lots[0].chronique.slice(0, 40)) console.log('   ' + e.txt);
 }
 
+// ---- le contrôle de détermination ----
+// Deux villages de même graine doivent écrire mot pour mot la même
+// chronique, et un tirage de décor ajouté n'a le droit de rien changer.
+// C'est le garde-fou de la faute qui a coûté le plus cher : ajouter un
+// bruitage avait déplacé toutes les décisions du village.
+function memeMonde(graine, tiragesDeDecor) {
+  const M = creerMonde(graine);
+  const pas = Math.round(60 * JOUR / TRANCHE);
+  for (let k = 0; k < pas; k++) {
+    M.avancer(TRANCHE);
+    for (let j = 0; j < tiragesDeDecor; j++) M.aleaDeco();
+    M.evenements.length = 0; M.nouveaux.length = 0;
+  }
+  return M.chronique.map(e => e.txt).join('\n');
+}
+
+function verifierDetermination() {
+  console.log('\n  ── détermination ─────────────────────────────');
+  const a = memeMonde(7, 0), b = memeMonde(7, 0), c = memeMonde(7, 3);
+  let echecs = 0;
+  const dire = (nom, ok) => { console.log(`    ${ok ? 'ok ' : 'RATÉ'} ${nom}`); if (!ok) echecs++; };
+  dire('même graine, même chronique', a === b);
+  dire('le décor ne change pas l\'histoire', a === c);
+  return echecs;
+}
+
+if (drapeau('determinisme')) process.exit(verifierDetermination() ? 1 : 0);
+
 if (drapeau('check')) {
-  const echecs = verifier(a);
+  const echecs = verifier(a) + verifierDetermination();
   console.log(echecs ? `\n  ${echecs} cible(s) ratée(s).\n` : '\n  toutes les cibles tenues.\n');
   process.exit(echecs ? 1 : 0);
 }

@@ -1,18 +1,38 @@
 // BALAYAGE — on essaie des combinaisons de constantes et on garde celles
 // qui tiennent les cibles. C'est ce que le simulateur permet et que le
-// réglage à la main ne permet pas : cette nuit, quatre passes ont été
-// nécessaires pour trouver un seul défaut. Ici on en teste des dizaines
-// en quelques secondes.
+// réglage à la main ne permet pas : une nuit entière, quatre passes ont
+// été nécessaires pour trouver un seul défaut. Ici on en teste des
+// dizaines en une minute.
 //
 //   node sim/balayage.mjs
+//   node sim/balayage.mjs --jours=160 --villages=8
+//
+// Le balayage mesure aussi le RÉCIT — bûchers, révoltes, surnoms — et pas
+// seulement le pain. Le passage au monde sans hasard l'a montré crûment :
+// les sept cibles de nourriture tenaient toutes pendant que le village
+// devenait muet, sans un seul bûcher en mille journées. Ce qu'on ne
+// mesure pas, on le perd sans s'en apercevoir.
 
 import { creerMonde, REGLAGES } from './monde.mjs';
 
+const arg = (nom, defaut) => {
+  const t = process.argv.find(a => a.startsWith(`--${nom}=`));
+  return t ? Number(t.split('=')[1]) : defaut;
+};
+
 const JOUR = 90, TRANCHE = 0.2;
-const VILLAGES = 6, JOURS = 45;
+const VILLAGES = arg('villages', 6);
+const JOURS = arg('jours', 120);
+
+const MARQUES = [
+  ['buchers', /bûcher a brûlé/],
+  ['revoltes', /montent vers le manoir/],
+  ['surnoms', /On a commencé à l'appeler/],
+];
 
 function mesurer(reglages) {
-  let sansPain = 0, famine = 0, faim = 0, mesures = 0, morts = 0, rancune = 0, tension = 0, moulin = 0;
+  const t = { sansPain: 0, famine: 0, faim: 0, rancune: 0, tension: 0, moulin: 0,
+              mesures: 0, morts: 0, buchers: 0, revoltes: 0, surnoms: 0 };
   for (let v = 0; v < VILLAGES; v++) {
     const M = creerMonde(1 + v * 7919, reglages);
     const pas = Math.round(JOURS * JOUR / TRANCHE), tousLes = Math.round(60 / TRANCHE);
@@ -20,64 +40,91 @@ function mesurer(reglages) {
       M.avancer(TRANCHE);
       if (k % tousLes) continue;
       const vv = M.habitants.filter(h => h.vivant);
-      const f = vv.reduce((t, h) => t + h.faim, 0) / (vv.length || 1);
-      faim += f; if (f > 0.85) famine++;
-      if (M.village.pain < 1) sansPain++;
-      if (M.MOULINS.some(x => x.etat <= 0.12)) moulin++;
-      rancune += vv.reduce((t, h) => t + h.rancune, 0) / (vv.length || 1);
-      tension += M.village.tension;
-      mesures++;
+      const f = vv.reduce((a, h) => a + h.faim, 0) / (vv.length || 1);
+      t.faim += f; if (f > 0.85) t.famine++;
+      if (M.village.pain < 1) t.sansPain++;
+      if (M.MOULINS.some(x => x.etat <= 0.12)) t.moulin++;
+      t.rancune += vv.reduce((a, h) => a + h.rancune, 0) / (vv.length || 1);
+      t.tension += M.village.tension;
+      t.mesures++;
     }
-    morts += M.habitants.filter(h => !h.vivant).length;
+    t.morts += M.habitants.filter(h => !h.vivant).length;
+    for (const e of M.chronique)
+      for (const [cle, re] of MARQUES) if (re.test(e.txt)) t[cle]++;
   }
   return {
-    sansPain: sansPain / mesures * 100,
-    famine: famine / mesures * 100,
-    faim: faim / mesures,
-    rancune: rancune / mesures,
-    tension: tension / mesures,
-    moulin: moulin / mesures * 100,
-    morts: morts / VILLAGES,
+    sansPain: t.sansPain / t.mesures * 100,
+    famine: t.famine / t.mesures * 100,
+    faim: t.faim / t.mesures,
+    rancune: t.rancune / t.mesures,
+    tension: t.tension / t.mesures,
+    moulin: t.moulin / t.mesures * 100,
+    morts: t.morts / VILLAGES,
+    buchers: t.buchers / VILLAGES,
+    revoltes: t.revoltes / VILLAGES,
+    surnoms: t.surnoms / VILLAGES,
   };
 }
 
-// on garde le reste tel quel et on ne touche qu'aux trois leviers de la
-// nourriture : ce que le four sort, ce qu'un pain calme, et la vitesse
-// à laquelle on a faim
+// Ce qu'un village en bonne santé doit tenir. Les trois dernières lignes
+// sont celles qui manquaient : elles disent qu'il s'y passe encore
+// quelque chose.
+const BORNES = {
+  sansPain: [0, 35], famine: [0, 20], faim: [0.15, 0.70], moulin: [0, 32],
+  tension: [0.10, 0.60], buchers: [0.2, 4], revoltes: [0.5, 12], surnoms: [3, 14],
+};
+const tient = (m) => Object.entries(BORNES).every(([k, [lo, hi]]) => m[k] >= lo && m[k] <= hi);
+// de combien on sort, borne par borne, ramené à la largeur de la borne
+const ecart = (m) => Object.entries(BORNES).reduce((t, [k, [lo, hi]]) =>
+  t + Math.max(0, lo - m[k], m[k] - hi) / (hi - lo || 1), 0);
+
+// ---- la grille du jour -------------------------------------------------
+// On ne touche qu'à ce qu'on interroge. Ici : la violence du dragon, et
+// le poids des deux conduites qui font l'histoire depuis qu'il n'y a plus
+// de dé pour les faire sortir toutes seules.
 const GRILLE = {
-  usureMeule: [0.0016, 0.0009, 0.0005],
-  reparationParSeconde: [0.07, 0.13, 0.22],
-  degatDragon: [0.09, 0.05],
+  degatDragon: [0.055, 0.062, 0.07, 0.078],
+  poidsAccuser: [6, 9],
 };
 
+const cles = Object.keys(GRILLE);
 const combos = [];
-for (const a of GRILLE.usureMeule)
-  for (const b of GRILLE.reparationParSeconde)
-    for (const c of GRILLE.degatDragon)
-      combos.push({ usureMeule: a, reparationParSeconde: b, degatDragon: c });
+(function croiser(i, acc) {
+  if (i === cles.length) { combos.push({ ...acc }); return; }
+  for (const v of GRILLE[cles[i]]) croiser(i + 1, { ...acc, [cles[i]]: v });
+})(0, {});
 
-console.log(`${combos.length} combinaisons × ${VILLAGES} villages × ${JOURS} jours\n`);
-console.log('   usure  répar dragon │ sans pain  famine   faim  moulin  tension  morts');
-console.log('  ─────────────────────┼──────────────────────────────────────────────');
+console.log(`${combos.length} combinaisons × ${VILLAGES} villages × ${JOURS} jours`);
+console.log(`leviers : ${cles.join(', ')}\n`);
+const entete = cles.map(c => c.slice(0, 7).padStart(7)).join(' ');
+console.log(`  ${entete} │ sans pain famine   faim  moulin tension  bûch   rév  surn  morts`);
+console.log(`  ${'─'.repeat(entete.length)}─┼───────────────────────────────────────────────────────`);
 
 const t0 = Date.now();
 const res = [];
 for (const c of combos) {
   const m = mesurer(c);
   res.push({ c, m });
-  const bon = m.sansPain <= 32 && m.famine <= 18 && m.faim >= 0.15 && m.faim <= 0.70 && m.moulin <= 25;
+  const gauche = cles.map(k => String(c[k]).padStart(7)).join(' ');
   console.log(
-    `  ${c.usureMeule.toFixed(4)}  ${c.reparationParSeconde.toFixed(2)}  ${c.degatDragon.toFixed(2)}  │` +
-    `${m.sansPain.toFixed(1).padStart(9)}% ${m.famine.toFixed(1).padStart(6)}% ${m.faim.toFixed(2).padStart(7)}` +
-    ` ${m.moulin.toFixed(1).padStart(6)}% ${m.tension.toFixed(2).padStart(7)} ${m.morts.toFixed(1).padStart(6)}` +
-    (bon ? '   ← tient' : ''));
+    `  ${gauche} │` +
+    `${m.sansPain.toFixed(1).padStart(9)}%${m.famine.toFixed(1).padStart(6)}%` +
+    `${m.faim.toFixed(2).padStart(7)}${m.moulin.toFixed(1).padStart(7)}%` +
+    `${m.tension.toFixed(2).padStart(8)}` +
+    `${m.buchers.toFixed(2).padStart(6)}${m.revoltes.toFixed(1).padStart(6)}` +
+    `${m.surnoms.toFixed(1).padStart(6)}${m.morts.toFixed(1).padStart(7)}` +
+    (tient(m) ? '   ✓' : ''));
 }
-console.log(`\n  ${(Date.now() - t0) / 1000} s`);
 
-const bons = res.filter(r => r.m.sansPain <= 32 && r.m.famine <= 18 && r.m.faim >= 0.15 && r.m.faim <= 0.70 && r.m.moulin <= 25);
-if (!bons.length) { console.log('\n  aucune combinaison ne tient les cibles.\n'); process.exit(0); }
-bons.sort((a, b) => Math.abs(a.m.faim - 0.45) - Math.abs(b.m.faim - 0.45));
-const g = bons[0];
-console.log(`\n  la plus équilibrée (faim visée ~0,45) :`);
-console.log('    ' + Object.entries(g.c).map(([k, v]) => `${k} ${v}`).join('  ·  '));
-console.log(`    sans pain ${g.m.sansPain.toFixed(1)} %  ·  famine ${g.m.famine.toFixed(1)} %  ·  faim ${g.m.faim.toFixed(2)}\n`);
+console.log(`\n  ${((Date.now() - t0) / 1000).toFixed(1)} s`);
+const bons = res.filter(r => tient(r.m));
+if (!bons.length) {
+  console.log('  Aucune combinaison ne tient toutes les bornes.');
+  const meilleur = res.reduce((a, b) => (ecart(a.m) <= ecart(b.m) ? a : b));
+  console.log('  La moins loin :', JSON.stringify(meilleur.c), `écart ${ecart(meilleur.m).toFixed(3)}`);
+} else {
+  console.log(`  ${bons.length} combinaison(s) tiennent tout :`);
+  for (const b of bons) console.log('   ', JSON.stringify(b.c));
+}
+console.log('\n  valeurs actuelles :', JSON.stringify(
+  Object.fromEntries(cles.map(k => [k, REGLAGES[k]]))));

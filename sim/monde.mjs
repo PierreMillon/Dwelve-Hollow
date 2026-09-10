@@ -44,7 +44,18 @@ export const REGLAGES = {
   // réparation qui s'améliore. Avant : moulins cassés 41 % du temps,
   // donc pas de farine, donc pas de pain. Après : 25 %.
   reparationParSeconde: 0.13,   // ce qu'un artisan remet dans une meule
-  degatDragon: 0.09,            // sa chance d'arracher une aile, par seconde de survol
+  // Sans dé, c'est la lassitude qui fait la variété : ce qu'on vient de
+  // faire pèse moins lourd, ce qu'on délaisse remonte doucement.
+  lassitude: 0.055,         // par seconde passée sur une occupation
+  oubli: 0.02,              // par seconde, ce qu'une occupation délaissée regagne
+  plafondLassitude: 2.2,
+  // Les conduites rares ne sont plus tirées au sort : elles doivent
+  // l'emporter franchement quand leur moment vient, ou ne jamais venir.
+  poidsAccuser: 6,      // trouvé au balayage
+  poidsRevolte: 3,
+  poidsVol: 4,
+  poidsPriere: 1,
+  degatDragon: 0.078,   // balayage : au-dessous, les moulins ne cassent plus assez            // sa chance d'arracher une aile, par seconde de survol
 };
 
 export function creerMonde(GRAINE = 1, reglages = {}) {
@@ -82,7 +93,14 @@ const alea = generateur(GRAINE);
 // suivantes — le contrôle de non-régression l'a attrapé du premier coup.
 // Le décor ne doit jamais pouvoir changer l'histoire.
 const aleaDeco = generateur((GRAINE ^ 0x9e3779b9) >>> 0);
+// Un troisième générateur, pour les accidents du monde : un dragon qui
+// vient, une femme qui s'installe à la cabane, un colporteur qui passe.
+// Ce sont des processus, pas des décisions — et les séparer garantit
+// qu'en ajouter un n'a aucun effet sur ce que les gens choisissent.
+const aleaEvenements = generateur((GRAINE ^ 0x85ebca6b) >>> 0);
 const entre = (a, b) => a + alea() * (b - a);
+const entreE = (a, b) => a + aleaEvenements() * (b - a);
+const entreDeco = (a, b) => a + aleaDeco() * (b - a);
 const parmi = (t) => t[Math.floor(alea() * t.length)];
 
 /* ================================================================
@@ -245,7 +263,8 @@ for (let i = 0; i < 7; i++) {
 const MOULINS = [];
 function poserMoulin(nom, type, x, z, angle, forme, mobile, axe) {
   const y = hauteur(x, z);
-  const l = { nom, type, x, z, y, angle, etat: 1, tourne: 0, axe, forme, formeMobile: mobile, args: [] };
+  const l = { nom, type, x, z, y, angle, etat: 1, tourne: 0, axe, forme, formeMobile: mobile, args: [],
+              secousse: 0, fragilite: entre(0.35, 0.7) };
   LIEUX.push(l); MOULINS.push(l);
   BATIS.push({ x, z, r: 8 });
   return l;
@@ -332,9 +351,28 @@ function nomComplet(h) {
 }
 const nommer = (h) => h.surnom ? `${h.prenom} dit${h.feminin ? 'e' : ''} ${h.surnom}`
                                : `${h.prenom}, ${NOM_ROLE[h.role]}`;
+// Les vingt et une occupations possibles. Chacun en a une lecture
+// légèrement différente, fixée à sa naissance : c'est ce qui remplace le
+// dé. Deux paysans dans la même situation ne feront pas le même choix,
+// non parce qu'un tirage les sépare, mais parce qu'ils ne sont pas les
+// mêmes hommes.
+const OCCUPATIONS = ['dormir', 'manger', 'prier', 'flâner', 'fuir', 'accuser',
+  'se révolter', 'courtiser', 'suivre', 'voler', 'moissonner', 'cuire',
+  'réparer', 'menuiser', 'forger', 'tailler', 'colporter', 'officier',
+  'herboriser', 'inspecter', 'visiter'];
+
+let rangSuivant = 0;
 function creerHabitant(role, logis) {
+  const penchant = {};
+  for (const o of OCCUPATIONS) penchant[o] = 0.72 + alea() * 0.56;
   return {
     role, logis, ...prenomPour(role),
+    rang: rangSuivant++, penchant,
+    cadence: entre(4, 9),
+    usage: Object.fromEntries(OCCUPATIONS.map(o => [o, 0])),
+    // ce qu'il faut lui offrir pour qu'elle accepte un pas de plus
+    exigence: entre(0.20, 0.50),
+    cranPeur: 0,
     x: logis.x + entre(-2, 2), z: logis.z + entre(-2, 2), cible: null,
     vitesse: entre(2.4, 3.4),
     // caractère : cinq nombres, jamais une branche de code
@@ -439,7 +477,7 @@ function poidsDes(h) {
   p.push(['dormir', h.fatigue * h.fatigue * (nuit ? 6 : 0.3), `fatigue ${n2(h.fatigue)}${nuit ? ' · il fait nuit' : ''}`]);
   p.push(['manger', h.faim * h.faim * 3 * (village.pain >= 1 ? 1 : 0.04),
           `faim ${n2(h.faim)}${village.pain >= 1 ? '' : ' · plus de pain'}`]);
-  p.push(['prier', (h.foi * h.piete * 1.6 + h.peur * h.piete * 4) * (nuit ? 0.3 : 1),
+  p.push(['prier', (h.foi * h.piete * 1.6 + h.peur * h.piete * 4) * R.poidsPriere * (nuit ? 0.3 : 1),
           `piété ${n2(h.piete)} × (foi ${n2(h.foi)} + peur ${n2(h.peur)})`]);
   p.push(['flâner', h.sociabilite * 0.5 * (jour ? 1 : 0.2) * (village.foire > 0 ? 4 : 1),
           `sociabilité ${n2(h.sociabilite)}${village.foire > 0 ? ' · jour de foire' : ''}`]);
@@ -456,14 +494,14 @@ function poidsDes(h) {
     // règle ne dise « épargner ses amis »
     const proche = Math.max(lien(h, cible), h.secret === cible ? h.secretForce : 0);
     const rancoeur = h.deteste === cible ? 2.5 : 1;   // une règle « déteste » pèse ici
-    p.push(['accuser', h.soupcon * poussee * (0.25 + h.peur) * 3.5 * (1 - proche) * rancoeur,
+    p.push(['accuser', h.soupcon * poussee * (0.25 + h.peur) * R.poidsAccuser * (1 - proche) * rancoeur,
             `soupçon ${n2(h.soupcon)} × superstition ${n2(h.superstition)}` +
             (village.autorite > 0.4 ? ` · le prêtre est écouté` : '') +
             (proche > 0.2 ? ` · mais il tient à ${cible.prenom}` : '') +
             (rancoeur > 1 ? ` · une règle : il la déteste` : '')]);
   }
   // la rancune, elle, ne cherche pas un coupable faible : elle monte au manoir
-  p.push(['se révolter', h.rancune * h.rancune * h.courage * 3,
+  p.push(['se révolter', h.rancune * h.rancune * h.courage * R.poidsRevolte,
           `rancune ${n2(h.rancune)} × courage ${n2(h.courage)}`]);
 
   // ce que les règles écrites ajoutent au tirage — ni plus ni moins
@@ -481,7 +519,7 @@ function poidsDes(h) {
   // nuit si la huche est pleine. C'est ce qui fait que le village ne peut
   // JAMAIS savoir qui l'a fait, et qu'il accuse a cote.
   if (h.cupidite > 0.72 && nuit && (village.pain > 3 || village.farine > 6)) {
-    p.push(['voler', (h.cupidite - 0.6) * (1 - h.piete) * 4,
+    p.push(['voler', (h.cupidite - 0.6) * (1 - h.piete) * R.poidsVol,
             `cupidité ${n2(h.cupidite)} · la nuit · la huche est pleine`]);
   }
   if (jour) {
@@ -507,21 +545,51 @@ function poidsDes(h) {
     if (h.role === 'seigneur') p.push(['inspecter', travail * (0.6 + h.cupidite), `cupidité ${n2(h.cupidite)}`]);
     if (h.role === 'dame') p.push(['visiter', travail * h.sociabilite, `sociabilité ${n2(h.sociabilite)}`]);
   }
+  // Le penchant, en dernier : il ne crée aucune envie, il incline celles
+  // qui existent. C'est lui qui fait que deux hommes dans la même
+  // situation ne tranchent pas pareil — et il est fixé à la naissance,
+  // donc la fiche affiche bien le classement qui a décidé.
+  for (const q of p) q[1] *= h.penchant[q[0]] / (1 + h.usage[q[0]]);
   return p;
 }
+
+// On se lasse de ce qu'on vient de faire. C'est ce qui remplace le dé :
+// sans elle, un homme moissonnerait du lever au coucher sans jamais
+// passer à l'église, parce que le travail pèserait toujours plus lourd
+// que la prière. Avec elle, il travaille, il s'en lasse, et le reste
+// remonte à la surface.
+function majLassitude(h, dt) {
+  for (const o of OCCUPATIONS) {
+    if (o === h.occupation) h.usage[o] = Math.min(R.plafondLassitude, h.usage[o] + dt * R.lassitude);
+    else if (h.usage[o] > 0) h.usage[o] = Math.max(0, h.usage[o] - dt * R.oubli);
+  }
+}
+// Plus de dé. On prend ce qui pèse le plus lourd, point.
+//
+// Ce que ça change : un homme ne fait plus « parfois » une chose et
+// « parfois » une autre dans la même situation. Il fait toujours la même,
+// et il en change quand sa situation change — la faim monte, la peur
+// tombe, le moulin casse. La variété ne vient plus du hasard, elle vient
+// de ce que deux hommes ne sont jamais tout à fait dans la même
+// situation, ni faits du même bois.
 function choisirOccupation(h) {
   const p = poidsDes(h);
-  let total = 0;
-  for (const [, w] of p) total += Math.max(0, w);
-  if (total <= 0) return 'flâner';
-  let r = alea() * total;
-  for (const [nom, w] of p) { r -= Math.max(0, w); if (r <= 0) return nom; }
-  return 'flâner';
+  let meilleur = 'flâner', meilleurPoids = 0;
+  for (const [nom, w] of p) if (w > meilleurPoids) { meilleurPoids = w; meilleur = nom; }
+  return meilleur;
+}
+
+// Choisir un lieu sans tirer au sort : chacun a son champ, son établi,
+// son coin de place. Le rang le distingue de son voisin, le jour fait
+// tourner — même homme, même jour, même champ.
+function chez(h, liste, sel = 0) {
+  return liste[(h.rang * 7 + village.jour * 3 + sel * 11) % liste.length];
 }
 function lieuDe(h, occ) {
   switch (occ) {
     case 'dormir': case 'fuir': return h.logis;
-    case 'manger': return alea() < 0.5 ? h.logis : PLACE;
+    // on mange chez soi, sauf si l'on aime la compagnie
+    case 'manger': return h.sociabilite > 0.6 ? PLACE : h.logis;
     case 'prier': case 'officier': return EGLISE;
     case 'flâner': return PLACE;
     case 'accuser': {   // on se rassemble d'abord sur la place, on marche ensuite
@@ -531,17 +599,18 @@ function lieuDe(h, occ) {
     case 'se révolter': return village.fouleRevolte ? MANOIR : PLACE;
     case 'courtiser': return h.courtise;      // une personne a x et z, comme un lieu
     case 'suivre': return h.suit;
-    case 'moissonner': return parmi(CHAMPS);
+    case 'moissonner': return chez(h, CHAMPS);
     case 'cuire': return FOUR;
-    case 'forger': return parmi(ATELIERS);
+    case 'forger': return chez(h, ATELIERS, 1);
     case 'réparer': return MOULINS.reduce((a, b) => (a.etat <= b.etat ? a : b));
-    case 'menuiser': return parmi(ATELIERS);
+    case 'menuiser': return chez(h, ATELIERS, 2);
     case 'tailler': return EGLISE;
-    case 'voler': return alea() < 0.5 ? FOUR : PLACE;
+    // on vole là où il y a à prendre
+    case 'voler': return village.pain >= 1 ? FOUR : PLACE;
     case 'colporter': return PLACE;
     case 'herboriser': return CABANE;
-    case 'inspecter': return parmi([PLACE, ...CHAMPS, FOUR]);
-    case 'visiter': return parmi([PLACE, EGLISE, ...CHAUMIERES]);
+    case 'inspecter': return chez(h, [PLACE, ...CHAMPS, FOUR], 3);
+    case 'visiter': return chez(h, [PLACE, EGLISE, ...CHAUMIERES], 4);
     default: return PLACE;
   }
 }
@@ -596,8 +665,12 @@ function simuler(dt) {
     if (village.temps > h.prochainChoix) {
       h.occupation = choisirOccupation(h);
       h.cible = lieuDe(h, h.occupation);
-      h.prochainChoix = village.temps + entre(4, 9);
+      // Sa cadence lui appartient : certains reviennent sur leur décision
+      // toutes les quatre secondes, d'autres s'y tiennent neuf. La peur
+      // presse tout le monde.
+      h.prochainChoix = village.temps + h.cadence * (1 - h.peur * 0.5);
     }
+    majLassitude(h, dt);
     avancer(h, dt);
     agir(h, dt);
   }
@@ -653,8 +726,13 @@ function tenterFlirt(h) {
   // 2. déjà ensemble : plus rien à tenter
   if (c.aime === h) { h.courtise = null; return; }
 
-  const chance = lien(c, h) * 0.7 + c.sociabilite * 0.25 - 0.12;
-  if (alea() < chance) {
+  // Elle ne tire pas à pile ou face. Elle a une exigence, fixée une fois
+  // pour toutes, et il la franchit ou il ne la franchit pas. Chaque
+  // rebuffade entame un peu cette exigence — il l'use — mais elle le
+  // lasse plus vite qu'il ne l'use : voilà pourquoi la plupart des cours
+  // s'éteignent, et pourquoi certaines aboutissent.
+  const avance = lien(c, h) * 0.7 + c.sociabilite * 0.25;
+  if (avance >= c.exigence - h.rembarrades * 0.03) {
     h.rembarrades = 0;
     rapprocher(h, c, 0.2);
     // une seule ligne pour dire que ça avance — pas une à chaque pas
@@ -999,7 +1077,7 @@ function finirAccusation(v, jusquauBout) {
 // bûcher.
 function succession() {
   village.jourSansSorciere++;
-  if (village.jourSansSorciere < 4 || alea() > 0.45) return;
+  if (village.jourSansSorciere < 4 || aleaEvenements() > 0.45) return;
   const nouvelle = creerHabitant('sorciere', CABANE);
   nouvelle.superstition = entre(0, 0.3);
   habitants.push(nouvelle);
@@ -1027,7 +1105,7 @@ function majColporteur() {
     return;
   }
   village.colporteur = null;
-  if (alea() > 0.22) return;
+  if (aleaEvenements() > 0.22) return;
   const venu = creerHabitant('colporteur', CABANE);
   venu.sociabilite = entre(0.6, 1);
   venu.superstition = entre(0, 0.25);
@@ -1177,7 +1255,7 @@ function metteurEnScene() {
   village.calmeDepuis++;
   // plus le calme dure, plus il devient probable que quelque chose arrive
   const chance = Math.max(0, (village.calmeDepuis - 2) * 0.22);
-  if (alea() < chance) {
+  if (aleaEvenements() < chance) {
     village.calmeDepuis = 0;
     lancerDragon();
   }
@@ -1187,8 +1265,8 @@ function lancerFoire() {
   village.foire = 0.55;
   village.etals = [];
   for (let i = 0; i < 5; i++) {
-    const a = alea() * Math.PI * 2, r = entre(5, 9);
-    village.etals.push({ x: Math.cos(a) * r, z: Math.sin(a) * r, angle: alea() * Math.PI });
+    const a = aleaDeco() * Math.PI * 2, r = entreDeco(5, 9);
+    village.etals.push({ x: Math.cos(a) * r, z: Math.sin(a) * r, angle: aleaDeco() * Math.PI });
   }
   village.ble += 10;
   noter('Foire aux bestiaux. Les étals se dressent sur la place.', true);
@@ -1203,7 +1281,10 @@ function lancerFoire() {
 
 function lancerDragon() {
   if (village.dragon) return;
-  const a = alea() * Math.PI * 2;
+  // D'où il arrive décide de qui il effraie le premier : ce n'est donc
+  // pas du décor, c'est un accident du monde.
+  const a = aleaEvenements() * Math.PI * 2;
+  for (const m of MOULINS) m.secousse = 0;
   village.dragon = { a, r: 120, y: 34, t: 0, parti: false };
   noter('Une ombre passe sur les toits. Un dragon tourne au-dessus du village.', true);
   signaler('souffle');
@@ -1232,13 +1313,21 @@ function majDragon(dt) {
     const effroi = dt * 0.5 * (1 - h.courage * 0.7) * (village.foire > 0 ? 1.5 : 1);
     h.peur = Math.min(1, h.peur + effroi);
     h.soupcon = Math.min(0.5, h.soupcon + effroi * h.superstition * 0.3);
-    if (alea() < dt * 0.4) h.prochainChoix = 0;      // on change d'avis sur-le-champ
+    // on change d'avis quand la peur franchit un cran, pas au hasard
+    const cran = Math.floor(h.peur * 4);
+    if (cran > h.cranPeur) h.prochainChoix = 0;
+    h.cranPeur = cran;
   }
   // il ne touche personne, mais il casse : une aile arrachée, une roue
   // fracassée. C'est sa seule violence, et elle suffit à affamer.
+  // Il ne casse pas au hasard : il tourne, et la secousse s'accumule sous
+  // lui jusqu'à ce que quelque chose lâche. Les deux moulins ne lâchent
+  // pas ensemble parce qu'ils ne sont pas au même endroit de son cercle.
   for (const m of MOULINS) {
-    if (alea() < dt * R.degatDragon && m.etat > 0.15) {
-      m.etat = Math.max(0.05, m.etat - entre(0.35, 0.7));
+    m.secousse += dt * R.degatDragon * (1 + Math.sin(d.a * 2 + m.x * 0.3) * 0.5);
+    if (m.secousse >= 1 && m.etat > 0.15) {
+      m.secousse = 0;
+      m.etat = Math.max(0.05, m.etat - m.fragilite);
       if (m.etat <= 0.12 && !m.reparationSignalee) {
         m.reparationSignalee = true;
         noter(`Sur son passage, ${m.nom} a perdu une aile.`, true);
