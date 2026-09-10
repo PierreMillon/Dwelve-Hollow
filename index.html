@@ -165,7 +165,7 @@
   <span class="title">DWELVE HOLLOW</span>
 </div>
 
-<button id="version">v0.13</button>
+<button id="version">v0.14</button>
 
 <div id="saison">jour <b id="s-jour">1</b> · <b id="s-phase">aube</b> · pain <b id="s-pain">0</b> · peur <b id="s-peur">0 %</b></div>
 
@@ -208,8 +208,10 @@
       <label for="vol-mus">musique <span class="val" id="vol-mus-val">60 %</span></label>
       <input type="range" id="vol-mus" min="0" max="100" value="60">
     </div>
-    <p class="note">La musique est celle de Pierre, en boucle. Les bruitages ne sont pas
-    encore branchés — le curseur est en place et son réglage est conservé.</p>
+    <p class="note">La musique est celle de Pierre, en boucle. Les bruitages sont
+    synthétisés à la volée, sans aucun fichier : la cloche quand le prêtre officie, le
+    marteau sur une meule qu'on répare, la rumeur d'une foule qui se forme, le
+    grondement du dragon.</p>
 
     <h2 style="margin-top:26px">RÈGLES</h2>
     <div id="liste-regles"></div>
@@ -236,7 +238,21 @@
   <div class="contenu">
     <h2>DWELVE HOLLOW — HISTORIQUE</h2>
 
-    <div class="v courante"><b>v0.10</b> — les faces noires cachent enfin vraiment : la
+    <div class="v courante"><b>v0.14</b> — la simulation quitte la page : elle vit dans
+      <b>sim/monde.mjs</b>, sans rendu ni DOM, et tourne aussi bien dans Node. Un
+      simulateur fait vivre 150 années de village par seconde et a réglé le pain et les
+      moulins, que quatre passes à la main n'avaient pas trouvés. Le monde se voit
+      enfin : la cheminée ne fume que quand le four est allumé, les torches s'allument
+      pour qui est dehors la nuit, il pleut. Et les bruitages, synthétisés sans aucun
+      fichier — cloche, marteau, rumeur de foule, grondement du dragon.</div>
+
+    <div class="v"><b>v0.13</b> — règles écrites (« Jehan aime Perrine »), noms accordés
+      et surnoms gagnés, dragon repris de Fly or Die.</div>
+
+    <div class="v"><b>v0.11–0.12</b> — fiche d'habitant avec le pourquoi, mémoire, liens,
+      chagrin, amour tu, metteur en scène, journal plein écran.</div>
+
+    <div class="v"><b>v0.10</b> — les faces noires cachent enfin vraiment : la
       moitié des triangles était orientée à l'envers, donc éliminée par le moteur, ce qui
       laissait voir toutes les arêtes arrière. Le colporteur devient indépendant de la
       foire — il va et vient quand il veut, loge à la cabane, calme ceux qui l'écoutent, et
@@ -315,7 +331,7 @@ const {
   hauteur, distRoute, distRuisseau,
   poidsDes, nommer, nomComplet, lien, e, NOM_ROLE,
   estNuit, estJour, lumiere, analyser, appliquerRegles, noter,
-  souvenir, surnommer, lancerDragon, lancerFoire,
+  souvenir, surnommer, lancerDragon, lancerFoire, evenements,
 } = M;
 
 
@@ -681,7 +697,97 @@ let etalsDressés = false;
 const groupeBucher = new THREE.Group(); scene.add(groupeBucher);
 let bucherDresse = false;
 
+/* ---- LA FUMÉE DU FOUR ----
+   Le principe : tout ce qui compte doit se lire sur la carte, pas
+   seulement dans le journal. La cheminée ne fume que quand le boulanger
+   est au four — d'un coup d'œil, on sait si le village mange. */
+const BOUFFEE = bloc((S) => {
+  for (let i = 0; i < 5; i++) {
+    const a = i / 5 * Math.PI * 2, b = (i + 1) / 5 * Math.PI * 2, r = 0.45;
+    trait(S, Math.cos(a)*r, 0, Math.sin(a)*r, Math.cos(b)*r, 0, Math.sin(b)*r);
+  }
+});
+const cheminee = (() => {
+  const f = LIEUX.find(l => l.type === 'boulangerie');
+  if (!f) return null;
+  const c = Math.cos(f.angle), sn = Math.sin(f.angle);
+  return { x: f.x + 1.7*c + (-2)*sn, y: f.y + 6.5, z: f.z - 1.7*sn + (-2)*c };
+})();
+const bouffees = [];
+if (cheminee) for (let i = 0; i < 5; i++) {
+  const o = ligneDe(BOUFFEE.a, materiau(0.5));
+  o.visible = false; scene.add(o);
+  bouffees.push({ objet: o, t: i / 5 });
+}
+
+/* ---- LES TORCHES ----
+   Un point clair au-dessus de qui est encore dehors la nuit. */
+const FLAMME = bloc((S) => {
+  trait(S, 0, 0, 0, 0, 0.55, 0);
+  trait(S, -0.22, 0.3, 0, 0.22, 0.3, 0);
+  trait(S, 0, 0.3, -0.22, 0, 0.3, 0.22);
+});
+const matFlamme = materiau(1); matFlamme.linewidth = 2.6;
+for (const h of habitants) {
+  const f = ligneDe(FLAMME.a, matFlamme);
+  f.position.y = 2.1; f.visible = false;
+  h.objet.add(f); h.flamme = f;
+}
+
+/* ---- LA PLUIE ----
+   Aucun effet mécanique. Elle est là pour que deux minutes de
+   contemplation soient belles. */
+const PLUIE_N = 150, PLUIE_R = 70, PLUIE_H = 42;
+const gouttes = [];
+const SEG_PLUIE = [];
+for (let i = 0; i < PLUIE_N; i++) {
+  const x = (Math.random()*2-1)*PLUIE_R, z = (Math.random()*2-1)*PLUIE_R, y = Math.random()*PLUIE_H;
+  gouttes.push({ x, y, z, v: 26 + Math.random()*14 });
+  trait(SEG_PLUIE, x, y, z, x, y - 1.1, z);
+}
+const matPluie = materiau(0.3); matPluie.linewidth = 1.1;
+const objPluie = ligneDe(SEG_PLUIE, matPluie);
+objPluie.visible = false;
+scene.add(objPluie);
+const posPluie = objPluie.geometry.attributes.instanceStart;
+
+function majMeteo(dt) {
+  // la fumée monte et s'efface, seulement si le four est allumé
+  for (const b of bouffees) {
+    b.objet.visible = village.fourChauffe;
+    if (!village.fourChauffe) continue;
+    b.t = (b.t + dt * 0.28) % 1;
+    b.objet.position.set(cheminee.x + Math.sin(b.t * 5) * 0.6, cheminee.y + b.t * 5.5, cheminee.z);
+    b.objet.scale.setScalar(0.6 + b.t * 1.6);
+    b.objet.material.opacity = Math.max(0, 0.55 * (1 - b.t)) * (0.3 + lumiere() * 0.7);
+  }
+
+  // les torches : dehors, et il fait nuit
+  const nuit = lumiere() < 0.28;
+  for (const h of habitants) {
+    if (!h.flamme) continue;
+    const dehors = h.logis && Math.hypot(h.x - h.logis.x, h.z - h.logis.z) > 6;
+    h.flamme.visible = h.vivant && nuit && dehors;
+  }
+
+  // la pluie tombe et se recycle par le haut
+  objPluie.visible = village.pluie > 0.02;
+  if (objPluie.visible) {
+    matPluie.opacity = 0.12 + village.pluie * 0.3;
+    for (let i = 0; i < PLUIE_N; i++) {
+      const g2 = gouttes[i];
+      g2.y -= g2.v * dt * (0.5 + village.pluie);
+      if (g2.y < -2) g2.y = PLUIE_H;
+      posPluie.setXYZ(i, g2.x, g2.y, g2.z);
+      objPluie.geometry.attributes.instanceEnd.setXYZ(i, g2.x, g2.y - 1.1, g2.z);
+    }
+    posPluie.needsUpdate = true;
+    objPluie.geometry.attributes.instanceEnd.needsUpdate = true;
+  }
+}
+
 function majRendu(dt) {
+  majMeteo(dt);
   const l = lumiere();
   matDecor.opacity = 0.42 + l * 0.58;      // la nuit tombe sur le décor
   matGens.opacity = 0.55 + l * 0.45;
@@ -864,6 +970,62 @@ async function tenterMusique() {
 }
 for (const ev of ['pointerdown', 'keydown', 'touchstart']) {
   addEventListener(ev, tenterMusique, { passive: true });
+}
+
+/* ================================================================
+   LES BRUITAGES
+   Synthétisés, aucun fichier — comme Forge Line. Le monde ne joue rien :
+   il pose un événement dans une file (sim/monde.mjs, signaler()) et on
+   vient la vider ici. C'est ce qui lui permet de tourner en silence dans
+   Node, et à un son de ne jamais pouvoir changer l'histoire.
+   ================================================================ */
+function bruit(quoi) {
+  if (!ctxAudio || ctxAudio.state !== 'running' || volumes.sfx === 0) return;
+  const t = ctxAudio.currentTime, v = volumes.sfx / 100;
+  const sortie = (gain) => { gain.connect(ctxAudio.destination); return gain; };
+
+  if (quoi === 'cloche') {
+    // deux partiels et une longue traîne : ça porte loin, on tourne la tête
+    for (const [f, a, d] of [[520, 0.20, 3.4], [781, 0.10, 2.2], [1560, 0.045, 1.4]]) {
+      const o = ctxAudio.createOscillator(), g2 = ctxAudio.createGain();
+      o.frequency.value = f; o.type = 'sine';
+      g2.gain.setValueAtTime(0.0001, t);
+      g2.gain.exponentialRampToValueAtTime(a * v, t + 0.006);
+      g2.gain.exponentialRampToValueAtTime(0.0001, t + d);
+      o.connect(sortie(g2)); o.start(t); o.stop(t + d + 0.05);
+    }
+    return;
+  }
+
+  // le reste part d'un souffle filtré : marteau sec, rumeur qui enfle,
+  // dragon qui gronde — trois réglages du même bruit
+  const N = Math.floor(ctxAudio.sampleRate * (quoi === 'souffle' ? 2.2 : quoi === 'rumeur' ? 1.6 : 0.16));
+  const buf = ctxAudio.createBuffer(1, N, ctxAudio.sampleRate);
+  const d0 = buf.getChannelData(0);
+  for (let i = 0; i < N; i++) d0[i] = Math.random() * 2 - 1;
+  const src = ctxAudio.createBufferSource(); src.buffer = buf;
+  const filtre = ctxAudio.createBiquadFilter(), g2 = ctxAudio.createGain();
+
+  if (quoi === 'marteau') {
+    filtre.type = 'bandpass'; filtre.frequency.value = 1500; filtre.Q.value = 1.4;
+    g2.gain.setValueAtTime(0.34 * v, t);
+    g2.gain.exponentialRampToValueAtTime(0.0001, t + 0.15);
+  } else if (quoi === 'rumeur') {
+    filtre.type = 'bandpass'; filtre.frequency.value = 420; filtre.Q.value = 0.9;
+    g2.gain.setValueAtTime(0.0001, t);
+    g2.gain.exponentialRampToValueAtTime(0.16 * v, t + 0.5);   // elle enfle
+    g2.gain.exponentialRampToValueAtTime(0.0001, t + 1.55);
+  } else if (quoi === 'souffle') {
+    filtre.type = 'lowpass'; filtre.frequency.value = 190; filtre.Q.value = 0.6;
+    g2.gain.setValueAtTime(0.0001, t);
+    g2.gain.exponentialRampToValueAtTime(0.30 * v, t + 0.7);
+    g2.gain.exponentialRampToValueAtTime(0.0001, t + 2.15);
+  } else {                                       // la foire : deux notes claires
+    filtre.type = 'bandpass'; filtre.frequency.value = 2400; filtre.Q.value = 2.2;
+    g2.gain.setValueAtTime(0.20 * v, t);
+    g2.gain.exponentialRampToValueAtTime(0.0001, t + 0.14);
+  }
+  src.connect(filtre); filtre.connect(sortie(g2)); src.start(t);
 }
 
 const volumes = { sfx: 100, musique: 60 };
@@ -1059,7 +1221,7 @@ majBoutonChronique();
 
 addEventListener('resize', majCadrage);
 window.DH = { scene, camera, controls, renderer, village, habitants, chronique, LIEUX,
-              MOULINS, hauteur, lancerDragon, lancerFoire, tenterMusique,
+              MOULINS, hauteur, lancerDragon, lancerFoire, tenterMusique, evenements, bruit, majMeteo,
               selectionner, poidsDes, ecranDe, distRoute, distRuisseau, analyser, regles,
               appliquerRegles, nomComplet, surnommer,
               get selection() { return selection; },
@@ -1096,13 +1258,14 @@ renderer.setAnimationLoop((maintenant) => {
   }
   // le monde a pu faire naître ou arriver quelqu'un pendant qu'on avançait
   while (nouveaux.length) ajouterObjet(nouveaux.shift());
+  while (evenements.length) bruit(evenements.shift().quoi);
   if (maintenant - dernierTexte > 200) {
     dernierTexte = maintenant;
     if (chronique.length !== chroniqueVue) { chroniqueVue = chronique.length; majChronique(); }
     majAffichage();
   }
 
-  majRendu();
+  majRendu(dt);
   controls.update();
   renderer.render(scene, camera);
 

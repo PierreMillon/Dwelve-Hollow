@@ -51,6 +51,14 @@ export function creerMonde(GRAINE = 1, reglages = {}) {
 const R = { ...REGLAGES, ...reglages };
 const nouveaux = [];        // les habitants arrivés depuis le dernier tour de rendu
 
+// Les événements sonores. Le monde ne joue aucun son — il dit ce qui
+// vient d'arriver, et le rendu en fait ce qu'il veut. C'est cette
+// séparation qui permet au simulateur de tourner en silence dans Node.
+const evenements = [];
+function signaler(quoi, x = 0, z = 0) {
+  if (evenements.length < 40) evenements.push({ quoi, x, z });
+}
+
 /* ================================================================
    1. HASARD REPRODUCTIBLE
    Tout le hasard passe par ce générateur à graine, jamais par
@@ -68,6 +76,12 @@ function generateur(graine) {
   };
 }
 const alea = generateur(GRAINE);
+// Un second générateur, réservé à ce qui ne décide de rien : déclencher
+// un son, faire tomber la pluie. Sans lui, ajouter un simple bruitage
+// consommerait le flux principal et déplacerait TOUTES les décisions
+// suivantes — le contrôle de non-régression l'a attrapé du premier coup.
+// Le décor ne doit jamais pouvoir changer l'histoire.
+const aleaDeco = generateur((GRAINE ^ 0x9e3779b9) >>> 0);
 const entre = (a, b) => a + alea() * (b - a);
 const parmi = (t) => t[Math.floor(alea() * t.length)];
 
@@ -365,6 +379,8 @@ const village = {
   jour: 1, heure: 0.28,          // 0 = minuit, 0.5 = midi
   ble: 12, farine: 5, pain: 8, outils: 6, meubles: 0, chantier: 0,
   volsCetteNuit: 0,
+  fourChauffe: false,        // le four est-il allumé ? (la cheminée fume)
+  pluie: 0,                  // 0 à 1, tiré chaque matin
   temps: 0,                      // secondes SIMULÉES écoulées — voir la boucle
   tension: 0, calmeDepuis: 0,    // voir metteurEnScene()
   colporteur: null, joursColporteur: 0,
@@ -549,6 +565,7 @@ function simuler(dt) {
   if (village.foire > 0) village.foire = Math.max(0, village.foire - dtJour);
   majDragon(dt);
 
+  village.fourChauffe = false;      // remis à vrai si le boulanger est au four
   let peurTotale = 0, vivants = 0;
   for (const h of habitants) {
     if (!h.vivant) continue;
@@ -693,6 +710,7 @@ function agir(h, dt) {
       // on ne prie jamais autant que quand on a peur, et c'est le prêtre
       // qui encaisse le crédit : son autorité se nourrit de nos frayeurs
       if (h.peur > 0.35) village.autorite = Math.min(1, village.autorite + dt * 0.03);
+      if (h.role === 'pretre' && aleaDeco() < dt * 0.05) signaler('cloche', h.x, h.z);
       h.compte.prieres += dt;
       // le prêtre apaise tout le monde autour de lui, pas seulement lui
       if (h.role === 'pretre') for (const a of habitants) {
@@ -737,6 +755,7 @@ function agir(h, dt) {
       break;
     }
     case 'cuire':
+      village.fourChauffe = true;
       if (village.farine >= dt * R.farineParSeconde) {
         village.farine -= dt * R.farineParSeconde;
         village.pain += dt * R.painParSeconde;
@@ -745,6 +764,7 @@ function agir(h, dt) {
     case 'réparer':
       if (h.cible && h.cible.etat !== undefined) {
         h.cible.etat = Math.min(1, h.cible.etat + dt * R.reparationParSeconde);
+        if (aleaDeco() < dt * 1.4) signaler('marteau', h.x, h.z);
         h.compte.reparations += dt * R.reparationParSeconde;
         if (h.cible.reparationSignalee && h.cible.etat > 0.9) {
           h.cible.reparationSignalee = false;
@@ -875,6 +895,7 @@ function majRassemblements() {
       village.foule = true;
       village.bucher = { x: PLACE.x - 5, z: PLACE.z - 5 };
       noter(`${surLaPlace.length} villageois se rassemblent. Ils vont chercher du bois.`, true, visee);
+      signaler('rumeur', PLACE.x, PLACE.z);
       for (const h of surLaPlace) {
         h.cible = visee.logis; h.prochainChoix += 30;
         souvenir(h, `est allé chercher du bois pour ${visee.prenom}`);
@@ -910,6 +931,7 @@ function majRassemblements() {
   if (!village.fouleRevolte && village.jour >= village.repitRevolte && furieux.length >= SEUIL_REVOLTE) {
     village.fouleRevolte = true;
     noter(`${furieux.length} villageois montent vers le manoir.`, true);
+    signaler('rumeur', MANOIR.x, MANOIR.z);
     for (const h of furieux) { h.cible = MANOIR; h.prochainChoix += 25; }
   }
   if (village.fouleRevolte) {
@@ -1072,6 +1094,10 @@ function surnommer() {
 
 function finDeJournee() {
   surnommer();
+  // le temps qu'il fait : la plupart des jours sont secs, il pleut
+  // franchement de temps en temps. Aucun effet mécanique — c'est là pour
+  // que deux minutes de contemplation soient belles.
+  village.pluie = aleaDeco() < 0.26 ? 0.35 + aleaDeco() * 0.65 : 0;
   if (village.pain < 1) noter('Il ne reste plus de pain au village.');
 
   if (village.volsCetteNuit > 1.2) {
@@ -1166,6 +1192,7 @@ function lancerFoire() {
   }
   village.ble += 10;
   noter('Foire aux bestiaux. Les étals se dressent sur la place.', true);
+  signaler('foire', PLACE.x, PLACE.z);
   for (const h of habitants) {
     if (!h.vivant) continue;
     h.prochainChoix = 0;
@@ -1179,6 +1206,7 @@ function lancerDragon() {
   const a = alea() * Math.PI * 2;
   village.dragon = { a, r: 120, y: 34, t: 0, parti: false };
   noter('Une ombre passe sur les toits. Un dragon tourne au-dessus du village.', true);
+  signaler('souffle');
 }
 function majDragon(dt) {
   const d = village.dragon;
@@ -1285,8 +1313,8 @@ function appliquerRegles() {
 // ressort de l'appelant (la page le fait pour les vitesses ×10 et ×100,
 // le simulateur pour aller vite).
 return {
-  GRAINE, R, alea, entre, parmi,
-  village, habitants, chronique, nouveaux, regles,
+  GRAINE, R, alea, aleaDeco, entre, parmi,
+  village, habitants, chronique, nouveaux, evenements, regles,
   LIEUX, MOULINS, CHAMPS, CHAUMIERES, ATELIERS,
   PLACE, EGLISE, MANOIR, FOUR, CABANE,
   RUISSEAU, ROUTE, BUTTE, POINT_PONT, LARGEUR_EAU, PROFONDEUR_EAU,

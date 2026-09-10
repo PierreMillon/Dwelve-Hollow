@@ -1089,8 +1089,74 @@ scène ne fait de toute façon que ~1 100 segments.
 
 ---
 
+## Le monde qui se voit, et les bruitages (v0.14)
+
+Les deux derniers points de la liste de recommandations, faits.
+
+### Ce qui se lit sur la carte
+
+Le principe : **tout ce qui compte doit se voir dans le monde, pas
+seulement dans le journal.**
+
+- **La cheminée ne fume que quand le four est allumé.** D'un coup d'œil,
+  on sait si le village mange. Le monde expose un simple drapeau
+  `village.fourChauffe`, remis à faux à chaque pas et relevé par le
+  boulanger quand il est au four.
+- **Les torches** s'allument au-dessus de qui est encore dehors la nuit.
+  Vérifié : treize sur dix-sept une nuit donnée.
+- **La pluie**, tirée chaque matin, un jour sur quatre environ. Aucun
+  effet mécanique — elle est là pour que deux minutes de contemplation
+  soient belles.
+
+### Les bruitages
+
+Synthétisés à la volée, aucun fichier, comme Forge Line. Une cloche à
+trois partiels avec une longue traîne quand le prêtre officie, un marteau
+sec sur une meule qu'on répare, une rumeur qui enfle quand une foule se
+forme, un grondement grave quand le dragon passe.
+
+**Le monde ne joue aucun son.** Il pose un événement dans une file
+(`signaler()`), et le rendu vient la vider. C'est ce qui lui permet de
+tourner en silence dans Node — et à un bruitage de ne jamais pouvoir
+changer l'histoire.
+
+Mesuré sur 40 jours : 81 coups de marteau, 68 cloches, 6 foires, 6
+passages de dragon, 2 rumeurs de foule.
+
+### Le défaut le plus instructif de la journée
+
+Ajouter les `signaler()` a **fait échouer deux cibles de non-régression
+d'un coup**. Ils ne changeaient pourtant rien à la logique — mais chaque
+appel à `alea()` consomme le flux, et déplace donc TOUTES les décisions
+suivantes. Le village n'était pas devenu pire : il était devenu un autre
+village.
+
+D'où une règle qui vaut pour la suite : **un second générateur est
+réservé à ce qui ne décide de rien** (déclencher un son, faire tomber la
+pluie). Le décor ne doit jamais pouvoir changer l'histoire. Après
+séparation, les chiffres sont redevenus identiques au centième près —
+33,65 % de journées sans pain, exactement comme avant.
+
+Sans le simulateur écrit une heure plus tôt, ce défaut serait passé
+inaperçu et aurait invalidé tout l'équilibrage sans que personne ne le
+sache.
+
+### Deux défauts de mesure, pas de code
+
+- Les torches lues comme « zéro » : le test lisait la valeur avant qu'une
+  seule image ait été rendue.
+- La file d'événements lue comme vide : elle l'est par construction, la
+  boucle la vide à chaque image. Vérifié côté Node à la place.
+
+---
+
 ## 📜 Historique
 
+- **2026-09-10 (midi)** — Le monde se voit (fumée du four, torches, pluie)
+  et s'entend (cloche, marteau, rumeur, dragon), sur une file d'événements
+  que le monde émet et que le rendu vide. Second générateur réservé au
+  décor, après que le contrôle de non-régression a attrapé la perturbation
+  du flux principal. v0.14.
 - **2026-09-10 (matin, suite)** — Le simulateur sans rendu : simulation
   extraite dans `sim/monde.mjs`, runner `sim/equilibre.mjs` (~150 années
   de village par seconde) avec cibles de non-régression, et
