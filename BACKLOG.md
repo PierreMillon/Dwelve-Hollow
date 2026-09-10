@@ -1568,6 +1568,78 @@ Les douze cibles tiennent, détermination comprise.
 
 ---
 
+## LES LÉGENDES — le chapitre de conception (à faire)
+
+Dicté par Pierre, et c'est la direction la plus importante prise jusqu'ici.
+Rien de tout cela n'est encore codé : ce chapitre est là pour que rien ne
+s'en perde.
+
+### Le principe
+
+> « Ça c'est des métaphores. La sorcière, c'est pas une sorcière qui a des
+> pouvoirs magiques, c'est plutôt une sorte de guérisseuse un peu
+> magicienne. Le loup-garou, ça peut simplement être quelqu'un qui est
+> schizophrène et qui s'habille avec une peau de bête. Le vampire, en fait
+> ça peut être l'occasion d'accuser le seigneur, de manière métaphorique
+> de prendre le sang des paysans, alors qu'en fait c'est juste qu'il les
+> fait travailler pour lui. »
+
+**Le surnaturel n'existe pas dans la simulation. Il existe dans la tête du
+village.** Toute cause est banale ; c'est l'interprétation qui est
+monstrueuse. Le jeu ne montre jamais un monstre : il montre un homme, et
+il montre le village qui décide que c'en était un.
+
+C'est cohérent avec tout ce qui est déjà construit — la chasse aux
+sorcières où le village accuse toujours à côté — et ça en fait le principe
+directeur plutôt qu'un accident.
+
+### Les trois légendes
+
+**La sorcière.** Déjà là. À requalifier : une guérisseuse, une herboriste,
+une femme seule qui sait des choses. Rien de plus. Sa cabane à l'écart et
+son savoir suffisent.
+
+**Le loup.** Un homme qui perd la tête à la pleine lune et sort couvert
+d'une peau. Il ne se souvient de rien au matin. Le village entend hurler
+et conclut. *Déjà à moitié fait en v0.18.*
+
+**Le vampire.** Le seigneur. Il ne boit le sang de personne : il lève
+l'impôt, et quand la faim vient, le village trouve l'image juste. La
+mécanique existe déjà (l'impôt, la rancune) — il ne manque que le mot que
+le village met dessus.
+
+### Ce qui reste à construire
+
+**Le principe de Jack l'Éventreur.** *(demandé explicitement)* Des hommes
+se servent de la légende. Un villageois rancunier, un vagabond, un
+étranger de passage tue et laisse accuser le loup. Le village n'a aucun
+moyen de faire la différence — et nous non plus, sauf dans la fiche du
+coupable. C'est là que le jeu devient vraiment noir.
+
+**Le doute, avec des degrés.** Personne ne sait, mais on soupçonne, et le
+soupçon porte sur quelqu'un. Aujourd'hui `soupcon` est un nombre sans
+cible ; il lui faut un destinataire.
+
+**Les chasseurs de monstres.** Un Van Helsing arrive, logé gratuitement à
+l'auberge le temps de sa chasse. Il peut se tromper de coupable. Il peut
+être un escroc. Il peut y avoir des imposteurs. Il repart, ou il fait
+brûler quelqu'un.
+
+**L'auberge.** Bâtiment manquant. Elle héberge les chasseurs, les
+vagabonds et les étrangers de passage — le colporteur en est déjà le
+prototype.
+
+**Les étrangers.** Ils arrivent, ils repartent, on ne sait rien d'eux, et
+c'est exactement pour ça qu'on les accuse ou qu'ils en profitent.
+
+### La règle qui découle de tout ça
+
+Aucun événement du monde ne doit être surnaturel. Si le joueur ouvre la
+fiche, il doit toujours trouver une cause banale. La légende ne vit que
+dans la chronique et dans le soupçon des habitants.
+
+---
+
 ## 📜 Historique
 
 - **2026-09-10 (après-midi, suite)** — Lumière des torches calculée par

@@ -395,7 +395,8 @@ function creerHabitant(role, logis) {
     courtise: null, deteste: null, suit: null, evite: null, craint: null,  // posé par les règles écrites
     prochainFlirt: 0, rembarrades: 0, aDitPas: false,
     surnom: null, surnomIdx: null, attache: null,
-    torche: 0, rallume: 0,        // voir majTorche()          // voir surnommer() et nomComplet()
+    torche: 0, rallume: 0,        // voir majTorche()
+    egare: false, fou: 0,         // la pleine lune fait perdre le nord          // voir surnommer() et nomComplet()
     compte: { reparations: 0, vols: 0, prieres: 0, rembarrades: 0, accusations: 0,
               moissons: 0, foires: 0, deuils: 0 },
     memoire: [],            // ce qu'il a fait, et ce qu'on lui a fait
@@ -430,6 +431,7 @@ const village = {
   brouillard: 0,             // il se forme à l'aube, et le vent le chasse
   lune: 0,                   // 0 nouvelle lune, 1 pleine lune
   sabbat: false,             // les nuits de pleine lune, on veille à la cabane
+  loupAgi: false,            // il n'abîme le village qu'une fois par nuit
   loup: null,                // celui que la pleine lune a fait sortir de lui-même
   // Le décompte de ce qui est arrivé DEPUIS LE PREMIER JOUR. La chronique
   // ne garde que ses deux cents dernières lignes — parfait pour lire par
@@ -438,7 +440,7 @@ const village = {
   // premiers étaient tombés hors du journal. On compte à la source.
   arrive: { buchers: 0, departs: 0, revoltes: 0, dragons: 0, foires: 0,
             successions: 0, surnoms: 0, noyades: 0, colporteurs: 0,
-            sabbats: 0, loups: 0 },
+            sabbats: 0, loups: 0, betes: 0, meurtres: 0, egares: 0, fous: 0 },
   pluie: 0,                  // 0 à 1, tiré chaque matin
   temps: 0,                      // secondes SIMULÉES écoulées — voir la boucle
   tension: 0, calmeDepuis: 0,    // voir metteurEnScene()
@@ -653,11 +655,56 @@ function majPleineLune(dt) {
     if (village.loup) {
       const l = village.loup;
       village.loup = null;
+      village.loupAgi = false;
       l.remords = Math.min(1, l.remords + 0.55);
       souvenir(l, "s'est réveillé sans savoir où il avait passé la nuit");
     }
     if (village.sabbat) village.sabbat = false;
     return;
+  }
+
+  // CE QU'ON TROUVE AU MATIN. Il ne tue pas d'homme, ou presque jamais :
+  // il égorge une bête, il défonce une porte, il vide la huche. Le village
+  // compte ses pertes et cherche un coupable — c'est tout ce qu'il faut.
+  if (village.loup && !village.loupAgi && village.lune > 0.93) {
+    village.loupAgi = true;
+    village.arrive.betes++;
+    village.pain = Math.max(0, village.pain - 3);
+    const m = MOULINS[village.jour % MOULINS.length];
+    m.etat = Math.max(0.1, m.etat - 0.2);
+    noter('Au matin, une bête égorgée, une porte défoncée, la huche vide.', true);
+    for (const h of habitants) if (h.vivant) h.soupcon = Math.min(1, h.soupcon + 0.10 * h.superstition);
+
+    // LE PRINCIPE DE JACK L'ÉVENTREUR. Très rarement, quelqu'un meurt —
+    // et ce n'est pas toujours le loup. Un homme que la rancune ronge se
+    // sert de la nuit et laisse la légende porter le poids. Le village
+    // n'a aucun moyen de faire la différence, et la chronique non plus :
+    // seule la fiche du coupable garde la trace.
+    if (aleaEvenements() < 0.22) {
+      const vivants = habitants.filter(h => h.vivant && h !== village.loup);
+      if (vivants.length > 6) {
+        let profiteur = null, pire = 0.85;
+        for (const h of vivants) {
+          const sc = h.rancune * 1.3 + (1 - h.piete) * 0.5 + h.egare * 0.3;
+          if (sc > pire) { pire = sc; profiteur = h; }
+        }
+        const auteur = profiteur || village.loup;
+        const victime = vivants.reduce((a, b) => (lien(auteur, a) <= lien(auteur, b) ? a : b));
+        victime.vivant = false;
+        village.arrive.meurtres++;
+        noter(`${nommer(victime)} a été trouvé${e(victime)} au petit jour. On dit que c'est la bête.`, true, victime);
+        souvenir(auteur, profiteur ? "a profité de cette nuit-là, et personne ne l'a jamais su"
+                                   : "ne se souvient pas de cette nuit-là");
+        for (const h of habitants) {
+          if (!h.vivant || h === victime) continue;
+          h.peur = Math.min(1, h.peur + 0.35);
+          h.soupcon = Math.min(1, h.soupcon + 0.25 * h.superstition);
+          const li = Math.max(lien(h, victime), h.secret === victime ? h.secretForce : 0);
+          if (li >= 0.3) { h.chagrin = Math.min(1, h.chagrin + li); h.compte.deuils++; }
+        }
+        if (profiteur) fauter(profiteur, 0.9, 0);   // du remords, aucune honte : personne n'a vu
+      }
+    }
   }
 
   // LE SABBAT. La sorcière veille, et ceux qui croient plus aux choses
@@ -692,6 +739,23 @@ function majPleineLune(dt) {
       souvenir(pire, "n'a aucun souvenir de cette nuit-là");
     }
   }
+  // L'ÉGAREMENT. Les plus peureux errent, changent d'avis sans arrêt, et
+  // se réveillent loin de chez eux. Rien de définitif — sauf une fois sur
+  // mille, où ça ne redescend plus.
+  for (const h of habitants) {
+    if (!h.vivant) continue;
+    const perdu = h.peur > 0.42 && h.courage < 0.42 && village.lune > 0.86;
+    if (perdu && !h.egare) { h.egare = true; village.arrive.egares++; }
+    if (!perdu) { h.egare = false; continue; }
+    h.prochainChoix = 0;                       // il ne tient pas en place
+    if (!h.fou && aleaEvenements() < dt * 0.002) {
+      h.fou = 1;
+      village.arrive.fous++;
+      noter(`${nommer(h)} n'est pas revenu${e(h)} le même. On l'évite maintenant.`, true, h);
+      souvenir(h, "a perdu la tête une nuit de pleine lune");
+    }
+  }
+
   const l = village.loup;
   if (l && l.vivant) {
     l.faim = Math.max(0, l.faim - dt * 0.01);
