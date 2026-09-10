@@ -1502,6 +1502,72 @@ surnoms 4,3.
 
 ---
 
+## La lune, et la lumière qui ne traverse plus les murs (v0.18)
+
+### L'objection de Pierre, qui était juste
+
+« Quand la lumière était à l'intérieur d'un bâtiment, il peut pas éclairer
+l'extérieur des faces du bâtiment. Ça peut sortir par les fenêtres et
+éclairer le sol dehors. Ça devient une source secondaire, la fenêtre. Là
+par exemple l'église a des torches à l'intérieur et l'extérieur des faces
+est allumé, c'est pas possible. Le dessus du toit n'est pas allumé. »
+
+Exact, et c'était une faute de modèle, pas de réglage : une atténuation
+par la distance ignore les murs.
+
+**La correction.** Chaque source porte maintenant une **direction**. Une
+torche éclaire tout autour d'elle ; une fenêtre n'éclaire que devant elle.
+Le nuanceur compare la direction de la lumière au vecteur qui va d'elle
+au sommet, et ne garde que ce qui est devant. Conséquences immédiates :
+le toit reste noir, la face arrière reste noire, et le mur autour de la
+fenêtre s'éclaire — ce qui est juste, la lumière s'y pose vraiment.
+
+**Les fenêtres quittent la géométrie des bâtiments.** Elles forment leur
+propre objet, avec une couleur par segment : éteinte, une fenêtre est un
+trait de mur ; allumée, c'est le point le plus clair du village. Une
+fenêtre n'est pas une surface éclairée, c'est une source.
+
+### La lune
+
+Huit jours de cycle — faux, mais on la voit grossir et maigrir en dix
+minutes, et les nuits noires reviennent assez souvent pour compter.
+Aucun tirage : elle se calcule à partir du jour et de l'heure.
+
+**De vraies ombres portées.** Le sol est plat, les bâtiments sont des
+boîtes : l'ombre d'un bâtiment est son empreinte poussée à l'opposé de la
+lune, d'autant plus loin qu'il est haut. Un point du sol est dans l'ombre
+s'il tombe dans la capsule qui joint les deux empreintes. On éteint alors
+le trait de sol. Recalculé seulement quand la lune a bougé d'un vingtième
+de radian, pas à chaque image.
+
+### La pleine lune change ce qui arrive
+
+Demandé explicitement : « max d'interaction ».
+
+- **On voit le ruisseau** : plus de noyade au-dessus d'une demi-lune.
+- **On voit qui vole** : la portée des témoins passe de 40 % à 100 % de
+  celle du jour. On ne vole pas impunément un soir de pleine lune — la
+  honte revient.
+- **Le sabbat.** La sorcière veille à la cabane, et ceux qui croient plus
+  aux choses qu'à l'église la rejoignent. Le village voit les lumières :
+  le soupçon monte chez ceux qui ne sont pas venus. **C'est le sabbat
+  lui-même qui alimente le bûcher** — la boucle se referme sans qu'aucune
+  règle ne l'écrive.
+- **Le loup.** La rancune, le courage et le peu de foi désignent toujours
+  quelqu'un. Il court deux fois plus vite, il fait peur à vingt mètres, et
+  au matin il se réveille avec du remords et aucun souvenir. Le village
+  n'apprend jamais qui c'était : il entend, c'est tout, et il en soupçonne
+  un autre.
+
+**Réglé par la mesure.** Seuil du loup à 1,15 : un par village en soixante
+jours, on ne le voit jamais. À 0,95 : neuf, il sort presque chaque pleine
+lune et cesse d'être un événement. Retenu **1,10** — 2,9 par village, soit
+une pleine lune sur trois.
+
+Les douze cibles tiennent, détermination comprise.
+
+---
+
 ## 📜 Historique
 
 - **2026-09-10 (après-midi, suite)** — Lumière des torches calculée par

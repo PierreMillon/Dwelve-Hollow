@@ -165,7 +165,7 @@
   <span class="title">DWELVE HOLLOW</span>
 </div>
 
-<button id="version">v0.17</button>
+<button id="version">v0.18</button>
 
 <div id="saison">jour <b id="s-jour">1</b> · <b id="s-phase">aube</b> · pain <b id="s-pain">0</b> · peur <b id="s-peur">0 %</b></div>
 
@@ -238,7 +238,17 @@
   <div class="contenu">
     <h2>DWELVE HOLLOW — HISTORIQUE</h2>
 
-    <div class="v courante"><b>v0.17</b> — <b>le remords, la honte et le brouillard.</b> Deux
+    <div class="v courante"><b>v0.18</b> — <b>la lune, et la lumière qui ne traverse plus les
+      murs.</b> Une source enfermée dans un bâtiment n'en éclaire plus la façade : la
+      fenêtre devient la source, dirigée vers le dehors, et le toit reste noir même
+      église pleine. La lune a huit jours de cycle, sa phase se lit sur le disque, et
+      elle porte de <b>vraies ombres</b> — l'empreinte de chaque bâtiment poussée à
+      l'opposé d'elle, d'autant plus loin qu'il est haut. Elle change aussi ce qui
+      arrive : sous la pleine lune on voit le ruisseau donc on ne s'y noie plus, on voit
+      qui vole donc la honte revient — et il se tient un sabbat à la cabane, pendant que
+      quelque chose hurle du côté des champs.</div>
+
+    <div class="v"><b>v0.17</b> — <b>le remords, la honte et le brouillard.</b> Deux
       états séparés là où les autres jeux n'en mettent qu'un : le remords monte qu'on
       soit vu ou non et se confesse à l'église ; la honte ne monte qu'avec un témoin et
       ne s'efface que quand le village regarde ailleurs — elle fait raser les murs. Le
@@ -410,34 +420,11 @@ function poser(dest, src, x, y, z, angle) {
     dest.push(src[i]*c + src[i+2]*sn + x, src[i+1] + y, -src[i]*sn + src[i+2]*c + z);
   }
 }
-// Une fenêtre : un rectangle sur le mur, à peine en saillie pour ne pas
-// se battre avec la face noire. Elle ne sert à rien tant qu'aucun feu ne
-// brûle derrière — et elle devient le point le plus clair du village dès
-// qu'il y en a un.
-function fenetre(S, x, y, z, w, h, surX = false) {
-  const a = w / 2, b = h / 2, e = 0.05;
-  if (surX) {
-    const X = x + Math.sign(x) * e;
-    trait(S, X, y - b, z - a, X, y - b, z + a);
-    trait(S, X, y + b, z - a, X, y + b, z + a);
-    trait(S, X, y - b, z - a, X, y + b, z - a);
-    trait(S, X, y - b, z + a, X, y + b, z + a);
-    trait(S, X, y - b, z,     X, y + b, z);          // le meneau
-  } else {
-    const Z = z + Math.sign(z) * e;
-    trait(S, x - a, y - b, Z, x + a, y - b, Z);
-    trait(S, x - a, y + b, Z, x + a, y + b, Z);
-    trait(S, x - a, y - b, Z, x - a, y + b, Z);
-    trait(S, x + a, y - b, Z, x + a, y + b, Z);
-    trait(S, x,     y - b, Z, x,     y + b, Z);
-  }
-}
 function bloc(fn) { const o = { a: [], f: [] }; fn(o.a, o.f); return o; }
 
 const FORMES = {
   chaumiere: (l = 4.4, p = 5.6, hm = 2.6, ht = 1.7) => bloc((S, T) => {
     boite(S, T, 0, 0, 0, l, hm, p); toit(S, T, 0, hm, 0, l, ht, p);
-    fenetre(S, 0, 1.15, p / 2, 0.9, 0.8);                    // par où la lumière sort
   }),
   boulangerie: () => bloc((S, T) => {
     boite(S, T, 0, 0, 0, 5.4, 3, 6.6); toit(S, T, 0, 3, 0, 5.4, 2, 6.6);
@@ -449,9 +436,6 @@ const FORMES = {
   }),
   eglise: () => bloc((S, T) => {
     boite(S, T, 0, 0, 0, 7, 5, 13); toit(S, T, 0, 5, 0, 7, 3, 13);
-    // trois lancettes de chaque côté : c'est par elles qu'on voit la messe
-    for (const dz of [-3.2, 0, 3.2]) for (const sg of [-1, 1])
-      fenetre(S, sg * 3.5, 2.4, dz, 0.9, 2.6, true);
     boite(S, T, 0, 0, -7.4, 4, 12, 4);                       // le clocher
     toit(S, T, 0, 12, -7.4, 4, 3.2, 4);
     trait(S, 0, 15.2, -7.4, 0, 17.6, -7.4);                  // la croix
@@ -710,18 +694,27 @@ const TOUS_MAT = [matDecor, matGens, matDragon, matEtal, matSol, matTrace, matHa
 const NB_FEUX = 12;
 const FEUX = [];
 for (let i = 0; i < NB_FEUX; i++) FEUX.push(new THREE.Vector4(0, 0, 0, 0));
+// Un feu enfermé dans un bâtiment n'en éclaire pas la façade : la lumière
+// ne traverse pas les murs. On ne calcule pas d'ombres pour autant — on
+// donne une DIRECTION à la source. Une torche éclaire tout autour d'elle
+// (w = 0) ; une fenêtre n'éclaire que devant elle (w = 1), donc ni le mur
+// qui la porte, ni le toit au-dessus, ni la face arrière du bâtiment.
+const FEUX_DIR = [];
+for (let i = 0; i < NB_FEUX; i++) FEUX_DIR.push(new THREE.Vector4(0, 0, 1, 0));
 const uPortee = { value: 58 };                                  // portée au carré (~7,6 m)
 const uCouleurFeu = { value: new THREE.Color(0xfff1cd) };
 
 function patcherLumiere(mat) {
   mat.uniforms.feux = { value: FEUX };
+  mat.uniforms.feuxDir = { value: FEUX_DIR };
   mat.uniforms.porteeCarree = uPortee;
   mat.uniforms.couleurFeu = uCouleurFeu;
 
   mat.vertexShader = mat.vertexShader
     .replace('attribute vec3 instanceEnd;', `attribute vec3 instanceEnd;
 
-      uniform vec4 feux[ ${NB_FEUX} ];   // xyz la position, w l'ardeur
+      uniform vec4 feux[ ${NB_FEUX} ];      // xyz la position, w l'ardeur
+      uniform vec4 feuxDir[ ${NB_FEUX} ];   // xyz la normale, w 1 si la source est dirigée
       uniform float porteeCarree;
       varying float vEclat;`)
     .replace('void main() {', `void main() {
@@ -733,7 +726,10 @@ function patcherLumiere(mat) {
         float e = 0.0;
         for ( int i = 0; i < ${NB_FEUX}; i ++ ) {
           vec3 d = pMonde - feux[ i ].xyz;
-          e += feux[ i ].w / ( 1.0 + dot( d, d ) / porteeCarree );
+          float att = feux[ i ].w / ( 1.0 + dot( d, d ) / porteeCarree );
+          // devant la fenêtre, ou nulle part
+          float devant = smoothstep( 0.02, 0.42, dot( normalize( d + 1e-4 ), feuxDir[ i ].xyz ) );
+          e += att * mix( 1.0, devant, feuxDir[ i ].w );
         }
         vEclat = min( e, 1.0 );
       }`);
@@ -781,7 +777,8 @@ function ensemble(forme, mat) {
 }
 
 scene.add(ensemble({ a: SEG_DECOR, f: FACE_DECOR }, matDecor));
-scene.add(ligneDe(SEG_SOL, matSol));
+const objSol = ligneDe(SEG_SOL, matSol);
+scene.add(objSol);
 scene.add(ligneDe(SEG_TRACE, matTrace));
 
 // les habitants
@@ -877,12 +874,149 @@ objBucher.scale.setScalar(1.6);
 
 const CHAUMIERES_R = LIEUX.filter(l => l.type === 'chaumiere');
 
+/* ---- LES FENÊTRES ----
+   Une fenêtre n'est pas une surface éclairée : c'est une SOURCE. La
+   lumière enfermée dans un bâtiment n'en éclaire pas la façade — elle
+   sort par l'ouverture, et c'est l'ouverture qu'on voit briller.
+   D'où deux choses distinctes :
+     · le rectangle lui-même, dont la couleur dit s'il y a de la vie
+       derrière (objet à part, une couleur par segment) ;
+     · une source posée DEVANT lui, dirigée vers l'extérieur, qui éclaire
+       le sol, les passants et les murs voisins — mais ni le toit
+       au-dessus, ni la face arrière du bâtiment.
+   Le toit reste noir même église pleine, et c'est ce qui manquait. */
+const FENETRES = [];
+const SEG_FEN = [];
+
+function poserFenetre(l, lx, ly, lz, larg, haut, surX) {
+  const c = Math.cos(l.angle), sn = Math.sin(l.angle);
+  const mo = (x, y, z) => [x * c + z * sn + l.x, y + l.y, -x * sn + z * c + l.z];
+  const a = larg / 2, b = haut / 2, e = 0.06;
+  const coins = surX
+    ? [[lx + Math.sign(lx) * e, ly - b, lz - a], [lx + Math.sign(lx) * e, ly - b, lz + a],
+       [lx + Math.sign(lx) * e, ly + b, lz + a], [lx + Math.sign(lx) * e, ly + b, lz - a]]
+    : [[lx - a, ly - b, lz + Math.sign(lz) * e], [lx + a, ly - b, lz + Math.sign(lz) * e],
+       [lx + a, ly + b, lz + Math.sign(lz) * e], [lx - a, ly + b, lz + Math.sign(lz) * e]];
+  const debut = SEG_FEN.length / 6;
+  for (let i = 0; i < 4; i++) {
+    const p = mo(...coins[i]), q = mo(...coins[(i + 1) % 4]);
+    SEG_FEN.push(p[0], p[1], p[2], q[0], q[1], q[2]);
+  }
+  // le meneau, pour que ça se lise comme une fenêtre et non comme un trou
+  const h1 = mo(...(surX ? [lx, ly - b, lz] : [lx, ly - b, lz])),
+        h2 = mo(...(surX ? [lx, ly + b, lz] : [lx, ly + b, lz]));
+  SEG_FEN.push(h1[0], h1[1], h1[2], h2[0], h2[1], h2[2]);
+
+  // la normale : vers l'extérieur du mur qui la porte
+  const nl = surX ? [Math.sign(lx), 0, 0] : [0, 0, Math.sign(lz)];
+  const n = [nl[0] * c + nl[2] * sn, 0, -nl[0] * sn + nl[2] * c];
+  const p = mo(lx, ly, lz);
+  FENETRES.push({ lieu: l, debut, fin: SEG_FEN.length / 6,
+                  x: p[0] + n[0] * 0.5, y: p[1], z: p[2] + n[2] * 0.5,
+                  nx: n[0], nz: n[2], allumee: 0 });
+}
+
+for (const l of CHAUMIERES_R) poserFenetre(l, 0, 1.15, ((l.args && l.args[1]) || 5.6) / 2, 0.9, 0.8, false);
+// l'église : trois lancettes de chaque côté, c'est par elles qu'on voit la messe
+for (const dz of [-3.6, 0, 3.6]) for (const sg of [-1, 1])
+  poserFenetre(EGLISE, sg * 3.5, 2.6, dz, 0.9, 2.8, true);
+poserFenetre(FOUR, 0, 1.3, 3.3, 0.8, 0.7, false);
+
+const matFenetre = materiau(1);
+matFenetre.linewidth = 1.9;
+matFenetre.vertexColors = true;
+patcherLumiere(matFenetre); TOUS_MAT.push(matFenetre);
+const gFen = new LineSegmentsGeometry();
+gFen.setPositions(SEG_FEN);
+const COUL_FEN = new Float32Array(SEG_FEN.length);
+gFen.setColors(COUL_FEN);
+const objFen = new LineSegments2(gFen, matFenetre);
+scene.add(objFen);
+
+// éteinte : un simple trait de mur. allumée : le point le plus clair du village.
+function peindreFenetres() {
+  for (const f of FENETRES) {
+    const a = f.allumee;
+    const r = 0.10 + a * 0.90, v = 0.42 + a * 0.52, b = 0.24 + a * 0.56;
+    for (let i = f.debut * 6; i < f.fin * 6; i += 3) {
+      COUL_FEN[i] = r; COUL_FEN[i + 1] = v; COUL_FEN[i + 2] = b;
+    }
+  }
+  gFen.attributes.instanceColorStart.needsUpdate = true;
+  gFen.attributes.instanceColorEnd.needsUpdate = true;
+}
+peindreFenetres();
+
 for (const h of habitants) {
   const f = ligneDe(FLAMME.a, matFlamme);
   f.position.y = 2.1; f.visible = false;
   const halo = ligneDe(HALO.a, matHalo);
   f.add(halo);
   h.objet.add(f); h.flamme = f;
+}
+
+/* ---- LA LUNE ----
+   Un disque au loin, dont la phase se lit : le cercle entier reste
+   visible, et l'arc du terminateur dit ce qui est éclairé. Huit jours de
+   cycle, calculés dans la simulation — le rendu ne fait que les montrer.
+
+   Et de VRAIES ombres portées. Le sol est plat et les bâtiments sont des
+   boîtes : l'ombre d'un bâtiment, c'est son empreinte poussée dans la
+   direction opposée à la lune, sur une longueur qui dépend de sa hauteur.
+   Un point du sol est dans l'ombre s'il est dans la capsule qui joint les
+   deux empreintes. On éteint alors le trait de sol. */
+const CERCLE_LUNE = [];
+for (let i = 0; i < 40; i++) {
+  const a = i / 40 * Math.PI * 2, b = (i + 1) / 40 * Math.PI * 2;
+  trait(CERCLE_LUNE, Math.cos(a) * 3.4, Math.sin(a) * 3.4, 0, Math.cos(b) * 3.4, Math.sin(b) * 3.4, 0);
+}
+const matLune = materiau(0.8); matLune.linewidth = 1.6;
+const objLune = new THREE.Group();
+objLune.add(ligneDe(CERCLE_LUNE, matLune));
+const arcLune = ligneDe(CERCLE_LUNE, matLune);        // le même cercle, aplati pour dire la phase
+objLune.add(arcLune);
+objLune.visible = false;
+scene.add(objLune);
+
+// les corps qui portent une ombre : centre, rayon, hauteur
+const OMBRAGEURS = [];
+const HAUTEURS = { chaumiere: 4.3, boulangerie: 6.4, atelier: 4.1, eglise: 15.2,
+                   manoir: 10.8, cabane: 4.6, moulinEau: 6, moulinVent: 9.2 };
+const RAYONS = { chaumiere: 3.2, boulangerie: 3.9, atelier: 3.3, eglise: 6,
+                 manoir: 5.4, cabane: 2.4, moulinEau: 3.2, moulinVent: 2.8 };
+for (const l of LIEUX) {
+  const h = HAUTEURS[l.forme];
+  if (h) OMBRAGEURS.push({ x: l.x, z: l.z, r: RAYONS[l.forme], h });
+}
+
+// le sol reçoit une couleur par segment : claire, ou éteinte par une ombre
+matSol.vertexColors = true;
+const COUL_SOL = new Float32Array(SEG_SOL.length);
+COUL_SOL.fill(1);
+// le sol garde une couleur par segment, prête à être éteinte
+objSol.geometry.setColors(COUL_SOL);
+const objSolRef = objSol;
+let dernierAzimut = -9;
+
+function majOmbres(azimut, longueur, force) {
+  const dx = -Math.cos(azimut) * longueur, dz = -Math.sin(azimut) * longueur;
+  for (let i = 0, k = 0; i < SEG_SOL.length; i += 6, k += 6) {
+    const mx = (SEG_SOL[i] + SEG_SOL[i + 3]) / 2, mz = (SEG_SOL[i + 2] + SEG_SOL[i + 5]) / 2;
+    let ombre = 0;
+    for (const b of OMBRAGEURS) {
+      // distance au segment [centre, centre décalé] : la capsule de l'ombre
+      const ax = b.x, az = b.z, bx = b.x + dx * b.h / 10, bz = b.z + dz * b.h / 10;
+      const ux = bx - ax, uz = bz - az, L2 = ux * ux + uz * uz;
+      let t = L2 > 0 ? ((mx - ax) * ux + (mz - az) * uz) / L2 : 0;
+      t = t < 0 ? 0 : t > 1 ? 1 : t;
+      const px = ax + ux * t, pz = az + uz * t;
+      if ((mx - px) ** 2 + (mz - pz) ** 2 < b.r * b.r) { ombre = 1; break; }
+    }
+    const c = ombre ? 1 - force : 1;
+    for (let j = 0; j < 6; j++) COUL_SOL[k + j] = c;
+  }
+  objSolRef.geometry.attributes.instanceColorStart.needsUpdate = true;
+  objSolRef.geometry.attributes.instanceColorEnd.needsUpdate = true;
 }
 
 /* ---- LE BROUILLARD ----
@@ -957,7 +1091,17 @@ function majMeteo(dt) {
   // pour l'histoire passe avant ce qui décore. Si les douze sont pris,
   // ce sont les torches de rue qu'on perd, jamais le bûcher.
   let n = 0;
-  const feu = (x, y, z, w) => { if (n < NB_FEUX) FEUX[n++].set(x, y, z, w); };
+  // une source sans normale éclaire tout autour d'elle ; avec une normale,
+  // elle n'éclaire que devant — c'est le cas d'une fenêtre
+  const feu = (x, y, z, w, nx = 0, nz = 0) => {
+    if (n >= NB_FEUX) return;
+    FEUX[n].set(x, y, z, w);
+    FEUX_DIR[n].set(nx, 0, nz, nx || nz ? 1 : 0);
+    n++;
+  };
+  // ce qui brûle derrière chaque fenêtre, remis à zéro puis rallumé
+  for (const f of FENETRES) f.allumee = 0;
+  const parLieu = (l) => FENETRES.filter(f => f.lieu === l);
 
   // 1. LE BÛCHER. La scène la plus lourde du jeu se joue autour d'un feu.
   const bu = village.bucher;
@@ -972,10 +1116,20 @@ function majMeteo(dt) {
   //    lancettes — c'est la seule fois où le village voit un mur illuminé.
   const office = habitants.some(h => h.vivant && h.occupation === 'officier');
   const fideles = habitants.reduce((t, h) => t + (h.vivant && h.occupation === 'prier' ? 1 : 0), 0);
-  if (office || fideles >= 2) feu(EGLISE.x, EGLISE.y + 2.8, EGLISE.z, (office ? 2.4 : 1.3) * vacille(1.1));
+  if (office || fideles >= 2) {
+    const ardeur = (office ? 1.5 : 0.9) * vacille(1.1);
+    const lancettes = parLieu(EGLISE);
+    for (const f of lancettes) f.allumee = office ? 1 : 0.7;
+    // deux sources seulement, une par flanc : douze emplacements ne
+    // suffiraient pas si chaque lancette prenait le sien
+    for (const f of [lancettes[0], lancettes[1]]) if (f) feu(f.x, f.y, f.z, ardeur, f.nx, f.nz);
+  }
 
   // 3. LE FOUR. Il chauffait déjà et fumait déjà ; il éclaire maintenant.
-  if (village.fourChauffe) feu(FOUR.x, FOUR.y + 2.2, FOUR.z, 0.8 * vacille(0.4));
+  if (village.fourChauffe) {
+    const [f] = parLieu(FOUR);
+    if (f) { f.allumee = 1; feu(f.x, f.y, f.z, 1.1 * vacille(0.4), f.nx, f.nz); }
+  }
 
   // 4. LE FEU DE CAMP sur la place : jour de foire, ou simplement du monde
   //    dehors la nuit. Personne ne veille seul dans le noir.
@@ -994,8 +1148,10 @@ function majMeteo(dt) {
     const rentre = habitants.some(h => h.vivant && h.logis === c &&
                                        Math.hypot(h.x - c.x, h.z - c.z) < 4);
     if (!rentre) continue;
-    const d = ((c.args && c.args[1]) || 5.6) / 2 + 0.45;
-    feu(c.x + Math.sin(c.angle) * d, c.y + 1.2, c.z + Math.cos(c.angle) * d, 0.6);
+    const [f] = parLieu(c);
+    if (!f) continue;
+    f.allumee = 1;
+    feu(f.x, f.y, f.z, 0.75, f.nx, f.nz);
   }
 
   // 6. LES TORCHES, en dernier. C'est la simulation qui décide qui en
@@ -1009,8 +1165,33 @@ function majMeteo(dt) {
     h.flamme.scale.setScalar(v);
     feu(h.x, hauteur(h.x, h.z) + 2.1, h.z, 0.9 * v);
   }
-  while (n < NB_FEUX) FEUX[n++].w = 0;     // les emplacements libres n'éclairent rien
+  while (n < NB_FEUX) { FEUX[n].w = 0; FEUX_DIR[n].w = 0; n++; }
+  peindreFenetres();
   matHalo.opacity = 0.10 + 0.035 * Math.sin(t * 2.1);
+
+  // LA LUNE. Elle traverse le ciel, sa phase se lit sur le disque, et
+  // elle porte de vraies ombres au sol — l'empreinte de chaque bâtiment
+  // poussée à l'opposé d'elle, d'autant plus loin qu'il est haut.
+  const clair = lumiere();
+  objLune.visible = clair < 0.4 && village.lune > 0.05;
+  if (objLune.visible) {
+    const h24 = village.heure < 0.5 ? village.heure + 1 : village.heure;
+    const az = h24 * Math.PI + 1.1;                        // elle se lève, elle passe, elle se couche
+    const dist = 34, haut = 26 + Math.sin((h24 - 0.86) * 2.2) * 9;
+    objLune.position.set(Math.cos(az) * dist, haut, Math.sin(az) * dist);
+    objLune.lookAt(camera.position);
+    arcLune.scale.x = Math.max(0.02, Math.abs(1 - 2 * village.lune));
+    matLune.opacity = 0.3 + village.lune * 0.6;
+
+    if (Math.abs(az - dernierAzimut) > 0.04) {
+      dernierAzimut = az;
+      // plus la lune est basse, plus l'ombre s'allonge
+      majOmbres(az, 22 + (1 - village.lune) * 6, 0.55 + village.lune * 0.4);
+    }
+  } else if (dernierAzimut !== -9) {
+    dernierAzimut = -9;
+    majOmbres(0, 0, 0);                                     // plus de lune, plus d'ombre
+  }
 
   // le brouillard : il monte, il dérive, il s'efface
   objBrume.visible = village.brouillard > 0.02;
@@ -1048,9 +1229,10 @@ function majRendu(dt) {
   // La nuit descend plus bas qu'avant (0,42 → 0,34) : c'est le pendant de
   // la lumière calculée. Elle n'éclaire vraiment que si l'obscurité
   // autour vaut quelque chose.
-  matDecor.opacity = 0.34 + l * 0.66;
-  matGens.opacity = 0.55 + l * 0.45;
-  matSol.opacity = 0.05 + l * 0.13;
+  const lu = village.lune * (l < 0.4 ? 1 : 0) * 0.14;      // la lune relève la nuit
+  matDecor.opacity = 0.34 + l * 0.66 + lu;
+  matGens.opacity = 0.55 + l * 0.45 + lu;
+  matSol.opacity = 0.05 + l * 0.13 + lu * 0.9;
   matTrace.opacity = 0.18 + l * 0.3;
 
   for (const h of habitants) {

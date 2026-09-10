@@ -53,6 +53,7 @@ export const REGLAGES = {
   // l'emporter franchement quand leur moment vient, ou ne jamais venir.
   poidsAccuser: 6,      // trouvé au balayage
   seuilFoule: 3,        // balayage : à 4, un village amoindri ne fait plus jamais foule
+  cycleLune: 8,         // jours d'un cycle lunaire complet
   poidsRevolte: 3,
   poidsVol: 4,
   poidsPriere: 1,
@@ -360,7 +361,7 @@ const nommer = (h) => h.surnom ? `${h.prenom} dit${h.feminin ? 'e' : ''} ${h.sur
 const OCCUPATIONS = ['dormir', 'manger', 'prier', 'flâner', 'fuir', 'accuser',
   'se révolter', 'courtiser', 'suivre', 'voler', 'moissonner', 'cuire',
   'réparer', 'menuiser', 'forger', 'tailler', 'colporter', 'officier',
-  'herboriser', 'inspecter', 'visiter'];
+  'herboriser', 'inspecter', 'visiter', 'veiller'];
 
 let rangSuivant = 0;
 function creerHabitant(role, logis) {
@@ -427,13 +428,17 @@ const village = {
   fourChauffe: false,        // le four est-il allumé ? (la cheminée fume)
   vent: 0,                   // 0 à 1, il monte et retombe tout seul
   brouillard: 0,             // il se forme à l'aube, et le vent le chasse
+  lune: 0,                   // 0 nouvelle lune, 1 pleine lune
+  sabbat: false,             // les nuits de pleine lune, on veille à la cabane
+  loup: null,                // celui que la pleine lune a fait sortir de lui-même
   // Le décompte de ce qui est arrivé DEPUIS LE PREMIER JOUR. La chronique
   // ne garde que ses deux cents dernières lignes — parfait pour lire par
   // -dessus l'épaule du village, inutilisable pour mesurer. Un balayage
   // sur 120 jours comptait 1 surnom là où il y en avait eu 5 : les
   // premiers étaient tombés hors du journal. On compte à la source.
   arrive: { buchers: 0, departs: 0, revoltes: 0, dragons: 0, foires: 0,
-            successions: 0, surnoms: 0, noyades: 0, colporteurs: 0 },
+            successions: 0, surnoms: 0, noyades: 0, colporteurs: 0,
+            sabbats: 0, loups: 0 },
   pluie: 0,                  // 0 à 1, tiré chaque matin
   temps: 0,                      // secondes SIMULÉES écoulées — voir la boucle
   tension: 0, calmeDepuis: 0,    // voir metteurEnScene()
@@ -524,6 +529,12 @@ function poidsDes(h) {
             (rancoeur > 1 ? ` · une règle : il la déteste` : '')]);
   }
   // la rancune, elle, ne cherche pas un coupable faible : elle monte au manoir
+  // on ne veille à la cabane que les nuits de pleine lune, et seulement
+  // si l'on croit plus aux choses qu'à l'église
+  if (village.sabbat) {
+    p.push(['veiller', (h.superstition * 2.4 + (1 - h.piete) * 1.2) * (h.role === 'sorciere' ? 3 : 1),
+            `la lune est pleine · superstition ${n2(h.superstition)}`]);
+  }
   p.push(['se révolter', h.rancune * h.rancune * h.courage * R.poidsRevolte,
           `rancune ${n2(h.rancune)} × courage ${n2(h.courage)}`]);
 
@@ -592,11 +603,14 @@ function poidsDes(h) {
 // village : c'est le seul endroit du code où l'on demande qui regarde.
 function temoins(h, portee = 13) {
   if (village.brouillard > 0.55) return 0;      // on ne voit plus à dix pas
+  // De nuit on ne voit qu'à bout portant — sauf sous la pleine lune, où
+  // le village voit presque comme en plein jour. D'où la conséquence que
+  // Pierre voulait : on ne vole pas impunément un soir de pleine lune.
+  const p = estNuit() ? portee * (0.4 + village.lune * 0.6) : portee;
   let n = 0;
   for (const a of habitants) {
     if (!a.vivant || a === h) continue;
-    if (Math.hypot(a.x - h.x, a.z - h.z) < portee && !estNuit()) n++;
-    else if (Math.hypot(a.x - h.x, a.z - h.z) < portee * 0.45) n++;   // la nuit on s'approche
+    if (Math.hypot(a.x - h.x, a.z - h.z) < p) n++;
   }
   return n;
 }
@@ -630,12 +644,76 @@ function majTorche(h) {
 // traverse sans lumière peut y tomber. Le pont reste sûr, une torche
 // allumée aussi — c'est la première fois dans ce village qu'en porter
 // une sauve la vie, et ça vaut mieux que de le dire dans un texte.
+// LA PLEINE LUNE. Trois choses arrivent, et aucune n'est annoncée : le
+// village les découvre comme nous, par ce qu'il voit.
+function majPleineLune(dt) {
+  const pleine = estNuit() && village.lune > 0.80;
+
+  if (!pleine) {
+    if (village.loup) {
+      const l = village.loup;
+      village.loup = null;
+      l.remords = Math.min(1, l.remords + 0.55);
+      souvenir(l, "s'est réveillé sans savoir où il avait passé la nuit");
+    }
+    if (village.sabbat) village.sabbat = false;
+    return;
+  }
+
+  // LE SABBAT. La sorcière veille, et ceux qui croient plus aux choses
+  // qu'à l'église la rejoignent. Le village voit des lumières à la
+  // cabane — c'est le sabbat lui-même qui nourrit le soupçon, donc le
+  // bûcher. La boucle se referme toute seule.
+  const sorciere = habitants.find(h => h.vivant && h.role === 'sorciere');
+  if (sorciere && !village.sabbat) { village.sabbat = true; village.arrive.sabbats++; }
+  if (village.sabbat) {
+    const veillent = habitants.filter(h => h.vivant && h.occupation === 'veiller').length;
+    if (veillent >= 2) for (const h of habitants) {
+      if (!h.vivant || h.occupation === 'veiller') continue;
+      h.soupcon = Math.min(1, h.soupcon + dt * 0.008 * h.superstition * veillent);
+    }
+  }
+
+  // LE LOUP. La rancune, le courage et le peu de foi désignent toujours
+  // quelqu'un. Le village n'apprend jamais qui c'était — il entend, c'est
+  // tout, et il en soupçonne un autre.
+  if (!village.loup && village.lune > 0.93) {
+    let pire = null, score = 1.10;   // mesuré : 2,9 par village, soit une pleine lune sur trois   // mesuré : à 1,15 il ne sortait qu'une fois tous les soixante jours
+    for (const h of habitants) {
+      if (!h.vivant || h.role === 'sorciere') continue;
+      const sc = h.rancune + h.courage * 0.6 + (1 - h.piete) * 0.6;
+      if (sc > score) { score = sc; pire = h; }
+    }
+    if (pire) {
+      village.loup = pire;
+      village.arrive.loups++;
+      noter('Quelque chose a hurlé du côté des champs. Personne ne veut savoir quoi.', true);
+      signaler('souffle', pire.x, pire.z);
+      souvenir(pire, "n'a aucun souvenir de cette nuit-là");
+    }
+  }
+  const l = village.loup;
+  if (l && l.vivant) {
+    l.faim = Math.max(0, l.faim - dt * 0.01);
+    for (const h of habitants) {
+      if (!h.vivant || h === l) continue;
+      const d = Math.hypot(h.x - l.x, h.z - l.z);
+      if (d > 18) continue;
+      const pres = 1 - d / 18;
+      h.peur = Math.min(1, h.peur + dt * 0.09 * pres * (1 - h.courage * 0.6));
+      h.soupcon = Math.min(1, h.soupcon + dt * 0.02 * pres * h.superstition);
+    }
+  }
+}
+
 function majNoyade(h) {
   // Quatre conditions, et il en faut quatre : le brouillard le plus
   // épais, aucune lumière, le milieu du courant, loin du pont — et la
   // fatigue, parce qu'on ne se noie pas frais et dispos. Premier
   // réglage mesuré : six noyés par village, le village y passait. Ce
   // n'est pas un piège, c'est un accident.
+  // sous la pleine lune on voit le ruisseau, même à travers la brume
+  if (village.lune > 0.55) return;
   if (village.brouillard < 0.79 || h.torche > 0 || h.fatigue < 0.62) return;
   if (Math.abs(distRuisseau(h.x, h.z)) > LARGEUR_EAU * 0.16) return;
   if (Math.hypot(h.x - POINT_PONT.x, h.z - POINT_PONT.z) < 11) return;
@@ -703,7 +781,7 @@ function lieuDe(h, occ) {
     // on vole là où il y a à prendre
     case 'voler': return village.pain >= 1 ? FOUR : PLACE;
     case 'colporter': return PLACE;
-    case 'herboriser': return CABANE;
+    case 'herboriser': case 'veiller': return CABANE;
     case 'inspecter': return chez(h, [PLACE, ...CHAMPS, FOUR], 3);
     case 'visiter': return chez(h, [PLACE, EGLISE, ...CHAUMIERES], 4);
     default: return PLACE;
@@ -732,6 +810,13 @@ function simuler(dt) {
   // déduit — c'est ce qui fait qu'on peut le voir venir.
   const vise = estAube() && !village.pluie ? Math.max(0, 1 - village.vent * 1.6) : 0;
   village.brouillard += (vise - village.brouillard) * Math.min(1, dt * 0.25);
+
+  // LA LUNE. Huit jours de cycle : faux, mais on la voit grossir et
+  // maigrir en dix minutes de contemplation, et les nuits noires
+  // reviennent assez souvent pour compter. Aucun tirage, encore : elle se
+  // calcule à partir du jour et de l'heure.
+  village.lune = 0.5 - 0.5 * Math.cos(2 * Math.PI * (village.jour + village.heure) / R.cycleLune);
+  majPleineLune(dt);
   const dtJour = dt / JOUR;
   village.heure += dtJour;
   if (village.heure >= 1) {
@@ -802,7 +887,8 @@ function avancer(h, dt) {
   const dx = h.cible.x - h.x, dz = h.cible.z - h.z;
   const d = Math.hypot(dx, dz);
   if (d < PROCHE) return;
-  const v = h.vitesse * (h.occupation === 'fuir' ? 2 : 1) * (1 - h.fatigue * 0.4);
+  const v = h.vitesse * (h.occupation === 'fuir' ? 2 : 1)
+            * (h === village.loup ? 1.9 : 1) * (1 - h.fatigue * 0.4);
   h.x += (dx / d) * v * dt;
   h.z += (dz / d) * v * dt;
   // « évite » : on se détourne sans cesser d'aller où l'on allait
