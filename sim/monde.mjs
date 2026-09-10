@@ -387,7 +387,7 @@ function creerHabitant(role, logis) {
     secret: null, secretForce: 0,   // celle dont il n'a jamais rien dit
     courtise: null, deteste: null, suit: null, evite: null, craint: null,  // posé par les règles écrites
     prochainFlirt: 0, rembarrades: 0, aDitPas: false,
-    surnom: null, attache: null,          // voir surnommer() et nomComplet()
+    surnom: null, surnomIdx: null, attache: null,          // voir surnommer() et nomComplet()
     compte: { reparations: 0, vols: 0, prieres: 0, rembarrades: 0, accusations: 0,
               moissons: 0, foires: 0, deuils: 0 },
     memoire: [],            // ce qu'il a fait, et ce qu'on lui a fait
@@ -1126,26 +1126,39 @@ function majColporteur() {
 // villageois sur neuf s'appelaient « le dévot », parce que le compteur de
 // prières monte pour tout le monde. Les scores sont donc relatifs à la
 // moyenne du village — il faut faire nettement plus que les autres.
-function moyenneDe(champ) {
+// Moyenne ET écart-type du village sur un compteur. Le rapport à la
+// seule moyenne ne valait rien : un compteur qui monte pour tout le monde
+// (les prières) et un compteur rare (les vols) n'ont pas la même échelle,
+// donc c'était toujours le même surnom qui gagnait la comparaison — quatre
+// « avare » sur cinq à la dernière mesure. L'écart-type remet les dix
+// surnoms sur le même pied.
+function statsDe(champ) {
   let t = 0, n = 0;
   for (const h of habitants) { if (!h.vivant) continue; t += h.compte[champ]; n++; }
-  return n ? t / n : 0;
+  const moy = n ? t / n : 0;
+  let v = 0;
+  for (const h of habitants) { if (!h.vivant) continue; v += (h.compte[champ] - moy) ** 2; }
+  return { moy, ecart: n > 1 ? Math.sqrt(v / n) : 0 };
 }
 // combien de fois au-dessus de la moyenne, moins le seuil de 2 : à 3× la
 // moyenne le score vaut 1, ce qui commence à être remarquable
-const saillant = (v, moy, seuil = 2) => (moy < 0.5 ? -9 : v / moy - seuil);
+// Combien d'écarts-types au-dessus des autres, moins le seuil. Dans un
+// village de dix-sept, une conduite que personne d'autre n'a vaut environ
+// quatre écarts ; à trois personnes elle n'en vaut plus que deux. Le seuil
+// dit donc, en clair : « pas plus de deux ou trois à le faire ».
+const saillant = (v, st, seuil = 1.3) => (st.ecart < 0.35 ? -9 : (v - st.moy) / st.ecart - seuil);
 
 const SURNOMS = [
   { f: 'la hargneuse',   m: 'le hargneux',    score: (h) => (h.rancune - 0.82) * 8 },
-  { f: "l'éconduite",    m: "l'éconduit",     score: (h, mo) => saillant(h.compte.rembarrades, Math.max(0.6, mo.rembarrades), 2.5) },
-  { f: 'la main leste',  m: 'la main leste',  score: (h, mo) => saillant(h.compte.vols, mo.vols, 3) },
-  { f: "aux mains d'or", m: "aux mains d'or", score: (h, mo) => saillant(h.compte.reparations, mo.reparations, 3) },
-  { f: 'la dévote',      m: 'le dévot',       score: (h, mo) => saillant(h.compte.prieres, mo.prieres, 2.4) + (h.piete > 0.75 ? 0.4 : -1.5) },
+  { f: "l'éconduite",    m: "l'éconduit",     score: (h, mo) => saillant(h.compte.rembarrades, mo.rembarrades, 1.5) },
+  { f: 'la main leste',  m: 'la main leste',  score: (h, mo) => saillant(h.compte.vols, mo.vols, 1.6) },
+  { f: "aux mains d'or", m: "aux mains d'or", score: (h, mo) => saillant(h.compte.reparations, mo.reparations, 1.6) },
+  { f: 'la dévote',      m: 'le dévot',       score: (h, mo) => saillant(h.compte.prieres, mo.prieres, 1.4) + (h.piete > 0.75 ? 0.4 : -1.5) },
   { f: 'la taciturne',   m: 'le taciturne',   score: (h) => (0.12 - h.sociabilite) * 9 - h.liens.size * 0.15 },
-  { f: "l'avare",        m: "l'avare",        score: (h, mo) => (h.cupidite - 0.9) * 5 + saillant(h.compte.vols, mo.vols, 2) },
-  { f: 'la corbeille',   m: 'outre à vin',    score: (h, mo) => saillant(h.compte.foires, mo.foires, 1.6) + (h.piete < 0.25 ? 0.4 : -3) },
-  { f: 'la douloureuse', m: 'le douloureux',  score: (h, mo) => saillant(h.compte.deuils, Math.max(0.4, mo.deuils), 2.5) },
-  { f: 'la brûlante',    m: 'le brûlant',     score: (h, mo) => saillant(h.compte.accusations, Math.max(0.8, mo.accusations), 2.5) },
+  { f: "l'avare",        m: "l'avare",        score: (h, mo) => (h.cupidite - 0.9) * 5 + saillant(h.compte.vols, mo.vols, 1.2) },
+  { f: 'la corbeille',   m: 'outre à vin',    score: (h, mo) => saillant(h.compte.foires, mo.foires, 1.1) + (h.piete < 0.25 ? 0.4 : -3) },
+  { f: 'la douloureuse', m: 'le douloureux',  score: (h, mo) => saillant(h.compte.deuils, mo.deuils, 1.5) },
+  { f: 'la brûlante',    m: 'le brûlant',     score: (h, mo) => saillant(h.compte.accusations, mo.accusations, 1.5) },
 ];
 
 // et le village n'en trouve pas un par jour : on ne nomme que le cas le
@@ -1153,18 +1166,26 @@ const SURNOMS = [
 function surnommer() {
   const mo = {};
   for (const c of ['rembarrades', 'vols', 'reparations', 'prieres', 'foires', 'deuils', 'accusations']) {
-    mo[c] = moyenneDe(c);
+    mo[c] = statsDe(c);
   }
+  // Un surnom ne se porte pas à deux dans le même village : il sert
+  // justement à distinguer. Le second plus avare devra trouver autre
+  // chose, ou n'avoir aucun surnom.
+  const pris = new Set();
+  for (const h of habitants) if (h.vivant && h.surnomIdx != null) pris.add(h.surnomIdx);
+
   let meilleur = null, meilleurScore = 1;
   for (const h of habitants) {
     if (!h.vivant || h.surnom) continue;
-    for (const su of SURNOMS) {
-      const sc = su.score(h, mo);
-      if (sc > meilleurScore) { meilleurScore = sc; meilleur = { h, su }; }
+    for (let i = 0; i < SURNOMS.length; i++) {
+      if (pris.has(i)) continue;
+      const sc = SURNOMS[i].score(h, mo);
+      if (sc > meilleurScore) { meilleurScore = sc; meilleur = { h, su: SURNOMS[i], i }; }
     }
   }
   if (!meilleur) return;
   const { h, su } = meilleur;
+  h.surnomIdx = meilleur.i;
   h.surnom = h.feminin ? su.f : su.m;
   noter(`On a commencé à l'appeler ${h.surnom}. C'était ${h.prenom}.`, false, h);
   souvenir(h, `a gagné son surnom : ${h.surnom}`);

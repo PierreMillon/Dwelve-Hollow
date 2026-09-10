@@ -1273,16 +1273,94 @@ C'est le test qu'il aurait fallu avoir hier, quand ajouter un bruitage a
 déplacé toutes les décisions du village. Il tourne aussi seul :
 `node sim/equilibre.mjs --determinisme`.
 
-### Réserve
+### La prière à 23 % — tranché, c'est voulu
 
-La prière occupe 23 % du temps de chacun, et le travail beaucoup moins.
-Ce n'est **pas** une conséquence du passage sans dé — la mesure de
-référence donne 23,7 % — mais c'est un déséquilibre réel, qui était là
-avant et qu'on voit mieux maintenant. À traiter à part.
+Mesuré : chacun prie 23 % de son temps et travaille beaucoup moins. Ce
+n'était pas une conséquence du passage sans dé — la mesure de référence
+donne 23,7 %. Signalé à Pierre comme un déséquilibre possible ; **sa
+réponse est que c'est voulu**. Un village médiéval qui prie beaucoup ne
+le choque pas, et l'économie tient de toute façon.
+
+Ce n'est donc plus une réserve. C'est un parti pris, et il est écrit ici
+pour qu'on ne le « corrige » pas par mégarde dans six mois.
+
+---
+
+## La nuit des torches, et les surnoms qui se distinguent (v0.16)
+
+Deux décisions prises par Pierre sur planche et sur quiz.
+
+### La lumière : solution C, plus le halo de A
+
+Une planche de comparaison lui a été remise, avec les deux rendus côte à
+côte et en direct : à gauche un halo dessiné, à droite la lumière
+calculée par sommet. Son choix : **C pour le monde, le halo de A gardé
+pour la flamme elle-même.** Les deux ne s'excluaient pas.
+
+**Ce qui a été greffé.** Le nuanceur du matériau de lignes épaisses reçoit
+six feux (`vec4` : la position et l'ardeur), et chaque sommet calcule sa
+clarté par une atténuation en 1 / (1 + d² / portée²). Le bout de ruban
+sait de quel côté du segment il est — le nuanceur d'origine s'en sert
+déjà pour choisir `instanceStart` ou `instanceEnd` — donc une arête peut
+être claire d'un bout et sombre de l'autre.
+
+**Propriété tenue.** Quand aucun feu ne brûle, toutes les ardeurs valent
+zéro, la somme vaut zéro, et le rendu est au pixel près celui d'avant. Le
+jour n'a pas bougé.
+
+**Ce que ça a donné, en plus des torches.** Le four allumé éclaire sa
+façade — il chauffait déjà et fumait déjà, il se voit maintenant de trois
+façons. Et la flaque au sol n'est pas un objet posé : c'est la grille du
+sol qui s'allume, donc elle épouse le talus.
+
+**La nuit descend plus bas** : le décor passe de 0,42 à 0,34 d'opacité
+nocturne. C'est le pendant nécessaire — une lumière n'éclaire que s'il y
+a de l'obscurité autour.
+
+**Le tremblement** vient de trois sinusoïdes de fréquences non multiples.
+Il ne se répète pas à l'œil, il est identique d'une partie à l'autre, et
+il ne consomme aucun tirage. Une flamme qui vacille ne peut donc pas
+déplacer l'histoire du village — c'est la règle de la v0.15 appliquée.
+
+**Une passe de correction après capture.** Le halo à trois anneaux se
+lisait comme un marqueur d'interface, neuf cibles identiques posées sur
+la carte. Ramené à deux anneaux plus discrets, et la portée élargie de
+6,5 à 7,6 m pour que la flaque au sol s'étale.
+
+### Les surnoms : les deux corrections
+
+La réserve tenue depuis la v0.13 est levée. Quatre surnoms sur cinq
+étaient « l'avare ».
+
+**Deux causes indépendantes, deux corrections.**
+
+1. Les compteurs n'avaient pas la même échelle. Les prières montent pour
+   tout le monde, les vols sont rares : comparer chacun à la moyenne de
+   son propre compteur ne les met pas sur le même pied. Chaque score est
+   désormais un nombre d'écarts-types au-dessus des autres. Dans un
+   village de dix-sept, une conduite que personne d'autre n'a vaut quatre
+   écarts ; à trois personnes, deux. Le seuil dit donc en clair : « pas
+   plus de deux ou trois à le faire ».
+2. Un même surnom pouvait être porté par plusieurs personnes, ce qui le
+   vide de son sens. Il est maintenant unique dans le village.
+
+**Mesuré sur 10 villages × 120 jours.** Avant : 4 « avare » sur 5. Après :
+43 surnoms, dont 11 « avare », 10 « le dévot », 10 « aux mains d'or »,
+6 « le hargneux », 4 « la main leste », et deux surnoms rares. Sept
+libellés différents au lieu d'un.
+
+Il y en a moins qu'avant — 3,6 par village contre 6,3 — et c'est voulu :
+un surnom qui se donne à tout le monde ne distingue personne.
 
 ---
 
 ## 📜 Historique
+
+- **2026-09-10 (après-midi, suite)** — Lumière des torches calculée par
+  sommet dans le nuanceur des lignes épaisses, avec le four qui éclaire
+  et le halo gardé pour la flamme ; surnoms normalisés à l'écart-type et
+  rendus uniques. Compétence `/quiz` ajoutée aux deux dépôts pour que
+  Pierre tranche en cliquant. v0.16.
 
 - **2026-09-10 (après-midi)** — Le monde sans dé : plus aucun tirage dans
   les décisions (maximum + penchant fixe + lassitude + cadence propre),

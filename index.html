@@ -165,7 +165,7 @@
   <span class="title">DWELVE HOLLOW</span>
 </div>
 
-<button id="version">v0.15</button>
+<button id="version">v0.16</button>
 
 <div id="saison">jour <b id="s-jour">1</b> · <b id="s-phase">aube</b> · pain <b id="s-pain">0</b> · peur <b id="s-peur">0 %</b></div>
 
@@ -238,7 +238,17 @@
   <div class="contenu">
     <h2>DWELVE HOLLOW — HISTORIQUE</h2>
 
-    <div class="v courante"><b>v0.15</b> — <b>plus de dé.</b> Personne ne tire au sort ce
+    <div class="v courante"><b>v0.16</b> — <b>la nuit des torches.</b> Chaque arête calcule
+      sa propre clarté selon sa distance aux feux : le mur près d'une torche est clair
+      d'un bout et sombre de l'autre, et la flaque au sol n'est pas dessinée — c'est la
+      grille du sol qui s'allume, donc elle épouse le relief. Le four allumé éclaire sa
+      façade. La nuit descend plus bas qu'avant, c'est ce qui donne sa valeur à la
+      lumière. La flamme garde un halo qui respire, et son tremblement vient de trois
+      sinusoïdes, jamais du hasard. Les surnoms cessent de se regrouper : chaque
+      compteur est ramené à son propre écart-type, et un surnom ne se porte plus à
+      deux dans le même village.</div>
+
+    <div class="v"><b>v0.15</b> — <b>plus de dé.</b> Personne ne tire au sort ce
       qu'il fait : chacun prend ce qui pèse le plus lourd, et ce qu'il vient de faire
       pèse un peu moins — c'est la lassitude qui remplace le hasard. Deux hommes dans
       la même situation ne tranchent plus pareil parce qu'ils ne sont pas faits du même
@@ -644,7 +654,68 @@ function materiau(op = 1) {
 const matDecor = materiau(), matGens = materiau(), matDragon = materiau(), matEtal = materiau();
 const matSol = materiau(0.16), matTrace = materiau(0.45);
 matSol.linewidth = 1.1; matTrace.linewidth = 1.3;
-const TOUS_MAT = [matDecor, matGens, matDragon, matEtal, matSol, matTrace];
+const matHalo = materiau(0.2); matHalo.linewidth = 1.1;
+const TOUS_MAT = [matDecor, matGens, matDragon, matEtal, matSol, matTrace, matHalo];
+
+/* ---- LA LUMIÈRE DES FEUX ----
+   Solution C, choisie sur planche : chaque sommet calcule sa propre
+   clarté selon sa distance aux feux. Une arête longue est donc claire
+   d'un bout et sombre de l'autre, et la tache au sol n'est pas dessinée
+   — c'est la grille du sol qui s'allume, donc elle épouse le relief.
+
+   Le village n'est pas tracé avec des lignes ordinaires mais avec des
+   rubans (c'est ce qui a réglé l'escalier sur les diagonales en v0.7),
+   donc il n'y a aucun réglage à changer : il faut greffer le calcul dans
+   le nuanceur de ce matériau-là. C'est tout le coût de la solution.
+
+   Propriété importante : quand aucun feu ne brûle, toutes les intensités
+   valent zéro, la somme vaut zéro, et le rendu est exactement celui
+   d'avant. Le jour n'a pas bougé d'un pixel. */
+const NB_FEUX = 6;
+const FEUX = [];
+for (let i = 0; i < NB_FEUX; i++) FEUX.push(new THREE.Vector4(0, 0, 0, 0));
+const uPortee = { value: 58 };                                  // portée au carré (~7,6 m)
+const uCouleurFeu = { value: new THREE.Color(0xfff1cd) };
+
+function patcherLumiere(mat) {
+  mat.uniforms.feux = { value: FEUX };
+  mat.uniforms.porteeCarree = uPortee;
+  mat.uniforms.couleurFeu = uCouleurFeu;
+
+  mat.vertexShader = mat.vertexShader
+    .replace('attribute vec3 instanceEnd;', `attribute vec3 instanceEnd;
+
+      uniform vec4 feux[ ${NB_FEUX} ];   // xyz la position, w l'ardeur
+      uniform float porteeCarree;
+      varying float vEclat;`)
+    .replace('void main() {', `void main() {
+
+      {
+        // position.y départage les deux bouts du ruban : c'est ainsi que
+        // le nuanceur d'origine choisit déjà start ou end
+        vec3 pMonde = ( modelMatrix * vec4( position.y < 0.5 ? instanceStart : instanceEnd, 1.0 ) ).xyz;
+        float e = 0.0;
+        for ( int i = 0; i < ${NB_FEUX}; i ++ ) {
+          vec3 d = pMonde - feux[ i ].xyz;
+          e += feux[ i ].w / ( 1.0 + dot( d, d ) / porteeCarree );
+        }
+        vEclat = min( e, 1.0 );
+      }`);
+
+  mat.fragmentShader = mat.fragmentShader
+    .replace('uniform float opacity;', `uniform float opacity;
+
+      uniform vec3 couleurFeu;
+      varying float vEclat;`)
+    .replace('vec4 diffuseColor = vec4( diffuse, alpha );', `vec4 diffuseColor = vec4( diffuse, alpha );
+
+      // la lumière ne peut que remonter vers l'opaque, jamais assombrir
+      alpha = clamp( alpha + vEclat * ( 1.0 - alpha ), 0.0, 1.0 );
+      diffuseColor.rgb = mix( diffuseColor.rgb, couleurFeu, vEclat * 0.85 );`);
+
+  mat.needsUpdate = true;
+}
+for (const m of TOUS_MAT) patcherLumiere(m);
 
 // le noir qui cache. polygonOffset repousse les faces d'un cheveu vers le
 // fond pour que les arêtes posées dessus ne clignotent pas.
@@ -737,9 +808,26 @@ const FLAMME = bloc((S) => {
   trait(S, 0, 0.3, -0.22, 0, 0.3, 0.22);
 });
 const matFlamme = materiau(1); matFlamme.linewidth = 2.6;
+patcherLumiere(matFlamme); TOUS_MAT.push(matFlamme);
+
+// Le halo de la solution A, gardé pour la flamme seule : la lumière
+// calculée éclaire le village, mais de loin la flamme elle-même ne fait
+// que trois traits. Trois anneaux qui respirent la rendent lisible.
+const HALO = bloc((S) => {
+  for (const r of [0.5, 0.92]) {
+    const N = 18;
+    for (let i = 0; i < N; i++) {
+      const a0 = i / N * Math.PI * 2, a1 = (i + 1) / N * Math.PI * 2;
+      trait(S, Math.cos(a0) * r, 0, Math.sin(a0) * r, Math.cos(a1) * r, 0, Math.sin(a1) * r);
+    }
+  }
+});
+
 for (const h of habitants) {
   const f = ligneDe(FLAMME.a, matFlamme);
   f.position.y = 2.1; f.visible = false;
+  const halo = ligneDe(HALO.a, matHalo);
+  f.add(halo);
   h.objet.add(f); h.flamme = f;
 }
 
@@ -771,13 +859,35 @@ function majMeteo(dt) {
     b.objet.material.opacity = Math.max(0, 0.55 * (1 - b.t)) * (0.3 + lumiere() * 0.7);
   }
 
-  // les torches : dehors, et il fait nuit
+  // Les torches : dehors, et il fait nuit. Ce sont elles qui alimentent
+  // les six feux que le nuanceur connaît — et le four, quand il chauffe.
   const nuit = lumiere() < 0.28;
+  const t = village.temps;
+
+  // Le tremblement de la flamme : trois sinusoïdes de fréquences non
+  // multiples. Ça ne se répète pas à l'œil, c'est identique d'une partie
+  // à l'autre, et surtout ça ne consomme aucun tirage — donc une flamme
+  // qui vacille ne peut pas déplacer l'histoire du village.
+  const vacille = (o) => 1 + 0.075 * Math.sin(t * 2.1 + o)
+                           + 0.050 * Math.sin(t * 3.7 + o * 1.7)
+                           + 0.032 * Math.sin(t * 6.3 + o * 2.9);
+
+  let n = 0;
+  // le four chauffait déjà et fumait ; maintenant il éclaire aussi
+  if (village.fourChauffe) FEUX[n++].set(FOUR.x, FOUR.y + 2.2, FOUR.z, 0.8 * vacille(0.4));
+
   for (const h of habitants) {
     if (!h.flamme) continue;
     const dehors = h.logis && Math.hypot(h.x - h.logis.x, h.z - h.logis.z) > 6;
-    h.flamme.visible = h.vivant && nuit && dehors;
+    const allumee = h.vivant && nuit && dehors;
+    h.flamme.visible = allumee;
+    if (!allumee) continue;
+    const v = vacille(h.rang);
+    h.flamme.scale.setScalar(v);
+    if (n < NB_FEUX) FEUX[n++].set(h.x, hauteur(h.x, h.z) + 2.1, h.z, v);
   }
+  while (n < NB_FEUX) FEUX[n++].w = 0;     // les emplacements libres n'éclairent rien
+  matHalo.opacity = 0.10 + 0.035 * Math.sin(t * 2.1);
 
   // la pluie tombe et se recycle par le haut
   objPluie.visible = village.pluie > 0.02;
@@ -798,7 +908,10 @@ function majMeteo(dt) {
 function majRendu(dt) {
   majMeteo(dt);
   const l = lumiere();
-  matDecor.opacity = 0.42 + l * 0.58;      // la nuit tombe sur le décor
+  // La nuit descend plus bas qu'avant (0,42 → 0,34) : c'est le pendant de
+  // la lumière calculée. Elle n'éclaire vraiment que si l'obscurité
+  // autour vaut quelque chose.
+  matDecor.opacity = 0.34 + l * 0.66;
   matGens.opacity = 0.55 + l * 0.45;
   matSol.opacity = 0.05 + l * 0.13;
   matTrace.opacity = 0.18 + l * 0.3;
