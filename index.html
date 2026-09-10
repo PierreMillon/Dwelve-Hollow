@@ -165,7 +165,7 @@
   <span class="title">DWELVE HOLLOW</span>
 </div>
 
-<button id="version">v0.19</button>
+<button id="version">v0.20</button>
 
 <div id="saison">an <b id="s-an">1</b> · <b id="s-saison">printemps</b> · jour <b id="s-jour">1</b> · <b id="s-phase">aube</b> · <b id="s-lune">lune</b> · pain <b id="s-pain">0</b> · peur <b id="s-peur">0 %</b></div>
 
@@ -238,7 +238,17 @@
   <div class="contenu">
     <h2>DWELVE HOLLOW — HISTORIQUE</h2>
 
-    <div class="v courante"><b>v0.19</b> — <b>les saisons, l'âge et les générations.</b> Une
+    <div class="v courante"><b>v0.20</b> — <b>ce qu'on entasse se voit, et les bêtes le
+      savent.</b> Un bûcheron part vers la forêt et le tas de bûches monte par crans ;
+      sans bois on ne répare aucun moulin, et l'hiver on a froid. Une grange reçoit les
+      gerbes, et de petits tas apparaissent chez ceux qui ont bien moissonné — on lit
+      d'un coup d'œil si le village passera l'hiver. Et une petite écologie : les rats
+      vivent de ce qu'on entasse et le mangent, les chats les tiennent, les chevaux
+      viennent sur la place les jours de foire, et les chiens sentent le loup avant les
+      hommes. Quand ils aboient vers les champs, la peur monte sans que personne n'ait
+      rien vu — c'est ainsi que ce village fabrique ses monstres.</div>
+
+    <div class="v"><b>v0.19</b> — <b>les saisons, l'âge et les générations.</b> Une
       année de trente-deux jours, quatre saisons, quatre lunes. On sème au printemps, on
       moissonne à l'automne, et l'hiver on vit sur ce qu'on a engrangé — le grand froid
       prend le ruisseau et la roue se tait, il ne reste que les ailes du moulin à vent.
@@ -376,7 +386,7 @@ const GRAINE = graineDepuis(location.hash.slice(1) || 'dwelve');
 const M = creerMonde(GRAINE);
 const {
   alea, aleaDeco, entre, parmi, village, habitants, chronique, nouveaux, regles,
-  LIEUX, MOULINS, CHAMPS, PLACE, EGLISE, MANOIR, FOUR, CABANE,
+  LIEUX, MOULINS, CHAMPS, PLACE, EGLISE, MANOIR, FOUR, CABANE, GRANGE, FORET, ATELIERS,
   RUISSEAU, ROUTE, POINT_PONT, LARGEUR_EAU, PROFONDEUR_EAU,
   hauteur, distRoute, distRuisseau,
   poidsDes, nommer, nomComplet, lien, e, NOM_ROLE,
@@ -460,6 +470,21 @@ const FORMES = {
   cabane: () => bloc((S, T) => {
     boite(S, T, 0, 0, 0, 3.2, 2, 3.6); toit(S, T, 0, 2, 0, 3.2, 2.6, 3.6);
     trait(S, -2.4, 0, -2.4, -1.6, 2.8, -1.6);                // un mât planté de travers
+  }),
+  grange: () => bloc((S, T) => {
+    boite(S, T, 0, 0, 0, 6.4, 3.4, 9); toit(S, T, 0, 3.4, 0, 6.4, 2.6, 9);
+    boite(S, null, 0, 0, 4.6, 3, 2.6, 0.1);                   // la grande porte, ouverte
+  }),
+  foret: () => bloc((S) => {                                  // pas un bâtiment : des arbres
+    for (let i = 0; i < 7; i++) {
+      const a = i / 7 * Math.PI * 2, r = 3 + (i % 3) * 2.2;
+      const x = Math.cos(a) * r, z = Math.sin(a) * r, h = 4 + (i % 4) * 1.3;
+      trait(S, x, 0, z, x, h, z);
+      for (const sg of [-1, 1]) {
+        trait(S, x, h, z, x + sg * 1.5, h * 0.62, z);
+        trait(S, x, h, z, x, h * 0.62, z + sg * 1.5);
+      }
+    }
   }),
   puits: () => bloc((S, T) => {
     boite(S, T, 0, 0, 0, 2, 1, 2);
@@ -885,6 +910,69 @@ objBucher.scale.setScalar(1.6);
 
 const CHAUMIERES_R = LIEUX.filter(l => l.type === 'chaumiere');
 
+/* ---- LES STOCKS, VISIBLES ----
+   Une gerbe de plus tous les cinq blés, une bûche de plus tous les cinq
+   bois. Le tas monte par crans : lisible de loin, et presque gratuit à
+   dessiner — contrairement à une forme par unité. On voit donc d'un coup
+   d'œil si le village passera l'hiver. */
+const GERBE = bloc((S) => {
+  trait(S, 0, 0, 0, 0, 1.5, 0);
+  for (let i = 0; i < 4; i++) {
+    const a = i / 4 * Math.PI * 2;
+    trait(S, 0, 1.5, 0, Math.cos(a) * 0.55, 0, Math.sin(a) * 0.55);
+  }
+  trait(S, -0.5, 0.95, 0, 0.5, 0.95, 0);
+});
+const BUCHE = bloc((S) => {
+  for (const y of [0, 0.45]) {
+    trait(S, -1.1, y, 0, 1.1, y, 0);
+    trait(S, -1.1, y + 0.22, 0.35, 1.1, y + 0.22, 0.35);
+    trait(S, -1.1, y, 0, -1.1, y + 0.22, 0.35);
+    trait(S, 1.1, y, 0, 1.1, y + 0.22, 0.35);
+  }
+});
+
+const gerbes = [], buches = [];
+function poserTas(forme, liste, ancre, n, ecart) {
+  for (let i = 0; i < n; i++) {
+    const a = i * 2.399, r = ecart * Math.sqrt(i + 0.6);       // en spirale, ça ne s'empile pas
+    const x = ancre.x + Math.cos(a) * r, z = ancre.z + Math.sin(a) * r;
+    const o = ligneDe(forme.a, matDecor);
+    o.position.set(x, hauteur(x, z), z);
+    o.rotation.y = i * 1.1;
+    o.visible = false;
+    scene.add(o);
+    liste.push(o);
+  }
+}
+poserTas(GERBE, gerbes, { x: GRANGE.x + 5.4, z: GRANGE.z + 1.5 }, 10, 1.5);
+// et de petits tas chez ceux qui ont bien moissonné, comme demandé
+for (const c of CHAUMIERES_R.slice(0, 6)) poserTas(GERBE, gerbes, { x: c.x + 3.4, z: c.z + 2.2 }, 1, 1.4);
+poserTas(BUCHE, buches, { x: ATELIERS[0].x - 4.2, z: ATELIERS[0].z + 2.6 }, 8, 1.3);
+
+/* ---- LES BÊTES ----
+   Quatre silhouettes de cinq traits. Elles ne sont pas du décor : les
+   rats mangent le blé qu'on voit en gerbes, les chats les tiennent, et
+   les chiens sentent le loup avant les hommes. */
+const CORPS_BETE = { chat: [0.55, 0.32, 0.5], chien: [0.85, 0.5, 0.75],
+                     cheval: [1.7, 1.5, 1.1], rat: [0.32, 0.16, 0.3] };
+function silhouetteBete(type) {
+  const [L, H, P] = CORPS_BETE[type];
+  return bloc((S) => {
+    trait(S, -L / 2, H, 0, L / 2, H, 0);                       // le dos
+    trait(S, -L / 2, H, 0, -L / 2, 0, 0);                      // les pattes
+    trait(S, L / 2, H, 0, L / 2, 0, 0);
+    trait(S, L / 2, H, 0, L / 2 + P * 0.35, H * 1.25, 0);      // le cou et la tête
+    trait(S, -L / 2, H, 0, -L / 2 - P * 0.3, H * 1.1, 0);      // la queue
+  });
+}
+const matBete = materiau(0.75); matBete.linewidth = 1.3;
+patcherLumiere(matBete); TOUS_MAT.push(matBete);
+for (const b of village.betes) {
+  b.objet = ligneDe(silhouetteBete(b.type).a, matBete);
+  scene.add(b.objet);
+}
+
 /* ---- LES FENÊTRES ----
    Une fenêtre n'est pas une surface éclairée : c'est une SOURCE. La
    lumière enfermée dans un bâtiment n'en éclaire pas la façade — elle
@@ -1179,6 +1267,26 @@ function majMeteo(dt) {
   while (n < NB_FEUX) { FEUX[n].w = 0; FEUX_DIR[n].w = 0; n++; }
   peindreFenetres();
   matHalo.opacity = 0.10 + 0.035 * Math.sin(t * 2.1);
+
+  // les stocks montent et descendent par crans de cinq
+  const nGerbes = Math.min(gerbes.length, Math.floor(village.ble / 5));
+  for (let i = 0; i < gerbes.length; i++) gerbes[i].visible = i < nGerbes;
+  const nBuches = Math.min(buches.length, Math.floor(village.bois / 5));
+  for (let i = 0; i < buches.length; i++) buches[i].visible = i < nBuches;
+
+  // les bêtes : les rats ne se montrent que la nuit, et seulement s'ils
+  // sont assez nombreux pour qu'on les voie
+  for (const b of village.betes) {
+    if (!b.objet) continue;
+    const montre = b.vivant && (b.type !== 'rat' || (b.visible && estNuit()));
+    b.objet.visible = montre;
+    if (!montre) continue;
+    b.objet.position.set(b.x, hauteur(b.x, b.z), b.z);
+    if (b.dx === undefined) { b.dx = b.x; b.dz = b.z; }
+    const vx = b.x - b.dx, vz = b.z - b.dz;
+    if (vx * vx + vz * vz > 1e-6) b.objet.rotation.y = Math.atan2(vx, vz);
+    b.dx = b.x; b.dz = b.z;
+  }
 
   // LA LUNE. Elle traverse le ciel, sa phase se lit sur le disque, et
   // elle porte de vraies ombres au sol — l'empreinte de chaque bâtiment

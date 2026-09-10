@@ -1743,6 +1743,87 @@ puis le panneau se ferme et on ne peut plus rien.
 
 ---
 
+## Ce qu'on entasse se voit, et les bêtes le savent (v0.20)
+
+Demandé par Pierre : « il faut qu'on anime le bois qui est coupé par le
+bûcheron et le blé aussi qui est ramassé pour qu'on le voie être stocké
+à côté de la maison ou dans des greniers, et on peut rajouter des chats,
+des souris, des rats, des chiens et des chevaux ».
+
+### Le bois, et un métier de plus
+
+Le bois n'existait pas du tout. Il existe maintenant, et il est un
+maillon, pas un chiffre : **sans bois, aucun moulin ne se répare**, et
+l'hiver, quand la réserve tombe à zéro, l'usure de chacun monte — donc
+l'espérance de vie baisse. Le bûcheron part vers la forêt, une nouvelle
+place au bord de la carte, et on le voit revenir.
+
+### La grange, et les gerbes
+
+Une grange commune reçoit la réserve du village, et de petits tas
+apparaissent chez ceux qui ont bien moissonné — les deux, comme demandé.
+
+**Le tas monte par crans** : une gerbe de plus tous les cinq blés, une
+bûche de plus tous les cinq bois. C'est lisible de loin et presque
+gratuit à dessiner, là où une forme par unité aurait coûté des centaines
+de traits. Disposées en spirale de Fibonacci pour qu'elles ne s'empilent
+jamais.
+
+### La petite écologie
+
+Ce n'est pas du décor — Pierre a tranché pour les vraies conséquences.
+
+**Les rats vivent de ce qu'on entasse.** Plus la grange est pleine, plus
+ils prospèrent, et plus ils en prennent. C'est la première boucle du jeu
+où l'abondance se punit elle-même, et elle se voit : le tas qu'on regarde
+est celui qu'ils mangent. Ils ne sortent que la nuit, et seulement quand
+ils sont assez nombreux pour qu'on les voie.
+
+**Les chats les tiennent.** Ils rôdent près des chaumières, et dès que
+les rats se multiplient, ils vont vers la grange.
+
+**Les chiens sentent le loup avant les hommes.** À trente mètres ils
+s'alertent, ils courent vers lui, et la peur monte chez tout ce qui est à
+vingt mètres d'eux. La chronique note « les chiens n'ont pas cessé
+d'aboyer vers les champs » — et le village n'a rien vu du tout. C'est
+exactement la façon dont il fabrique ses monstres.
+
+Ils continuent d'aboyer un moment après que la chose est partie, ce qui
+laisse le village inventer la suite.
+
+**Les chevaux** sont au manoir, et viennent sur la place les jours de
+foire.
+
+Aucune bête ne consomme de tirage : leurs allées et venues sont des
+sinusoïdes, comme le vent et la flamme.
+
+### Une faute rattrapée à l'exécution
+
+Le chien courait vers le loup après que celui-ci avait disparu — une
+lecture de `null`. Le simulateur l'a levée au premier village. Corrigé, et
+la correction a rendu le mécanisme meilleur : le chien aboie encore un
+moment après, ce qui est plus juste.
+
+### Mesuré
+
+Les treize cibles tiennent. Le village est plus affamé qu'avant — 15,6 %
+de journées sans pain contre 7,4 % — parce que les rats prennent leur
+part. Tension 0,36, révoltes 11,4 par six ans. Le bois oscille entre 10
+et 42, les rats entre 0,1 et 3,9.
+
+### Ce qui reste, mesuré aussi
+
+Le plafond de population, demandé par Pierre : **250 habitants à ×100,
+800 à ×1**. Quand on double la population, la vitesse est divisée par
+quatre — `voisinage()` compare chaque habitant à tous les autres. Une
+grille spatiale rendrait ça linéaire et ouvrirait les milliers.
+
+Un paramètre de plus coûte linéairement, un habitant de plus coûte au
+carré : dix mille paramètres par personne seraient moins chers que mille
+personnes.
+
+---
+
 ## 📜 Historique
 
 - **2026-09-10 (après-midi, suite)** — Lumière des torches calculée par

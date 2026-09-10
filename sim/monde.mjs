@@ -65,6 +65,12 @@ export const REGLAGES = {
   // cesse d'être un événement. Le seuil a dû monter quand la souvenance
   // a fait grimper les rancunes.
   seuilLoup: 1.45,     // mesuré : une pleine lune sur trois
+  boisParSeconde: 0.30,   // ce qu'un bûcheron rapporte
+  boisRepare: 0.25,       // ce qu'une réparation consomme
+  boisChauffe: 0.9,       // par jour d'hiver, pour tout le village
+  ratsCroissance: 0.010,  // ils prospèrent sur ce qu'on entasse
+  ratsMangent: 0.055,     // ce qu'un rat prend par seconde
+  ratsChasses: 0.020,     // ce qu'un chat en retire
   gelSeuil: 0.85,       // au-delà, le ruisseau prend et la roue s'arrête
   poidsRevolte: 3,
   poidsVol: 4,
@@ -260,6 +266,14 @@ for (const [cx, cz, nom] of [[16, 12, "l'atelier du charron"], [-15, 20, "l'atel
 }
 const pCabane = chercherPlace(-40, 34, 7, 6);             // à l'écart, et ça compte
 const CABANE = lieu('la cabane', 'cabane', pCabane.x, pCabane.z, 0.9, 'cabane');
+// La forêt : pas un bâtiment, un bord de carte où l'on va chercher le
+// bois. On voit le bûcheron partir et revenir.
+const pForet = chercherPlace(-34, -30, 10, 9);
+const FORET = lieu('la forêt', 'foret', pForet.x, pForet.z, 0, 'foret');
+// La grange : la réserve du village, visible de loin. On y lit d'un coup
+// d'œil si l'hiver se passera bien — et c'est là que vont les rats.
+const pGrange = chercherPlace(9, -13, 12, 9);
+const GRANGE = lieu('la grange', 'grange', pGrange.x, pGrange.z, entre(-0.5, 0.5), 'grange');
 
 const CHAUMIERES = [];
 for (let i = 0; i < 7; i++) {
@@ -313,17 +327,18 @@ for (let i = 0; i < 3; i++) {
 const ROLES = [
   ['seigneur', 1], ['dame', 1], ['pretre', 1], ['boulanger', 1],
   ['charpentier', 1], ['tailleur', 1], ['ebeniste', 1], ['forgeron', 1],
-  ['voleur', 1], ['sorciere', 1], ['paysan', 7],
+  ['voleur', 1], ['sorciere', 1], ['bucheron', 1], ['paysan', 6],
 ];
 // ce qu'un enfant devenu grand peut reprendre : ni seigneur, ni dame, ni
 // sorcière — ces trois-là ne se transmettent pas comme un métier
 const ROLES_UTILES = ['paysan', 'paysan', 'paysan', 'boulanger', 'charpentier',
-                      'forgeron', 'tailleur', 'ebeniste', 'pretre'];
+                      'forgeron', 'tailleur', 'ebeniste', 'pretre', 'bucheron'];
 const NOM_ROLE = {
   seigneur: 'le seigneur', dame: 'la dame', pretre: 'le prêtre', boulanger: 'le boulanger',
   charpentier: 'le charpentier', tailleur: 'le tailleur de pierre', ebeniste: "l'ébéniste",
   forgeron: 'le forgeron', voleur: 'le voleur', sorciere: 'la sorcière',
   paysan: 'le paysan', colporteur: 'le colporteur', enfant: "l'enfant",
+  bucheron: 'le bûcheron',
 };
 
 const PRENOMS_H = ['Guillaume','Thibaut','Jehan','Renaud','Gautier','Colin','Foulques','Enguerrand',
@@ -377,7 +392,7 @@ const nommer = (h) => h.surnom ? `${h.prenom} dit${h.feminin ? 'e' : ''} ${h.sur
 const OCCUPATIONS = ['dormir', 'manger', 'prier', 'flâner', 'fuir', 'accuser',
   'se révolter', 'courtiser', 'suivre', 'voler', 'moissonner', 'cuire',
   'réparer', 'menuiser', 'forger', 'tailler', 'colporter', 'officier',
-  'herboriser', 'inspecter', 'visiter', 'veiller', 'jouer'];
+  'herboriser', 'inspecter', 'visiter', 'veiller', 'jouer', 'bûcheronner'];
 
 let rangSuivant = 0;
 function creerHabitant(role, logis) {
@@ -461,6 +476,10 @@ const village = {
   annee: 1, saison: 0,           // 0 printemps, 1 été, 2 automne, 3 hiver
   froid: 0, gel: false,          // le grand froid ne vient qu'en hiver
   ble: 12, farine: 5, pain: 8, outils: 6, meubles: 0, chantier: 0,
+  bois: 10,                      // ce que le bûcheron a rapporté
+  rats: 0.5,                     // ils vivent de ce qu'on entasse
+  betes: [],                     // chats, chiens, chevaux, rats — voir majBetes()
+  aboiement: 0,                  // les chiens ont-ils senti quelque chose cette nuit
   volsCetteNuit: 0,
   fourChauffe: false,        // le four est-il allumé ? (la cheminée fume)
   vent: 0,                   // 0 à 1, il monte et retombe tout seul
@@ -622,6 +641,8 @@ function poidsDes(h) {
     if (h.role === 'forgeron')    { p.push(['forger', travail * 1.2, pourquoiTravail]); p.push(['réparer', travail * (1 - casse) * 4, `un moulin est à ${n2(casse)}`]); }
     if (h.role === 'ebeniste')    p.push(['menuiser', travail * 1.2, pourquoiTravail]);
     if (h.role === 'tailleur')    p.push(['tailler', travail * 1.2, pourquoiTravail]);
+    if (h.role === 'bucheron')    p.push(['bûcheronner', travail * (village.bois < 40 ? 1.6 : 0.2),
+                                          pourquoiTravail + (village.bois < 6 ? ' · il ne reste presque plus de bois' : '')]);
     if (h.role === 'colporteur')  p.push(['colporter', travail * 2, 'il déballe son ballot']);
     if (h.role === 'pretre') p.push(['officier', travail * 1.4, pourquoiTravail]);
     if (h.role === 'sorciere') p.push(['herboriser', travail, pourquoiTravail]);
@@ -963,6 +984,7 @@ function lieuDe(h, occ) {
     case 'voler': return village.pain >= 1 ? FOUR : PLACE;
     case 'colporter': return PLACE;
     case 'herboriser': case 'veiller': return CABANE;
+    case 'bûcheronner': return FORET;
     case 'inspecter': return chez(h, [PLACE, ...CHAMPS, FOUR], 3);
     case 'visiter': return chez(h, [PLACE, EGLISE, ...CHAUMIERES], 4);
     default: return PLACE;
@@ -998,6 +1020,8 @@ function simuler(dt) {
   // calcule à partir du jour et de l'heure.
   village.lune = 0.5 - 0.5 * Math.cos(2 * Math.PI * (village.jour + village.heure) / R.cycleLune);
   majPleineLune(dt);
+  majRats(dt);
+  majBetes(dt);
 
   // LES SAISONS. Huit jours chacune, donc une année de trente-deux jours
   // et quatre lunes — les deux cycles se répondent.
@@ -1212,6 +1236,7 @@ function agir(h, dt) {
         village.outils = Math.max(0, village.outils - dt * 0.02);
       }
       break;
+    case 'bûcheronner': village.bois = Math.min(60, village.bois + dt * R.boisParSeconde); break;
     case 'forger': village.outils = Math.min(20, village.outils + dt * 0.35); break;
     case 'menuiser': village.meubles += dt * 0.25; break;
     case 'tailler':
@@ -1253,7 +1278,11 @@ function agir(h, dt) {
       break;
     case 'réparer':
       if (h.cible && h.cible.etat !== undefined) {
-        h.cible.etat = Math.min(1, h.cible.etat + dt * R.reparationParSeconde);
+        // on ne répare pas sans bois : le bûcheron devient un maillon
+        if (village.bois > 0) {
+          h.cible.etat = Math.min(1, h.cible.etat + dt * R.reparationParSeconde);
+          village.bois = Math.max(0, village.bois - dt * R.boisRepare);
+        }
         if (aleaDeco() < dt * 1.4) signaler('marteau', h.x, h.z);
         h.compte.reparations += dt * R.reparationParSeconde;
         if (h.cible.reparationSignalee && h.cible.etat > 0.9) {
@@ -1653,8 +1682,127 @@ function naissances() {
   }
 }
 
+// LES RATS. Ils vivent de ce qu'on entasse — donc plus la grange est
+// pleine, plus ils prospèrent, et plus ils en prennent. Les chats les
+// tiennent. C'est la première boucle du jeu où l'abondance se punit
+// elle-même, et elle se voit : le tas qu'on regarde est celui qu'ils
+// mangent.
+/* ================================================================
+   LES BÊTES
+   Elles ne sont pas du décor. Les rats mangent ce qu'on entasse, les
+   chats tiennent les rats, et les chiens sentent le loup avant qu'on
+   l'ait vu — donc la peur monte sans que personne ait rien vu, ce qui
+   est exactement la façon dont ce village fabrique ses monstres.
+   Aucune ne consomme de tirage : leurs allées et venues sont des
+   sinusoïdes, comme le vent et la flamme.
+   ================================================================ */
+function poserBete(type, ancre, rayon) {
+  village.betes.push({
+    type, ancre, rayon,
+    x: ancre.x + entre(-rayon, rayon), z: ancre.z + entre(-rayon, rayon),
+    p: entre(0, 6.28), q: entre(0, 6.28),
+    v: entre(0.6, 1.4), vivant: true, suit: null, alerte: 0,
+  });
+}
+{
+  for (let i = 0; i < 3; i++) poserBete('chat', CHAUMIERES[i % CHAUMIERES.length], 7);
+  for (let i = 0; i < 3; i++) poserBete('chien', PLACE, 12);
+  for (let i = 0; i < 2; i++) poserBete('cheval', MANOIR, 6);
+  for (let i = 0; i < 8; i++) poserBete('rat', GRANGE, 5);
+}
+
+function majBetes(dt) {
+  const loup = village.loup;
+  let aboie = false;
+  for (const b of village.betes) {
+    if (!b.vivant) continue;
+
+    if (b.type === 'rat') {
+      // ils ne sortent qu'à proportion de ce qu'il y a à prendre
+      b.vivant = true;
+      b.visible = village.rats > 0.4 + village.betes.indexOf(b) * 0.25;
+      b.x = b.ancre.x + Math.sin(village.temps * 0.6 * b.v + b.p) * b.rayon;
+      b.z = b.ancre.z + Math.cos(village.temps * 0.45 * b.v + b.q) * b.rayon * 0.7;
+      continue;
+    }
+
+    if (b.type === 'chien') {
+      // Il sent le loup bien avant les hommes, et il aboie. C'est le
+      // village qui décide ensuite que c'était un monstre.
+      const d = loup && loup.vivant ? Math.hypot(b.x - loup.x, b.z - loup.z) : 999;
+      b.alerte = d < 34 ? Math.min(1, b.alerte + dt * 0.5) : Math.max(0, b.alerte - dt * 0.2);
+      if (b.alerte > 0.5) {
+        aboie = true;
+        for (const h of habitants) {
+          if (!h.vivant) continue;
+          const dh = Math.hypot(h.x - b.x, h.z - b.z);
+          if (dh > 22) continue;
+          h.peur = Math.min(1, h.peur + dt * 0.05 * (1 - dh / 22) * (1 - h.courage * 0.5));
+        }
+        // il court vers ce qu'il a senti — s'il est encore là. Le chien
+        // continue d'aboyer un moment après que la chose est partie, et
+        // c'est justement ce qui laisse le village inventer la suite.
+        if (loup && loup.vivant) {
+          b.x += (loup.x - b.x) * dt * 0.25;
+          b.z += (loup.z - b.z) * dt * 0.25;
+        }
+        continue;
+      }
+      // sinon il suit quelqu'un
+      if (!b.suit || !b.suit.vivant) b.suit = habitants.find(h => h.vivant && h.role !== 'enfant') || null;
+      if (b.suit) {
+        const cible = { x: b.suit.x + Math.sin(village.temps * 0.7 + b.p) * 2.2,
+                        z: b.suit.z + Math.cos(village.temps * 0.7 + b.p) * 2.2 };
+        b.x += (cible.x - b.x) * dt * 1.4;
+        b.z += (cible.z - b.z) * dt * 1.4;
+      }
+      continue;
+    }
+
+    if (b.type === 'chat') {
+      // il rôde là où il y a des rats, c'est-à-dire près de la grange
+      const vers = village.rats > 1.2 ? GRANGE : b.ancre;
+      const cx = vers.x + Math.sin(village.temps * 0.22 * b.v + b.p) * 6;
+      const cz = vers.z + Math.cos(village.temps * 0.19 * b.v + b.q) * 6;
+      b.x += (cx - b.x) * dt * 0.7;
+      b.z += (cz - b.z) * dt * 0.7;
+      continue;
+    }
+
+    // les chevaux : au manoir, et sur la place les jours de foire
+    const chez = village.foire > 0 ? PLACE : b.ancre;
+    b.x += (chez.x + Math.sin(village.temps * 0.11 + b.p) * 5 - b.x) * dt * 0.5;
+    b.z += (chez.z + Math.cos(village.temps * 0.09 + b.q) * 5 - b.z) * dt * 0.5;
+  }
+
+  if (aboie && !village.aboiement) {
+    noter("Les chiens n'ont pas cessé d'aboyer vers les champs.", true);
+    signaler('rumeur');
+  }
+  village.aboiement = aboie ? 1 : 0;
+}
+
+function majRats(dt) {
+  const chats = village.betes.reduce((t, b) => t + (b.type === 'chat' && b.vivant ? 1 : 0), 0);
+  const nourriture = Math.min(3, village.ble / 30);
+  village.rats = Math.max(0.1, village.rats
+    + dt * (nourriture * R.ratsCroissance - village.rats * (0.0008 + chats * R.ratsChasses * 0.01)));
+  village.ble = Math.max(0, village.ble - dt * village.rats * R.ratsMangent * 0.02);
+}
+
 function finDeJournee() {
   naissances();
+  // L'HIVER SE CHAUFFE. Sans bois on ne meurt pas de froid, mais l'usure
+  // monte — et l'usure décide de l'âge auquel on s'éteint.
+  if (village.saison === 3) {
+    const besoin = R.boisChauffe;
+    if (village.bois >= besoin) village.bois -= besoin;
+    else {
+      village.bois = 0;
+      for (const h of habitants) if (h.vivant) h.usure = Math.min(1, h.usure + 0.012);
+      noter("On a manqué de bois cette nuit. Le froid est entré dans les maisons.", true);
+    }
+  }
   surnommer();
   // le temps qu'il fait : la plupart des jours sont secs, il pleut
   // franchement de temps en temps. Aucun effet mécanique — c'est là pour
@@ -1895,7 +2043,7 @@ function appliquerRegles() {
 return {
   GRAINE, R, alea, aleaDeco, entre, parmi,
   village, habitants, chronique, nouveaux, evenements, regles,
-  LIEUX, MOULINS, CHAMPS, CHAUMIERES, ATELIERS,
+  LIEUX, MOULINS, CHAMPS, CHAUMIERES, ATELIERS, GRANGE, FORET,
   PLACE, EGLISE, MANOIR, FOUR, CABANE,
   RUISSEAU, ROUTE, BUTTE, POINT_PONT, LARGEUR_EAU, PROFONDEUR_EAU,
   hauteur, distRoute, distRuisseau, distPolyligne,
