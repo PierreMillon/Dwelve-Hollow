@@ -134,7 +134,40 @@
     padding-top: max(24px, env(safe-area-inset-top));
     overflow-y: auto;
   }
-  #menu.ouvert, #changelog.ouvert { display: block; }
+  #menu.ouvert, #changelog.ouvert, #ame.ouvert { display: block; }
+
+  /* LE CRÉATEUR D'ÂME. Un bouton discret : si on ne clique pas, il ne se
+     passe rien et le village s'en charge tout seul. */
+  #btn-ame {
+    position: fixed; right: 12px; bottom: 66px; z-index: 6;
+    background: rgba(4, 12, 8, 0.92); color: var(--ph-line);
+    border: 1px solid var(--ph-line); padding: 7px 12px;
+    font: inherit; cursor: pointer; letter-spacing: 0.06em;
+  }
+  #btn-ame[hidden] { display: none; }
+  #ame {
+    position: fixed; inset: 0; display: none; z-index: 11;
+    background: rgba(2, 8, 5, 0.96); padding: 24px 20px; overflow-y: auto;
+  }
+  #ame .contenu { max-width: 560px; margin: 0 auto; }
+  #ame h2 { color: var(--ph-line); font-size: 13px; font-weight: normal;
+            letter-spacing: 0.14em; margin: 0 0 4px; }
+  #ame p.intro { color: var(--ph-dim); margin: 0 0 18px; max-width: 52ch; }
+  #ame .rang { display: flex; align-items: center; gap: 10px; margin-bottom: 7px; }
+  #ame .rang label { color: var(--ph-text); width: 11em; letter-spacing: 0.04em; }
+  #ame .rang input[type=range] { flex: 1; accent-color: var(--ph-line); }
+  #ame .rang output { color: var(--ph-line); width: 3.2em; text-align: right; }
+  #ame .ident { display: flex; gap: 10px; align-items: center; margin-bottom: 16px; }
+  #ame input[type=text] {
+    background: transparent; border: 1px solid var(--ph-dim); color: var(--ph-line);
+    font: inherit; padding: 6px 9px; width: 14em;
+  }
+  #ame .actions { display: flex; gap: 10px; margin-top: 20px; }
+  #ame button {
+    background: transparent; border: 1px solid var(--ph-dim); color: var(--ph-line);
+    font: inherit; padding: 7px 14px; cursor: pointer; letter-spacing: 0.06em;
+  }
+  #ame button.fort { border-color: var(--ph-line); }
   #menu .contenu, #changelog .contenu { max-width: 640px; margin: 0 auto; }
   #menu h2, #changelog h2 {
     color: var(--ph-line); font-size: 13px; font-weight: normal;
@@ -165,7 +198,7 @@
   <span class="title">DWELVE HOLLOW</span>
 </div>
 
-<button id="version">v0.21</button>
+<button id="version">v0.22</button>
 
 <div id="saison">an <b id="s-an">1</b> · <b id="s-saison">printemps</b> · jour <b id="s-jour">1</b> · <b id="s-phase">aube</b> · <b id="s-lune">lune</b> · pain <b id="s-pain">0</b> · peur <b id="s-peur">0 %</b></div>
 
@@ -179,6 +212,8 @@
   <div id="f-pourquoi"></div>
   <div class="section">BESOINS</div>
   <div id="f-besoins"></div>
+  <div class="section">IL SOUPÇONNE</div>
+  <div id="f-soupcons"></div>
   <div class="section">LIENS</div>
   <div id="f-liens"></div>
   <div class="section">SOUVENIRS</div>
@@ -186,6 +221,26 @@
 </div>
 
 <div id="etiquette" hidden></div>
+
+<button id="btn-ame" hidden>donner une âme ?</button>
+<div id="ame">
+  <div class="contenu">
+    <h2>DONNER UNE ÂME</h2>
+    <p class="intro">
+      Tu poses les neuf nombres et le nom. Puis le panneau se ferme, et tu ne peux plus
+      rien — tu regardes seulement ce que cette vie devient, et combien de temps elle dure.
+    </p>
+    <div class="ident">
+      <input type="text" id="ame-prenom" placeholder="son prénom" autocomplete="off" spellcheck="false">
+      <button id="ame-sexe" type="button">une fille</button>
+    </div>
+    <div id="ame-curseurs"></div>
+    <div class="actions">
+      <button id="ame-sceller" class="fort" type="button">sceller</button>
+      <button id="ame-laisser" type="button">laisser le village décider</button>
+    </div>
+  </div>
+</div>
 
 <div id="controls">
   <button id="btn-vitesse">×1</button>
@@ -238,7 +293,16 @@
   <div class="contenu">
     <h2>DWELVE HOLLOW — HISTORIQUE</h2>
 
-    <div class="v courante"><b>v0.21</b> — <b>le soupçon porte enfin sur quelqu'un.</b> Avant,
+    <div class="v courante"><b>v0.22</b> — <b>donner une âme.</b> Quand quelqu'un arrive — un
+      enfant qui naît, un colporteur qui passe, une femme qui reprend la cabane — un
+      bouton discret propose de lui donner une âme. Si on n'y touche pas, il s'efface et
+      le village s'en est déjà chargé. Si on clique, le village s'arrête, on pose les neuf
+      nombres du caractère, un prénom et un sexe — puis le panneau se ferme et
+      <b>on ne peut plus rien</b>. On regarde seulement ce que cette vie devient et
+      combien de temps elle dure. La fiche montre aussi, enfin, qui chacun soupçonne et
+      de combien.</div>
+
+    <div class="v"><b>v0.21</b> — <b>le soupçon porte enfin sur quelqu'un.</b> Avant,
       chacun avait « du soupçon » sans soupçonner personne, et le village accusait
       mécaniquement le moins sociable. Chacun tient maintenant sa propre liste : le
       soupçon monte sur celui qui était près du malheur — la huche vidée, le moulin
@@ -399,7 +463,7 @@ const {
   LIEUX, MOULINS, CHAMPS, PLACE, EGLISE, MANOIR, FOUR, CABANE, GRANGE, FORET, ATELIERS,
   RUISSEAU, ROUTE, POINT_PONT, LARGEUR_EAU, PROFONDEUR_EAU,
   hauteur, distRoute, distRuisseau,
-  poidsDes, nommer, nomComplet, lien, e, NOM_ROLE,
+  poidsDes, nommer, nomComplet, lien, e, NOM_ROLE, metierDe,
   estNuit, estJour, lumiere, analyser, appliquerRegles, noter,
   souvenir, surnommer, lancerDragon, lancerFoire, evenements,
 } = M;
@@ -829,6 +893,7 @@ scene.add(ligneDe(SEG_TRACE, matTrace));
 
 // les habitants
 function ajouterObjet(h) {
+  proposerAme(h);
   h.objet = ensemble(silhouette(h.role), matGens);
   scene.add(h.objet);
 }
@@ -1277,6 +1342,16 @@ function majMeteo(dt) {
   while (n < NB_FEUX) { FEUX[n].w = 0; FEUX_DIR[n].w = 0; n++; }
   peindreFenetres();
   matHalo.opacity = 0.10 + 0.035 * Math.sin(t * 2.1);
+  // Le bouton ne doit pas survivre à la personne. Mesuré : à ×100, entre
+  // l'arrivée d'une nouvelle sorcière et le moment où l'on vise le
+  // bouton, le village avait eu le temps de la brûler.
+  if (ameEnAttente && (!ameEnAttente.vivant ||
+      (performance.now() > ameFin && !$('ame').classList.contains('ouvert')))) {
+    $('btn-ame').hidden = true;
+    if (!ameEnAttente.vivant) $('ame').classList.remove('ouvert');
+    if (ameReprend) { $('btn-pause').click(); ameReprend = false; }
+    ameEnAttente = null;
+  }
 
   // les stocks montent et descendent par crans de cinq
   const nGerbes = Math.min(gerbes.length, Math.floor(village.ble / 5));
@@ -1487,6 +1562,107 @@ function brancherPanneau(idPanneau, idOuvre, idFerme) {
 brancherPanneau('menu', 'btn-menu', 'btn-menu-fermer');
 brancherPanneau('changelog', 'version', 'btn-fermer');
 
+/* ---- LE CRÉATEUR D'ÂME ----
+   Un nouveau venu arrive — un enfant qui naît, un étranger qui passe. Un
+   bouton discret apparaît. Si on ne clique pas, il s'efface au bout d'un
+   moment et le village s'en est déjà chargé : rien n'attend, rien ne se
+   met en pause tout seul.
+   Si on clique, on pose neuf nombres et un nom. Puis le panneau se ferme
+   et on ne peut plus rien. C'est tout l'intérêt. */
+const AME = [
+  ['piete', 'la piété', 'ce qu\'il attend de l\'église'],
+  ['courage', 'le courage', 'ce qui le fait rester quand les autres fuient'],
+  ['cupidite', 'la cupidité', 'ce qui le pousse vers la huche'],
+  ['sociabilite', 'la sociabilité', 'ce qui l\'amène sur la place'],
+  ['superstition', 'la superstition', 'ce qui lui fait voir des signes'],
+  ['regularite', 'la régularité', 'le besoin que les jours se ressemblent'],
+  ['absorption', "l'absorption", 'sa capacité à ne faire qu\'une chose'],
+  ['seuil', 'le seuil', 'ce que lui coûtent la foule et le bruit'],
+  ['souvenance', 'la souvenance', 'ce qu\'il n\'oubliera pas'],
+];
+let ameEnAttente = null, ameFin = 0, ameReprend = false;
+
+{
+  const boite = $('ame-curseurs');
+  for (const [cle, nom, aide] of AME) {
+    const d = document.createElement('div');
+    d.className = 'rang';
+    d.innerHTML = `<label for="ame-${cle}" title="${aide}">${nom}</label>` +
+                  `<input type="range" id="ame-${cle}" min="0" max="100" value="50">` +
+                  `<output id="out-${cle}">0,50</output>`;
+    boite.appendChild(d);
+    d.querySelector('input').addEventListener('input', (e) => {
+      $('out-' + cle).textContent = (e.target.value / 100).toFixed(2).replace('.', ',');
+    });
+  }
+}
+
+function proposerAme(h) {
+  // pas au premier instant : les seize du départ sont déjà là, ce sont
+  // les arrivées d'après qui commencent une vie sous nos yeux
+  if (village.temps < 1 || !h.vivant) return;
+  if (h.role !== 'enfant' && h.role !== 'colporteur' && h.role !== 'sorciere') return;
+  // tant que le panneau est ouvert, on ne change pas de personne sous les
+  // doigts de celui qui est en train de décider
+  if ($('ame').classList.contains('ouvert')) return;
+  ameEnAttente = h;
+  // EN TEMPS RÉEL, pas en temps simulé. Mesuré : à ×100, quarante-cinq
+  // secondes de village durent moins d'une demi-seconde de montre — le
+  // bouton clignotait et disparaissait avant qu'on ait pu le viser.
+  ameFin = performance.now() + 25000;
+  const b = $('btn-ame');
+  b.textContent = h.role === 'enfant' ? 'donner une âme à cet enfant ?'
+                                      : 'donner une âme à ce nouveau venu ?';
+  b.hidden = false;
+}
+
+$('btn-ame').addEventListener('click', () => {
+  if (!ameEnAttente) return;
+  const h = ameEnAttente;
+  for (const [cle] of AME) {
+    const v = Math.round((h[cle] ?? 0.5) * 100);
+    $('ame-' + cle).value = v;
+    $('out-' + cle).textContent = (v / 100).toFixed(2).replace('.', ',');
+  }
+  $('ame-prenom').value = h.prenom;
+  $('ame-sexe').textContent = h.feminin ? 'une fille' : 'un garçon';
+  // On arrête le village le temps qu'on décide. Sinon, à ×100, un autre
+  // enfant naît pendant qu'on hésite sur le troisième curseur — mesuré.
+  ameReprend = !enPause;
+  if (ameReprend) $('btn-pause').click();
+  $('ame').classList.add('ouvert');
+});
+
+$('ame-sexe').addEventListener('click', () => {
+  const b = $('ame-sexe');
+  b.textContent = b.textContent === 'une fille' ? 'un garçon' : 'une fille';
+});
+
+function refermerAme() {
+  $('ame').classList.remove('ouvert');
+  if (ameReprend) { $('btn-pause').click(); ameReprend = false; }
+  $('btn-ame').hidden = true;
+  ameEnAttente = null;
+}
+
+$('ame-laisser').addEventListener('click', refermerAme);
+
+$('ame-sceller').addEventListener('click', () => {
+  const h = ameEnAttente;
+  if (!h || !h.vivant) return refermerAme();
+  for (const [cle] of AME) h[cle] = parseInt($('ame-' + cle).value, 10) / 100;
+  const nom = $('ame-prenom').value.trim();
+  if (nom) h.prenom = nom.slice(0, 18);
+  h.feminin = $('ame-sexe').textContent === 'une fille';
+  h.ame = true;                                    // on saura que c'était toi
+  noter(`On a donné un nom à ${h.prenom}.`, true, h);
+  souvenir(h, 'a reçu son âme');
+  // on ouvre sa fiche AVANT de relancer le village : sinon on suivrait
+  // quelqu'un que la reprise a déjà emporté
+  if (h.vivant) selectionner(h);
+  refermerAme();
+});
+
 // LA MUSIQUE, en Web Audio et pas en <audio loop>.
 //
 // Pourquoi : un élément <audio> rouvre son flux à chaque tour et laisse
@@ -1639,7 +1815,7 @@ function majTableau() {
   t.innerHTML = '';
   for (const h of habitants) {
     const tr = document.createElement('tr');
-    tr.innerHTML = `<td>${h.vivant ? nomComplet(h) : h.prenom}, ${NOM_ROLE[h.role]}</td>` +
+    tr.innerHTML = `<td>${h.vivant ? nomComplet(h) : h.prenom}, ${metierDe(h)}</td>` +
                    `<td class="v">${h.vivant ? h.occupation : 'parti'}</td>`;
     t.appendChild(tr);
   }
@@ -1747,7 +1923,7 @@ function majFiche() {
 
   $('f-nom').textContent = h.surnom
     ? `${h.prenom} dit${h.feminin ? 'e' : ''} ${h.surnom}`
-    : `${h.prenom}, ${NOM_ROLE[h.role]}`;
+    : `${h.prenom}, ${metierDe(h)}`;
   $('f-occ').textContent = h.occupation + (h.cible ? ` → ${h.cible.nom}` : '');
 
   const p = poidsDes(h).filter(x => x[1] > 0.001).sort((a, b) => b[1] - a[1]).slice(0, 4);
@@ -1761,6 +1937,14 @@ function majFiche() {
     barre('rancune', h.rancune) + (h.chagrin > 0.02 ? barre('chagrin', h.chagrin) : '') +
     (h.remords > 0.02 ? barre('remords', h.remords) : '') +
     (h.honte > 0.02 ? barre('honte', h.honte) : '');
+
+  // Le soupçon a un nom, maintenant : c'est ici qu'on le lit, et c'est
+  // ici qu'on voit le village se tromper de coupable.
+  const soup = [...h.soupconne.entries()].filter(([a]) => a.vivant)
+    .sort((a, b) => b[1] - a[1]).slice(0, 3);
+  $('f-soupcons').innerHTML = soup.length
+    ? soup.map(([a, v]) => barre(a.prenom, v)).join('')
+    : '<div class="ligne pq">personne, pour l\'instant</div>';
 
   const proches = [...h.liens.entries()].filter(([a]) => a.vivant)
     .sort((a, b) => b[1] - a[1]).slice(0, 3);

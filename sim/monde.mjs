@@ -383,8 +383,10 @@ function nomComplet(h) {
   const metier = NOM_ROLE[h.role] || '';
   return `${h.prenom} ${metier.replace(/^(le |la |l')/, h.feminin ? 'la ' : 'le ')}`.trim();
 }
+// le métier s'accorde : « Aliénor, la colportrice » et non « le colporteur »
+const metierDe = (h) => (NOM_ROLE[h.role] || '').replace(/^(le |la |l')/, h.feminin ? 'la ' : 'le ');
 const nommer = (h) => h.surnom ? `${h.prenom} dit${h.feminin ? 'e' : ''} ${h.surnom}`
-                               : `${h.prenom}, ${NOM_ROLE[h.role]}`;
+                               : `${h.prenom}, ${metierDe(h)}`;
 // Les vingt et une occupations possibles. Chacun en a une lecture
 // légèrement différente, fixée à sa naissance : c'est ce qui remplace le
 // dé. Deux paysans dans la même situation ne feront pas le même choix,
@@ -2152,7 +2154,7 @@ return {
   hauteur, distRoute, distRuisseau, distPolyligne,
   avancer: simuler,
   poidsDes, choisirOccupation, lieuDe, tensionActuelle,
-  nommer, nomComplet, souvenir, noter, lien, e, NOM_ROLE, ROLES,
+  nommer, nomComplet, souvenir, noter, lien, e, NOM_ROLE, ROLES, metierDe,
   estNuit, estJour, lumiere,
   analyser, appliquerRegles, resoudre,
   lancerDragon, lancerFoire, surnommer,

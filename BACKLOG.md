@@ -1891,6 +1891,67 @@ monde où le soupçon ne mordait pas.
 
 ---
 
+## Donner une âme (v0.22)
+
+L'idée de Pierre, dans ses mots : « on peut créer son personnage et
+essayer de voir combien de temps il vit, si on lit dans les bons
+paramètres du début, sachant qu'on peut pas trop influer pour la suite —
+un peu comme si Dieu jouait à s'incarner, comme les dieux grecs qui
+jouaient à s'incarner pour voir ce qui se passe sur terre ». Et pour la
+forme : « il faut que ce soit quelque chose comme *voulez-vous donner une
+âme*, et c'est un petit bouton ; si on clique pas dessus, bah il se passe
+rien, c'est généré automatiquement ».
+
+### Ce que ça fait
+
+Un nouveau venu arrive — un enfant qui naît, un colporteur qui passe, une
+femme qui reprend la cabane. Un bouton discret apparaît en bas à droite.
+
+**Si on n'y touche pas**, il s'efface au bout de vingt-cinq secondes et le
+village s'en est déjà chargé. Rien n'attend, rien ne se met en pause tout
+seul.
+
+**Si on clique**, le village s'arrête, et l'on pose les neuf nombres du
+caractère, un prénom et un sexe. Puis le panneau se ferme et **on ne peut
+plus rien** : c'est tout l'intérêt. On choisit les conditions initiales,
+jamais la suite.
+
+La fiche de cette personne s'ouvre alors, et on la suit.
+
+### Trois défauts trouvés en l'essayant, tous de temps
+
+Le prototype marchait ; c'est l'épreuve du ×100 qui l'a cassé trois fois.
+
+1. **La fenêtre était en temps simulé.** Quarante-cinq secondes de village
+   durent moins d'une demi-seconde de montre à ×100 : le bouton
+   clignotait et disparaissait avant qu'on ait pu le viser. Passé en temps
+   réel — c'est une affordance d'interface, pas un événement du monde.
+2. **Le village continuait de tourner pendant qu'on décidait.** Un autre
+   enfant naissait pendant qu'on hésitait sur le troisième curseur, et le
+   panneau changeait de personne sous les doigts. Il met maintenant le
+   village en pause à l'ouverture et le relance à la fermeture — et une
+   arrivée ne remplace plus celle qu'on est en train de doter.
+3. **Le bouton survivait à la personne.** Entre l'arrivée d'une nouvelle
+   sorcière et le moment où l'on visait le bouton, le village avait eu le
+   temps de la brûler. Le bouton s'efface maintenant dès qu'elle meurt.
+
+Le troisième n'a été trouvé qu'en instrumentant : le panneau se fermait
+sans rien faire et sans lever d'erreur, ce qui est le pire genre de
+défaut.
+
+### La fiche montre le soupçon
+
+Elle affiche désormais les trois personnes que l'on soupçonne le plus, en
+barres. C'est là qu'on lit le mécanisme de la v0.21 — et qu'on voit le
+village se tromper de coupable.
+
+### Un accord au passage
+
+`nommer()` accordait le métier au masculin : « Aliénor, le colporteur ».
+Un `metierDe()` partagé règle ça partout.
+
+---
+
 ## 📜 Historique
 
 - **2026-09-10 (après-midi, suite)** — Lumière des torches calculée par
