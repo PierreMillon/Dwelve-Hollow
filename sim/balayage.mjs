@@ -65,8 +65,8 @@ function mesurer(reglages) {
 // quelque chose.
 const BORNES = {
   sansPain: [0, 35], famine: [0, 20], faim: [0.15, 0.70], moulin: [0, 32],
-  tension: [0.10, 0.60], buchers: [0.2, 4], revoltes: [0.5, 12], surnoms: [3, 14],
-  noyades: [0, 4],
+  tension: [0.10, 0.60], buchers: [0.4, 8], revoltes: [1, 30], surnoms: [3, 30],
+  noyades: [0, 8],
 };
 const tient = (m) => Object.entries(BORNES).every(([k, [lo, hi]]) => m[k] >= lo && m[k] <= hi);
 // de combien on sort, borne par borne, ramené à la largeur de la borne
@@ -78,8 +78,8 @@ const ecart = (m) => Object.entries(BORNES).reduce((t, [k, [lo, hi]]) =>
 // le poids des deux conduites qui font l'histoire depuis qu'il n'y a plus
 // de dé pour les faire sortir toutes seules.
 const GRILLE = {
-  poidsAccuser: [6, 11],
-  seuilFoule: [4, 3],
+  poidsAccuser: [6, 14, 26],
+  seuilFoule: [3, 2],
 };
 
 const cles = Object.keys(GRILLE);

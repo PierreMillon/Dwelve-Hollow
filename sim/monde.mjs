@@ -35,7 +35,7 @@ export const REGLAGES = {
   faimParSeconde: 0.007,    // à quelle vitesse on a faim
   meuleParSeconde: 0.26,    // blé changé en farine par moulin
   usureMeule: 0.0005,       // ce que la meule perd en tournant (balayage)
-  moissonAvecOutils: 0.8,
+  moissonAvecOutils: 0.62,  // balayage, après l'arrivée des saisons et des enfants
   moissonSansOutils: 0.45,
   volParSeconde: 0.35,
   // Trouvées au balayage elles aussi. Le dragon garde TOUTE sa force de
@@ -51,9 +51,21 @@ export const REGLAGES = {
   plafondLassitude: 2.2,
   // Les conduites rares ne sont plus tirées au sort : elles doivent
   // l'emporter franchement quand leur moment vient, ou ne jamais venir.
-  poidsAccuser: 6,      // trouvé au balayage
+  poidsAccuser: 26,     // balayage : à 6, un village nourri et plein d'enfants ne brûle plus personne
   seuilFoule: 3,        // balayage : à 4, un village amoindri ne fait plus jamais foule
   cycleLune: 8,         // jours d'un cycle lunaire complet
+  joursParSaison: 8,    // quatre saisons, donc une année de 32 jours et 4 lunes
+  ageAdulte: 14,        // on prend un métier à quatorze ans
+  esperanceMax: 84,     // sans accident et sans misère, on va loin
+  usureVie: 39,         // ce que la faim, la peur et la fatigue coûtent d'années
+  // On ne peut pas engranger indéfiniment : c'est ce plafond qui fait que
+  // l'abondance d'automne ne dure pas jusqu'au printemps.
+  plafondBle: 45,      // balayage : à 70, l'automne nourrit tout l'hiver
+  // Il ne doit sortir qu'une pleine lune sur trois : à chaque fois, il
+  // cesse d'être un événement. Le seuil a dû monter quand la souvenance
+  // a fait grimper les rancunes.
+  seuilLoup: 1.45,     // mesuré : une pleine lune sur trois
+  gelSeuil: 0.85,       // au-delà, le ruisseau prend et la roue s'arrête
   poidsRevolte: 3,
   poidsVol: 4,
   poidsPriere: 1,
@@ -303,11 +315,15 @@ const ROLES = [
   ['charpentier', 1], ['tailleur', 1], ['ebeniste', 1], ['forgeron', 1],
   ['voleur', 1], ['sorciere', 1], ['paysan', 7],
 ];
+// ce qu'un enfant devenu grand peut reprendre : ni seigneur, ni dame, ni
+// sorcière — ces trois-là ne se transmettent pas comme un métier
+const ROLES_UTILES = ['paysan', 'paysan', 'paysan', 'boulanger', 'charpentier',
+                      'forgeron', 'tailleur', 'ebeniste', 'pretre'];
 const NOM_ROLE = {
   seigneur: 'le seigneur', dame: 'la dame', pretre: 'le prêtre', boulanger: 'le boulanger',
   charpentier: 'le charpentier', tailleur: 'le tailleur de pierre', ebeniste: "l'ébéniste",
   forgeron: 'le forgeron', voleur: 'le voleur', sorciere: 'la sorcière',
-  paysan: 'le paysan', colporteur: 'le colporteur',
+  paysan: 'le paysan', colporteur: 'le colporteur', enfant: "l'enfant",
 };
 
 const PRENOMS_H = ['Guillaume','Thibaut','Jehan','Renaud','Gautier','Colin','Foulques','Enguerrand',
@@ -317,7 +333,7 @@ const PRENOMS_F = ['Aliénor','Perrine','Mahaut','Blanche','Aude','Isabeau','Erm
 const FEMININ = { dame: 1, sorciere: 1 };
 let iH = 0, iF = 0;
 function prenomPour(role) {
-  const f = !!(FEMININ[role] || (role === 'paysan' && alea() < 0.45));
+  const f = !!(FEMININ[role] || ((role === 'paysan' || role === 'enfant') && alea() < 0.45));
   return { prenom: f ? PRENOMS_F[iF++ % PRENOMS_F.length] : PRENOMS_H[iH++ % PRENOMS_H.length], feminin: f };
 }
 const e = (h) => (h.feminin ? 'e' : '');   // l'accord, une bonne fois
@@ -361,7 +377,7 @@ const nommer = (h) => h.surnom ? `${h.prenom} dit${h.feminin ? 'e' : ''} ${h.sur
 const OCCUPATIONS = ['dormir', 'manger', 'prier', 'flâner', 'fuir', 'accuser',
   'se révolter', 'courtiser', 'suivre', 'voler', 'moissonner', 'cuire',
   'réparer', 'menuiser', 'forger', 'tailler', 'colporter', 'officier',
-  'herboriser', 'inspecter', 'visiter', 'veiller'];
+  'herboriser', 'inspecter', 'visiter', 'veiller', 'jouer'];
 
 let rangSuivant = 0;
 function creerHabitant(role, logis) {
@@ -370,6 +386,14 @@ function creerHabitant(role, logis) {
   return {
     role, logis, ...prenomPour(role),
     rang: rangSuivant++, penchant,
+    // L'ÂGE. Une année de village vaut une année de vie : à ×100, on
+    // regarde une vie entière en une demi-heure. C'est ce qui rend
+    // tenable l'idée de suivre quelqu'un du berceau à la tombe.
+    age: entre(19, 44), mere: null,
+    // L'usure n'est pas la fatigue : c'est la moyenne lente de ce que la
+    // vie a coûté. Elle seule décide de qui s'éteint à quarante ans et de
+    // qui en voit quatre-vingts.
+    usure: entre(0.05, 0.3),
     cadence: entre(4, 9),
     usage: Object.fromEntries(OCCUPATIONS.map(o => [o, 0])),
     // ce qu'il faut lui offrir pour qu'elle accepte un pas de plus
@@ -383,6 +407,16 @@ function creerHabitant(role, logis) {
     cupidite: role === 'voleur' ? entre(0.8, 1) : entre(0, 1),
     sociabilite: entre(0.1, 1),
     superstition: role === 'pretre' ? entre(0.5, 1) : entre(0, 1),
+    // Quatre de plus, et aucun ne porte de nom de trouble : un village de
+    // 1300 n'a pas ces mots, il dit « le taciturne ». Nommer, ce serait
+    // transformer une personne en mécanisme.
+    regularite: entre(0, 1),      // le besoin que les jours se ressemblent
+    absorption: entre(0, 1),      // la capacité à ne faire qu'une chose, longtemps
+    seuil: entre(0, 1),           // ce que coûtent la foule et le bruit — bas, on fuit
+    // « souvenance » et non « mémoire » : h.memoire est déjà la liste de
+    // ce qu'il a vécu. La collision a donné des NaN partout et le contrôle
+    // l'a vue au premier passage.
+    souvenance: entre(0, 1),      // certains n'oublient ni les dettes ni les bontés
     // besoins : ils montent seuls, ce sont eux le moteur
     faim: entre(0, 0.4), fatigue: entre(0, 0.3), foi: entre(0, 0.5), peur: 0,
     soupcon: entre(0, 0.15), rancune: 0, chagrin: 0,
@@ -424,6 +458,8 @@ function creerHabitant(role, logis) {
    ================================================================ */
 const village = {
   jour: 1, heure: 0.28,          // 0 = minuit, 0.5 = midi
+  annee: 1, saison: 0,           // 0 printemps, 1 été, 2 automne, 3 hiver
+  froid: 0, gel: false,          // le grand froid ne vient qu'en hiver
   ble: 12, farine: 5, pain: 8, outils: 6, meubles: 0, chantier: 0,
   volsCetteNuit: 0,
   fourChauffe: false,        // le four est-il allumé ? (la cheminée fume)
@@ -440,7 +476,8 @@ const village = {
   // premiers étaient tombés hors du journal. On compte à la source.
   arrive: { buchers: 0, departs: 0, revoltes: 0, dragons: 0, foires: 0,
             successions: 0, surnoms: 0, noyades: 0, colporteurs: 0,
-            sabbats: 0, loups: 0, betes: 0, meurtres: 0, egares: 0, fous: 0 },
+            sabbats: 0, loups: 0, betes: 0, meurtres: 0, egares: 0, fous: 0,
+            naissances: 0, vieillesses: 0, majorites: 0 },
   pluie: 0,                  // 0 à 1, tiré chaque matin
   temps: 0,                      // secondes SIMULÉES écoulées — voir la boucle
   tension: 0, calmeDepuis: 0,    // voir metteurEnScene()
@@ -558,7 +595,17 @@ function poidsDes(h) {
     p.push(['voler', (h.cupidite - 0.6) * (1 - h.piete) * R.poidsVol,
             `cupidité ${n2(h.cupidite)} · la nuit · la huche est pleine`]);
   }
-  if (jour) {
+  // UN ENFANT. Il suit sa mère, il joue avec les autres enfants, et dès
+  // qu'il tient debout il aide aux champs — à moitié de la vitesse d'un
+  // adulte. Les trois à la fois, comme demandé.
+  if (h.role === 'enfant') {
+    const petits = habitants.filter(a => a.vivant && a.role === 'enfant' && a !== h).length;
+    p.push(['jouer', 1.4 + petits * 0.5, `il a ${Math.floor(h.age)} ans` + (petits ? ` · ${petits} autres enfants` : '')]);
+    if (h.mere && h.mere.vivant) p.push(['suivre', 2.2 * (1 - h.age / R.ageAdulte), `il suit sa mère`]);
+    if (jour && h.age > 6) p.push(['moissonner', 0.9 * (h.age / R.ageAdulte), `il aide aux champs`]);
+  }
+
+  if (jour && h.role !== 'enfant') {
     const travail = 1.1 * (1 - h.fatigue) * (1 - h.peur * 0.9);
     const pourquoiTravail = `son métier${h.peur > 0.3 ? ` · mais peur ${n2(h.peur)}` : ''}` +
                             (h.fatigue > 0.5 ? ` · fatigue ${n2(h.fatigue)}` : '');
@@ -586,6 +633,20 @@ function poidsDes(h) {
   // situation ne tranchent pas pareil — et il est fixé à la naissance,
   // donc la fiche affiche bien le classement qui a décidé.
   for (const q of p) q[1] *= h.penchant[q[0]] / (1 + h.usage[q[0]]);
+
+  // LE SEUIL. La foule et le bruit coûtent, et pas également à tout le
+  // monde. Un seuil bas ne rend personne meilleur ni pire : il rend la
+  // place difficile un jour de foire, et il tient à l'écart des bûchers —
+  // ce que le village finit par remarquer.
+  const bruyant = (village.foire > 0 ? 1 : 0) + (village.foule ? 1 : 0);
+  if (bruyant) {
+    const cout = 1 - (1 - h.seuil) * 0.75 * bruyant / 2;
+    for (const q of p) if (q[0] === 'flâner' || q[0] === 'accuser' || q[0] === 'se révolter') q[1] *= cout;
+    for (const q of p) if (q[0] === 'fuir' || q[0] === 'dormir') q[1] *= 1 + (1 - h.seuil) * 0.5 * bruyant / 2;
+  }
+
+  // LA RÉGULARITÉ. On ne change pas d'occupation de gaieté de cœur.
+  for (const q of p) if (q[0] === h.occupation) q[1] *= 1 + h.regularite * 0.9;
   return p;
 }
 
@@ -680,7 +741,7 @@ function majPleineLune(dt) {
     // sert de la nuit et laisse la légende porter le poids. Le village
     // n'a aucun moyen de faire la différence, et la chronique non plus :
     // seule la fiche du coupable garde la trace.
-    if (aleaEvenements() < 0.22) {
+    if (aleaEvenements() < 0.08) {
       const vivants = habitants.filter(h => h.vivant && h !== village.loup);
       if (vivants.length > 6) {
         let profiteur = null, pire = 0.85;
@@ -725,7 +786,7 @@ function majPleineLune(dt) {
   // quelqu'un. Le village n'apprend jamais qui c'était — il entend, c'est
   // tout, et il en soupçonne un autre.
   if (!village.loup && village.lune > 0.93) {
-    let pire = null, score = 1.10;   // mesuré : 2,9 par village, soit une pleine lune sur trois   // mesuré : à 1,15 il ne sortait qu'une fois tous les soixante jours
+    let pire = null, score = R.seuilLoup;   // mesuré : à 1,15 il ne sortait qu'une fois tous les soixante jours
     for (const h of habitants) {
       if (!h.vivant || h.role === 'sorciere') continue;
       const sc = h.rancune + h.courage * 0.6 + (1 - h.piete) * 0.6;
@@ -770,6 +831,55 @@ function majPleineLune(dt) {
   }
 }
 
+// UNE MORT, ET CE QU'ELLE LAISSE. Écrit une fois, pour que le chagrin
+// n'ait pas trois versions différentes selon la façon dont on meurt.
+function mourir(h, texte) {
+  h.vivant = false;
+  noter(texte, true, h);
+  for (const a of habitants) {
+    if (!a.vivant || a === h) continue;
+    const l = Math.max(lien(a, h), a.secret === h ? a.secretForce : 0);
+    if (l < 0.3) continue;
+    a.chagrin = Math.min(1, a.chagrin + l);
+    a.compte.deuils++;
+    souvenir(a, `a perdu ${h.prenom}`);
+  }
+  if (h.aime && h.aime.vivant) { souvenir(h.aime, `est resté${e(h.aime)} seul${e(h.aime)}`); h.aime.aime = null; }
+  for (const a of habitants) if (a.mere === h && a.vivant) souvenir(a, `a perdu sa mère`);
+}
+
+const ANNEE = () => JOUR * R.joursParSaison * 4;      // secondes simulées dans une année
+
+// VIEILLIR. L'usure est la moyenne lente de ce que la vie coûte : avoir
+// faim, avoir peur, être épuisé. Elle décide de tout — on s'éteint à
+// quarante-cinq ans quand elle est haute, et on en voit quatre-vingts
+// quand on a eu de la chance et de quoi manger.
+function majAge(h, dt) {
+  h.age += dt / ANNEE();
+  const dur = h.faim * 0.6 + h.fatigue * 0.25 + h.peur * 0.3 + h.chagrin * 0.15;
+  h.usure += (Math.min(1, dur) - h.usure) * dt * 0.0004;
+
+  if (h.role === 'enfant' && h.age >= R.ageAdulte) {
+    // il prend le métier qui manque le plus au village
+    const compte = {};
+    for (const a of habitants) if (a.vivant && a.role !== 'enfant') compte[a.role] = (compte[a.role] || 0) + 1;
+    let manque = 'paysan', pire = 99;
+    for (const r of ROLES_UTILES) { const n = compte[r] || 0; if (n < pire) { pire = n; manque = r; } }
+    h.role = manque;
+    h.suit = null;
+    village.arrive.majorites++;
+    noter(`${h.prenom} a pris le métier de ${NOM_ROLE[manque]}. ${h.feminin ? 'Elle' : 'Il'} a quatorze ans.`, true, h);
+    souvenir(h, `est devenu${e(h)} ${NOM_ROLE[manque]}`);
+    return;
+  }
+
+  const esperance = R.esperanceMax - h.usure * R.usureVie;
+  if (h.age > esperance) {
+    mourir(h, `${nommer(h)} s'est éteint${e(h)} à ${Math.floor(h.age)} ans.`);
+    village.arrive.vieillesses++;
+  }
+}
+
 function majNoyade(h) {
   // Quatre conditions, et il en faut quatre : le brouillard le plus
   // épais, aucune lumière, le milieu du courant, loin du pont — et la
@@ -796,8 +906,12 @@ function majNoyade(h) {
 }
 
 function majLassitude(h, dt) {
+  // L'absorption annule la lassitude : on peut forger tout le jour sans
+  // s'en fatiguer. Elle ne donne aucun talent — elle donne de la durée,
+  // et c'est ce qui fait le meilleur forgeron du village.
+  const tenue = dt * R.lassitude * (1 - h.absorption * 0.85);
   for (const o of OCCUPATIONS) {
-    if (o === h.occupation) h.usage[o] = Math.min(R.plafondLassitude, h.usage[o] + dt * R.lassitude);
+    if (o === h.occupation) h.usage[o] = Math.min(R.plafondLassitude, h.usage[o] + tenue);
     else if (h.usage[o] > 0) h.usage[o] = Math.max(0, h.usage[o] - dt * R.oubli);
   }
 }
@@ -820,7 +934,10 @@ function choisirOccupation(h) {
 // son coin de place. Le rang le distingue de son voisin, le jour fait
 // tourner — même homme, même jour, même champ.
 function chez(h, liste, sel = 0) {
-  return liste[(h.rang * 7 + village.jour * 3 + sel * 11) % liste.length];
+  // Qui a besoin que les jours se ressemblent retourne au même endroit,
+  // toujours. Les autres tournent avec le calendrier.
+  const rotation = h.regularite > 0.6 ? 0 : village.jour * 3;
+  return liste[(h.rang * 7 + rotation + sel * 11) % liste.length];
 }
 function lieuDe(h, occ) {
   switch (occ) {
@@ -828,14 +945,14 @@ function lieuDe(h, occ) {
     // on mange chez soi, sauf si l'on aime la compagnie
     case 'manger': return h.sociabilite > 0.6 ? PLACE : h.logis;
     case 'prier': case 'officier': return EGLISE;
-    case 'flâner': return PLACE;
+    case 'flâner': case 'jouer': return PLACE;
     case 'accuser': {   // on se rassemble d'abord sur la place, on marche ensuite
       if (!village.foule) return PLACE;
       return village.sorciereChassee ? (village.accuse ? village.accuse.logis : PLACE) : CABANE;
     }
     case 'se révolter': return village.fouleRevolte ? MANOIR : PLACE;
     case 'courtiser': return h.courtise;      // une personne a x et z, comme un lieu
-    case 'suivre': return h.suit;
+    case 'suivre': return h.role === 'enfant' && h.mere ? h.mere : h.suit;
     case 'moissonner': return chez(h, CHAMPS);
     case 'cuire': return FOUR;
     case 'forger': return chez(h, ATELIERS, 1);
@@ -856,7 +973,7 @@ function lieuDe(h, occ) {
    6. LA SIMULATION
    ================================================================ */
 const JOUR = 90;            // secondes réelles pour une journée, à vitesse ×1
-const PLAFOND_BLE = 70;     // au-delà, les greniers débordent et les paysans lèvent le pied
+const PLAFOND_BLE = R.plafondBle;   // au-delà, les greniers débordent
 const PROCHE = 2.6;
 
 function simuler(dt) {
@@ -881,6 +998,23 @@ function simuler(dt) {
   // calcule à partir du jour et de l'heure.
   village.lune = 0.5 - 0.5 * Math.cos(2 * Math.PI * (village.jour + village.heure) / R.cycleLune);
   majPleineLune(dt);
+
+  // LES SAISONS. Huit jours chacune, donc une année de trente-deux jours
+  // et quatre lunes — les deux cycles se répondent.
+  const jourAn = (village.jour - 1) % (R.joursParSaison * 4);
+  village.saison = Math.floor(jourAn / R.joursParSaison);
+  village.annee = 1 + Math.floor((village.jour - 1) / (R.joursParSaison * 4));
+
+  // LE FROID. Il ne descend qu'en hiver, et le grand froid est un
+  // événement dans l'hiver, pas l'hiver entier : le ruisseau prend, la
+  // roue s'arrête, et il ne reste que les ailes du moulin à vent.
+  const base = [0.3, 0.05, 0.4, 0.75][village.saison];
+  village.froid = base + 0.22 * Math.sin(village.temps * 0.0061 + 2.3)
+                       + 0.10 * Math.sin(village.temps * 0.017);
+  const gelait = village.gel;
+  village.gel = village.froid > R.gelSeuil;
+  if (village.gel && !gelait) noter('Le ruisseau a pris pendant la nuit. La roue est muette.', true);
+  if (!village.gel && gelait) noter('La glace a cédé. La roue repart.');
   const dtJour = dt / JOUR;
   village.heure += dtJour;
   if (village.heure >= 1) {
@@ -903,8 +1037,11 @@ function simuler(dt) {
     h.foi = Math.min(1, h.foi + dt * 0.006);
     h.peur = Math.max(0, h.peur - dt * 0.022);
     h.soupcon = Math.max(0, h.soupcon - dt * 0.006);
-    h.rancune = Math.max(0, h.rancune - dt * 0.013);
-    h.chagrin = Math.max(0, h.chagrin - dt * 0.004);   // il faut du temps
+    // qui n'oublie rien ne pardonne pas non plus : la rancune et le
+    // chagrin s'effacent d'autant moins vite que la mémoire est bonne
+    const oubli = 1 / (1 + h.souvenance * 2.5);
+    h.rancune = Math.max(0, h.rancune - dt * 0.013 * oubli);
+    h.chagrin = Math.max(0, h.chagrin - dt * 0.004 * oubli);   // il faut du temps
     // Le remords s'use lentement et se confesse : prier l'efface plus
     // vite que le temps. La honte, elle, ne s'efface pas en priant — il
     // faut que le village finisse par regarder ailleurs.
@@ -934,6 +1071,7 @@ function simuler(dt) {
     }
     majLassitude(h, dt);
     majTorche(h);
+    majAge(h, dt);
     majNoyade(h);
     if (!h.vivant) continue;
     avancer(h, dt);
@@ -1064,8 +1202,13 @@ function agir(h, dt) {
     case 'moissonner':
       h.compte.moissons += dt;
       // avec de bons outils on moissonne bien mieux ; les outils s'usent
-      if (village.ble < PLAFOND_BLE) {
-        village.ble += dt * (village.outils > 0 ? R.moissonAvecOutils : R.moissonSansOutils);
+      // On sème au printemps, on entretient l'été, on moissonne à
+      // l'automne, et l'hiver on ne récolte rien du tout. La moyenne sur
+      // l'année vaut 1 : c'est la répartition qui change, pas le total.
+      const saisonnier = [0.7, 1.3, 2.0, 0][village.saison]
+                       * (h.role === 'enfant' ? 0.5 : 1);
+      if (village.ble < PLAFOND_BLE && saisonnier > 0) {
+        village.ble += dt * saisonnier * (village.outils > 0 ? R.moissonAvecOutils : R.moissonSansOutils);
         village.outils = Math.max(0, village.outils - dt * 0.02);
       }
       break;
@@ -1152,7 +1295,8 @@ function majMoulins(dt) {
     // la roue a le courant, qui ne s'arrête jamais ; les ailes ont le
     // vent, qui va et vient. Le village dépend donc d'un moulin fiable et
     // d'un moulin capricieux, et c'est le second qui fait les disettes.
-    const force = m.axe === 'roue' ? 1 : 0.3 + village.vent * 1.4;
+    // la roue a le courant — sauf quand le courant est pris par la glace
+    const force = m.axe === 'roue' ? (village.gel ? 0 : 1) : 0.3 + village.vent * 1.4;
     const marche = m.etat > 0.12 && village.ble > 0 && force > 0.35;
     m.tourne += dt * (marche ? (m.axe === 'roue' ? 1.6 : 1.1 * force) : 0);
     if (!marche) continue;
@@ -1482,7 +1626,35 @@ function surnommer() {
   souvenir(h, `a gagné son surnom : ${h.surnom}`);
 }
 
+// NAÎTRE. Pierre a tranché : quand la nourriture le permet. Le village
+// grossit les bonnes années et se vide les mauvaises — ce qui rend
+// l'hiver, les moulins et le pain soudain beaucoup plus importants.
+function naissances() {
+  if (village.pain < 14 || village.ble < 22) return;
+  const vivants = habitants.filter(h => h.vivant);
+  if (vivants.length >= 26) return;
+  for (const m of vivants) {
+    if (!m.feminin || m.role === 'enfant' || !m.aime || !m.aime.vivant) continue;
+    if (m.age < 17 || m.age > 42) continue;
+    if (village.jour < (m.prochainEnfant || 0)) continue;
+    m.prochainEnfant = village.jour + R.joursParSaison * 4;      // une par année au plus
+    const bebe = creerHabitant('enfant', m.logis);
+    bebe.age = 0;
+    bebe.mere = m;
+    bebe.suit = m;
+    bebe.usure = Math.min(1, m.usure * 0.5);
+    habitants.push(bebe);
+    nouveaux.push(bebe);
+    village.arrive.naissances++;
+    noter(`${m.prenom} a eu un enfant. On l'appelle ${bebe.prenom}.`, true, bebe);
+    souvenir(m, `a mis ${bebe.prenom} au monde`);
+    souvenir(m.aime, `est devenu${e(m.aime)} parent de ${bebe.prenom}`);
+    return;                       // une naissance par jour, pas davantage
+  }
+}
+
 function finDeJournee() {
+  naissances();
   surnommer();
   // le temps qu'il fait : la plupart des jours sont secs, il pleut
   // franchement de temps en temps. Aucun effet mécanique — c'est là pour

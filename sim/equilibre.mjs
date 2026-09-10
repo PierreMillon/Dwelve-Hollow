@@ -91,6 +91,9 @@ function agreger(lots) {
     revoltes: m(s => s.revoltes), dragons: m(s => s.dragons),
     successions: m(s => s.successions), surnoms: m(s => s.surnoms),
     noyades: m(s => s.noyades),
+    naissances: m(s => s.naissances || 0), majorites: m(s => s.majorites || 0),
+    vieillesses: m(s => s.vieillesses || 0), loups: m(s => s.loups || 0),
+    meurtres: m(s => s.meurtres || 0),
     couples: m(s => s.couples), vivants: m(s => s.vivants),
     autorite: m(s => s.autorite),
   };
@@ -120,6 +123,10 @@ function afficher(a, titre) {
   console.log(`  successions à la cabane   ${num(a.successions)}`);
   console.log(`  surnoms gagnés            ${num(a.surnoms)}`);
   console.log(`  noyés dans le brouillard  ${num(a.noyades)}`);
+  console.log(`  naissances                ${num(a.naissances ?? 0)}`);
+  console.log(`  passages à quatorze ans   ${num(a.majorites ?? 0)}`);
+  console.log(`  morts de vieillesse       ${num(a.vieillesses ?? 0)}`);
+  console.log(`  loups · meurtres          ${num(a.loups ?? 0)} · ${num(a.meurtres ?? 0)}`);
   console.log(`  couples formés            ${num(a.couples)}`);
   console.log(`  habitants en vie          ${num(a.vivants)}`);
 }
@@ -143,12 +150,14 @@ const CIBLES = [
   // passage du monde sans hasard, les sept cibles du dessus tenaient
   // toutes pendant que le village devenait muet — zéro bûcher, zéro
   // révolte, zéro surnom sur mille journées. On ne mesurait que le pain.
-  ['bûchers par village',   (a) => a.buchers,      0.15, 3,   ''],
-  ['révoltes par village',  (a) => a.revoltes,     0.5,  10,  ''],
-  ['surnoms gagnés',        (a) => a.surnoms,      2,    12,  ''],
+  // bornes rapportées à six années de village, pas à quatre-vingts jours
+  ['bûchers par village',   (a) => a.buchers,      0.2,  7,   ''],
+  ['révoltes par village',  (a) => a.revoltes,     1.5,  26,  ''],
+  ['surnoms gagnés',        (a) => a.surnoms,      4,    28,  ''],
   // Le brouillard est un accident, pas un piège : au premier réglage il
   // noyait six habitants par village et le village y passait.
-  ['noyés dans le brouillard', (a) => a.noyades,   0,    3,   ''],
+  ['noyés dans le brouillard', (a) => a.noyades,   0,    7,   ''],
+  ['naissances par village', (a) => a.naissances,  1,    16,  ''],
 ];
 
 function verifier(a) {
@@ -163,8 +172,11 @@ function verifier(a) {
 }
 
 // ---- exécution ----
-const runs = arg('runs', drapeau('check') ? 24 : 12);
-const jours = arg('jours', drapeau('check') ? 80 : 60);
+// Depuis les saisons, quatre-vingts jours ne font que deux années et
+// demie : trop court pour qu'un hiver compte, et trop court pour voir
+// grandir un enfant. Le contrôle passe à 200 jours, soit six années.
+const runs = arg('runs', drapeau('check') ? 16 : 12);
+const jours = arg('jours', drapeau('check') ? 200 : 60);
 const graine0 = arg('graine', 1);
 
 const t0 = Date.now();

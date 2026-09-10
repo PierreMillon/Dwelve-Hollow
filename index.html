@@ -165,9 +165,9 @@
   <span class="title">DWELVE HOLLOW</span>
 </div>
 
-<button id="version">v0.18</button>
+<button id="version">v0.19</button>
 
-<div id="saison">jour <b id="s-jour">1</b> · <b id="s-phase">aube</b> · pain <b id="s-pain">0</b> · peur <b id="s-peur">0 %</b></div>
+<div id="saison">an <b id="s-an">1</b> · <b id="s-saison">printemps</b> · jour <b id="s-jour">1</b> · <b id="s-phase">aube</b> · <b id="s-lune">lune</b> · pain <b id="s-pain">0</b> · peur <b id="s-peur">0 %</b></div>
 
 <div id="chronique"></div>
 
@@ -238,7 +238,18 @@
   <div class="contenu">
     <h2>DWELVE HOLLOW — HISTORIQUE</h2>
 
-    <div class="v courante"><b>v0.18</b> — <b>la lune, et la lumière qui ne traverse plus les
+    <div class="v courante"><b>v0.19</b> — <b>les saisons, l'âge et les générations.</b> Une
+      année de trente-deux jours, quatre saisons, quatre lunes. On sème au printemps, on
+      moissonne à l'automne, et l'hiver on vit sur ce qu'on a engrangé — le grand froid
+      prend le ruisseau et la roue se tait, il ne reste que les ailes du moulin à vent.
+      Chacun porte son âge et son usure : on s'éteint à quarante-cinq ans quand la vie a
+      été dure, et on en voit quatre-vingts quand on a eu de la chance. Les enfants
+      naissent quand la table le permet, suivent leur mère, jouent ensemble, aident aux
+      champs, et prennent à quatorze ans le métier qui manque au village. Et quatre
+      traits de plus, sans qu'aucun porte de nom : la régularité, l'absorption, le seuil
+      sensoriel et la souvenance.</div>
+
+    <div class="v"><b>v0.18</b> — <b>la lune, et la lumière qui ne traverse plus les
       murs.</b> Une source enfermée dans un bâtiment n'en éclaire plus la façade : la
       fenêtre devient la source, dirigée vers le dehors, et le toit reste noir même
       église pleine. La lune a huit jours de cycle, sa phase se lit sur le disque, et
@@ -1238,7 +1249,13 @@ function majRendu(dt) {
   for (const h of habitants) {
     if (!h.objet) continue;
     h.objet.visible = h.vivant;
-    if (h.vivant) h.objet.position.set(h.x, hauteur(h.x, h.z), h.z);
+    if (h.vivant) {
+      h.objet.position.set(h.x, hauteur(h.x, h.z), h.z);
+      // un enfant est petit, et il grandit sous les yeux ; le loup est
+      // plus gros que nature, c'est ce qui le trahit sans le nommer
+      const t = h.role === 'enfant' ? 0.45 + 0.55 * Math.min(1, h.age / 14) : 1;
+      h.objet.scale.setScalar(t * (h === village.loup ? 1.5 : 1));
+    }
   }
 
   for (const m of MOULINS) {
@@ -1313,7 +1330,14 @@ function majChronique() {
     c.appendChild(d);
   }
 }
+const SAISONS = ['printemps', 'été', 'automne', 'hiver'];
+// la lune se dit en mots : c'est plus lisible qu'un nombre entre 0 et 1
+const LUNES = [[0.06, 'nouvelle lune'], [0.35, 'croissant'], [0.65, 'demi-lune'],
+               [0.88, 'lune gibbeuse'], [1.01, 'pleine lune']];
 function majAffichage() {
+  $('s-an').textContent = village.annee;
+  $('s-saison').textContent = SAISONS[village.saison] + (village.gel ? ' · gel' : '');
+  $('s-lune').textContent = (LUNES.find(([v]) => village.lune < v) || LUNES[4])[1];
   $('s-jour').textContent = village.jour;
   $('s-phase').textContent = (PHASES.find(([h]) => village.heure < h) || PHASES[0])[1];
   $('s-pain').textContent = Math.floor(village.pain);

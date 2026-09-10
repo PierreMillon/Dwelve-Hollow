@@ -1640,6 +1640,109 @@ dans la chronique et dans le soupçon des habitants.
 
 ---
 
+## Les saisons, l'âge et les générations (v0.19)
+
+Quatre décisions de Pierre, prises au quiz.
+
+### L'année
+
+Trente-deux jours, quatre saisons de huit, quatre lunes. Les deux cycles
+se répondent : une pleine lune par saison.
+
+On sème au printemps (0,7), on entretient l'été (1,3), on moissonne à
+l'automne (2,0), et l'hiver on ne récolte rien. La moyenne annuelle vaut
+1 : c'est la répartition qui change, pas le total.
+
+**Le gel n'est pas l'hiver entier**, comme demandé — c'est un événement
+dans l'hiver. Le froid se calcule (base saisonnière plus deux sinusoïdes,
+aucun tirage) et au-delà d'un seuil le ruisseau prend : la roue se tait,
+il ne reste que les ailes du moulin à vent, qui dépendent du vent.
+Mesuré : **huit jours de gel sur trente-deux jours d'hiver, et jamais
+ailleurs.**
+
+### L'âge, l'usure, la vieillesse
+
+Une année de village vaut une année de vie. À ×100, on regarde une vie
+entière en une demi-heure — c'est ce qui rend tenable l'idée de suivre
+quelqu'un du berceau à la tombe.
+
+**L'usure n'est pas la fatigue.** C'est la moyenne lente de ce que la vie
+a coûté : avoir faim, avoir peur, être épuisé, avoir du chagrin. Elle
+seule décide de l'espérance — quarante-cinq ans quand elle est haute,
+quatre-vingts quand on a eu de la chance et de quoi manger. C'est
+exactement ce que Pierre demandait.
+
+### Les naissances
+
+« Quand la nourriture le permet. » Il faut du pain, du blé, une mère
+entre dix-sept et quarante-deux ans, un couple vivant, et moins de
+vingt-six habitants. Une naissance par jour au plus, une par mère et par
+an.
+
+**L'enfant fait les trois choses** demandées : il suit sa mère, il joue
+avec les autres enfants, et dès six ans il aide aux champs à moitié de la
+vitesse d'un adulte. À quatorze ans il prend **le métier qui manque le
+plus** au village. Ni seigneur, ni dame, ni sorcière : ces trois-là ne se
+transmettent pas comme un métier.
+
+À l'écran il est petit et il grandit sous les yeux.
+
+### Les quatre traits, et pourquoi aucun n'est nommé
+
+**La régularité** — qui a besoin que les jours se ressemblent retourne au
+même champ, toujours, et ne change pas d'occupation de gaieté de cœur.
+
+**L'absorption** — elle annule la lassitude. Elle ne donne aucun talent,
+elle donne de la durée : le meilleur forgeron du village sera celui qui
+peut forger tout le jour.
+
+**Le seuil** — ce que coûtent la foule et le bruit. Bas, la place est
+difficile un jour de foire, et on ne vient pas au bûcher. Le village le
+remarque.
+
+**La souvenance** — la rancune et le chagrin s'effacent d'autant moins
+vite qu'on retient. Qui n'oublie rien ne pardonne pas.
+
+Aucun ne porte de nom de trouble, et c'est délibéré : un village de 1300
+n'a pas ces mots, il dit « le taciturne ». Nommer transformerait une
+personne en mécanisme — le jeu montrerait « l'autiste se fait brûler » au
+lieu de « le village brûle celui qui ne vient jamais sur la place ». La
+première phrase est une caricature, la seconde est de l'histoire.
+
+### Trois fautes trouvées par les garde-fous
+
+**Une collision de noms.** Le trait `memoire` écrasait `h.memoire`, la
+liste des souvenirs. Résultat : des NaN dans la rancune et la tension,
+zéro bûcher, zéro révolte. Le contrôle l'a vu au premier passage.
+Renommé `souvenance`.
+
+**Le loup sortait presque à chaque pleine lune.** La souvenance ayant
+fait monter les rancunes, le seuil réglé la veille était devenu trop bas.
+Remesuré : 1,45 donne une pleine lune sur trois, et un meurtre tous les
+trente ans.
+
+**La cible des bûchers était calibrée sur quatre-vingts jours** — deux
+années et demie. Trop court pour qu'un hiver compte ou qu'un enfant
+grandisse. Le contrôle passe à **200 jours, six années**, et toutes les
+bornes de récit ont été recalculées à cette échelle. Ce n'est pas un
+assouplissement : le balayage a ensuite montré qu'un village nourri et
+plein d'enfants ne brûle plus personne, et `poidsAccuser` est passé de 6
+à **26** pour retrouver un bûcher tous les huit ans.
+
+### Mesuré, 16 villages × 6 années
+
+Treize cibles, toutes tenues. Bûchers 0,69 · révoltes 5,5 · naissances
+4,9 · surnoms 4,8 · noyés 2,0 · 20,6 habitants en vie · famine 2,5 %.
+
+### Reste à faire de ce chantier
+
+Le **créateur de personnage** — « voulez-vous donner une âme ? », un
+bouton discret à chaque naissance et à chaque étranger. Si on ne clique
+pas, il ne se passe rien et le village s'en charge. Neuf nombres à poser,
+puis le panneau se ferme et on ne peut plus rien.
+
+---
+
 ## 📜 Historique
 
 - **2026-09-10 (après-midi, suite)** — Lumière des torches calculée par
