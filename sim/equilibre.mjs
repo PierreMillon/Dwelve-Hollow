@@ -33,7 +33,7 @@ function unVillage(graine, jours) {
     graine, jours,
     joursSansPain: 0, joursFamine: 0, joursMoulinCasse: 0,
     faimCumul: 0, peurCumul: 0, rancuneCumul: 0, tensionCumul: 0, mesures: 0,
-    buchers: 0, departs: 0, revoltes: 0, dragons: 0, foires: 0, successions: 0,
+    buchers: 0, departs: 0, revoltes: 0, dragons: 0, foires: 0, successions: 0, noyades: 0,
     surnoms: 0, couples: 0, bloque: false,
   };
 
@@ -60,15 +60,11 @@ function unVillage(graine, jours) {
     }
   }
 
-  for (const e of M.chronique) {
-    if (/bûcher a brûlé/.test(e.txt)) s.buchers++;
-    else if (/a pris la route avant eux/.test(e.txt)) s.departs++;
-    else if (/montent vers le manoir/.test(e.txt)) s.revoltes++;
-    else if (/ombre passe sur les toits/.test(e.txt)) s.dragons++;
-    else if (/Foire aux bestiaux/.test(e.txt)) s.foires++;
-    else if (/s'est installée dans la cabane/.test(e.txt)) s.successions++;
-    else if (/On a commencé à l'appeler/.test(e.txt)) s.surnoms++;
-  }
+  // On lit le décompte du village, pas sa chronique : celle-ci ne garde
+  // que ses deux cents dernières lignes, donc au-delà d'une centaine de
+  // jours elle perd ses premiers événements — et le balayage comptait un
+  // surnom là où il y en avait eu cinq.
+  Object.assign(s, M.village.arrive);
   s.couples = M.habitants.filter(h => h.vivant && h.aime).length / 2;
   s.vivants = M.habitants.filter(h => h.vivant).length;
   s.pain = Math.round(M.village.pain);
@@ -94,6 +90,7 @@ function agreger(lots) {
     buchers: m(s => s.buchers), departs: m(s => s.departs),
     revoltes: m(s => s.revoltes), dragons: m(s => s.dragons),
     successions: m(s => s.successions), surnoms: m(s => s.surnoms),
+    noyades: m(s => s.noyades),
     couples: m(s => s.couples), vivants: m(s => s.vivants),
     autorite: m(s => s.autorite),
   };
@@ -122,6 +119,7 @@ function afficher(a, titre) {
   console.log(`  révoltes                  ${num(a.revoltes)}`);
   console.log(`  successions à la cabane   ${num(a.successions)}`);
   console.log(`  surnoms gagnés            ${num(a.surnoms)}`);
+  console.log(`  noyés dans le brouillard  ${num(a.noyades)}`);
   console.log(`  couples formés            ${num(a.couples)}`);
   console.log(`  habitants en vie          ${num(a.vivants)}`);
 }
@@ -148,6 +146,9 @@ const CIBLES = [
   ['bûchers par village',   (a) => a.buchers,      0.15, 3,   ''],
   ['révoltes par village',  (a) => a.revoltes,     0.5,  10,  ''],
   ['surnoms gagnés',        (a) => a.surnoms,      2,    12,  ''],
+  // Le brouillard est un accident, pas un piège : au premier réglage il
+  // noyait six habitants par village et le village y passait.
+  ['noyés dans le brouillard', (a) => a.noyades,   0,    3,   ''],
 ];
 
 function verifier(a) {

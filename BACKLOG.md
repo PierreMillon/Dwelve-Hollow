@@ -1417,6 +1417,91 @@ un chantier à part, avec un balayage.
 
 ---
 
+## Le remords, la honte et le brouillard (v0.17)
+
+Demandé par Pierre : « facteur de honte existe ? » — puis, au quiz :
+« fais remord et honte », « oui et il étouffe les torches et je pense
+qu'il pourrait faire aussi autre chose : si par exemple on fait quelque
+chose de pas bien dans le brouillard mais personne nous voit donc on n'a
+pas de honte, tu vois ce que je veux dire, ou on peut aussi se perdre
+dans le brouillard et tomber dans l'eau et mourir ».
+
+### Deux états, et pourquoi les séparer
+
+Aucun jeu de ce genre ne distingue les deux, et c'est dommage :
+
+- **Le remords** monte qu'on soit vu ou non, d'autant plus qu'on est
+  pieux. Il pousse à l'église, et prier l'efface huit fois plus vite que
+  le temps.
+- **La honte** ne monte **qu'avec un témoin**, et proportionnellement au
+  nombre de témoins. Prier n'y change rien : il faut que le village
+  finisse par regarder ailleurs. Elle fait fuir et empêche de traîner sur
+  la place — un honteux rase les murs.
+
+`temoins()` est le seul endroit du code qui demande *qui regarde*.
+
+### Le brouillard fait trois choses, et c'est ce qui le rend juste
+
+Il se lève du ruisseau les matins calmes, et seulement ceux-là : le vent
+le chasse, la pluie l'empêche. Aucun tirage — il se déduit, donc on peut
+le voir venir. Mesuré : **38 % des relevés d'aube** ont du brouillard
+visible, 8 % du brouillard épais.
+
+1. **Il étouffe les torches**, comme la pluie et le vent.
+2. **Il aveugle les témoins** : au-delà de 0,55, `temoins()` renvoie zéro.
+   On peut donc voler dans le brouillard sans en avoir honte — mais le
+   remords, lui, reste. C'est exactement la distinction que Pierre
+   demandait.
+3. **On peut s'y noyer.** Quatre conditions simultanées : brouillard
+   épais, aucune lumière, le milieu du courant, loin du pont, et la
+   fatigue. Une torche allumée sauve la vie — c'est la première fois dans
+   ce village qu'en porter une serve à autre chose qu'à être vu.
+
+**Réglé par la mesure.** Premier essai : six noyés par village en 80
+jours, le village y passait. Après resserrement des seuils : **1,6 noyé
+par village**, soit un accident tous les cinquante jours. Une cible de
+non-régression a été ajoutée pour que ça ne redevienne jamais un piège.
+
+### Le vent fait tourner le moulin
+
+Les deux moulins ne se valent plus. La roue a le courant, qui ne
+s'arrête jamais. Les ailes ont le vent, qui va et vient — et en dessous
+d'un certain souffle, la meule ne tourne plus du tout.
+
+Le village dépend donc d'un moulin fiable et d'un moulin capricieux.
+
+### Deux défauts trouvés par les garde-fous
+
+**Le contrôle de détermination a attrapé la pluie.** Elle était tirée du
+générateur de décor, ce qui était juste tant qu'elle ne faisait que
+tomber. Depuis qu'elle éteint les torches et empêche le brouillard —
+donc qu'elle décide de qui est vu et de qui a honte — c'est un accident
+du monde. Déplacée sur `aleaEvenements`. Troisième fois que ce contrôle
+attrape une vraie faute de conception.
+
+**Le balayage a attrapé un défaut de mesure, pas de code.** Il comptait
+les événements en relisant la chronique — or celle-ci ne garde que ses
+**deux cents dernières lignes**. Au-delà d'une centaine de jours, les
+premiers bûchers et les premiers surnoms tombaient hors du journal : le
+balayage lisait 1 surnom là où il y en avait eu 5, et toutes les mesures
+de récit de la session étaient biaisées à la baisse.
+
+Corrigé : le village tient son propre décompte, `village.arrive`,
+incrémenté à la source. La chronique reste ce qu'elle est — un journal
+qu'on lit par-dessus l'épaule, pas un instrument.
+
+*Ce qu'on ne mesure pas, on le perd ; ce qu'on mesure mal, on le corrige
+de travers.*
+
+### Le seuil de foule, trouvé au balayage
+
+Avec les noyades, le village perd des habitants, et à quatre personnes
+requises sur la place il ne faisait plus jamais foule : zéro bûcher.
+Ramené à trois, tout tient — bûchers 1,0 par village, révoltes 3,8,
+surnoms 4,3.
+
+---
+
 ## 📜 Historique
 
 - **2026-09-10 (après-midi, suite)** — Lumière des torches calculée par

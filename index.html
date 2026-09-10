@@ -165,7 +165,7 @@
   <span class="title">DWELVE HOLLOW</span>
 </div>
 
-<button id="version">v0.16</button>
+<button id="version">v0.17</button>
 
 <div id="saison">jour <b id="s-jour">1</b> · <b id="s-phase">aube</b> · pain <b id="s-pain">0</b> · peur <b id="s-peur">0 %</b></div>
 
@@ -238,7 +238,17 @@
   <div class="contenu">
     <h2>DWELVE HOLLOW — HISTORIQUE</h2>
 
-    <div class="v courante"><b>v0.16</b> — <b>la nuit des torches.</b> Chaque arête calcule
+    <div class="v courante"><b>v0.17</b> — <b>le remords, la honte et le brouillard.</b> Deux
+      états séparés là où les autres jeux n'en mettent qu'un : le remords monte qu'on
+      soit vu ou non et se confesse à l'église ; la honte ne monte qu'avec un témoin et
+      ne s'efface que quand le village regarde ailleurs — elle fait raser les murs. Le
+      brouillard se lève du ruisseau les matins calmes, et il fait trois choses : il
+      étouffe les torches, il aveugle les témoins — on peut donc mal agir sans honte —
+      et on peut s'y noyer si l'on traverse l'eau fatigué et sans lumière. Le vent fait
+      enfin tourner le moulin : la roue a le courant qui ne s'arrête jamais, les ailes
+      ont le vent qui va et vient.</div>
+
+    <div class="v"><b>v0.16</b> — <b>la nuit des torches.</b> Chaque arête calcule
       sa propre clarté selon sa distance aux feux : le mur près d'une torche est clair
       d'un bout et sombre de l'autre, et la flaque au sol n'est pas dessinée — c'est la
       grille du sol qui s'allume, donc elle épouse le relief. Le four allumé éclaire sa
@@ -344,7 +354,7 @@ import { creerMonde, graineDepuis } from './sim/monde.mjs';
 const GRAINE = graineDepuis(location.hash.slice(1) || 'dwelve');
 const M = creerMonde(GRAINE);
 const {
-  alea, entre, parmi, village, habitants, chronique, nouveaux, regles,
+  alea, aleaDeco, entre, parmi, village, habitants, chronique, nouveaux, regles,
   LIEUX, MOULINS, CHAMPS, PLACE, EGLISE, MANOIR, FOUR, CABANE,
   RUISSEAU, ROUTE, POINT_PONT, LARGEUR_EAU, PROFONDEUR_EAU,
   hauteur, distRoute, distRuisseau,
@@ -875,6 +885,33 @@ for (const h of habitants) {
   h.objet.add(f); h.flamme = f;
 }
 
+/* ---- LE BROUILLARD ----
+   Une nappe basse le long du ruisseau, faite de traits horizontaux qui
+   dérivent lentement. Elle n'est pas décorative : c'est elle qui empêche
+   le village de voir qui fait quoi, et c'est dans celle-là qu'on se noie. */
+const SEG_BRUME = [];
+const brins = [];
+for (let i = 0; i < RUISSEAU.length - 1; i++) {
+  const [ax, az] = RUISSEAU[i], [bx, bz] = RUISSEAU[i + 1];
+  if (Math.abs(ax) > 60) continue;                     // seulement la partie visible
+  for (let k = 0; k < 4; k++) {
+    const t = (k + 0.5) / 4;
+    const x = ax + (bx - ax) * t, z = az + (bz - az) * t;
+    const dx = (aleaDeco() * 2 - 1) * LARGEUR_EAU * 1.4;
+    const dz = (aleaDeco() * 2 - 1) * LARGEUR_EAU * 1.4;
+    const l = 2.2 + aleaDeco() * 3.4;
+    brins.push({ x: x + dx, z: z + dz, l, y: 0.35 + aleaDeco() * 1.1, p: aleaDeco() * 6.28 });
+    trait(SEG_BRUME, 0, 0, 0, l, 0, 0);
+  }
+}
+const matBrume = materiau(0); matBrume.linewidth = 1.4;
+patcherLumiere(matBrume); TOUS_MAT.push(matBrume);
+const objBrume = ligneDe(SEG_BRUME, matBrume);
+objBrume.visible = false;
+scene.add(objBrume);
+const posBrumeA = objBrume.geometry.attributes.instanceStart;
+const posBrumeB = objBrume.geometry.attributes.instanceEnd;
+
 /* ---- LA PLUIE ----
    Aucun effet mécanique. Elle est là pour que deux minutes de
    contemplation soient belles. */
@@ -974,6 +1011,20 @@ function majMeteo(dt) {
   }
   while (n < NB_FEUX) FEUX[n++].w = 0;     // les emplacements libres n'éclairent rien
   matHalo.opacity = 0.10 + 0.035 * Math.sin(t * 2.1);
+
+  // le brouillard : il monte, il dérive, il s'efface
+  objBrume.visible = village.brouillard > 0.02;
+  if (objBrume.visible) {
+    matBrume.opacity = Math.min(0.55, village.brouillard * 0.55);
+    for (let i = 0; i < brins.length; i++) {
+      const b = brins[i];
+      const dr = Math.sin(t * 0.09 + b.p) * 2.6;         // la nappe respire, elle ne file pas
+      const y = hauteur(b.x, b.z) + b.y + Math.sin(t * 0.13 + b.p * 1.7) * 0.25;
+      posBrumeA.setXYZ(i, b.x + dr, y, b.z);
+      posBrumeB.setXYZ(i, b.x + dr + b.l, y, b.z);
+    }
+    posBrumeA.needsUpdate = true; posBrumeB.needsUpdate = true;
+  }
 
   // la pluie tombe et se recycle par le haut
   objPluie.visible = village.pluie > 0.02;
@@ -1383,7 +1434,9 @@ function majFiche() {
 
   $('f-besoins').innerHTML = barre('faim', h.faim) + barre('fatigue', h.fatigue) +
     barre('peur', h.peur) + barre('foi', h.foi) + barre('soupçon', h.soupcon) +
-    barre('rancune', h.rancune) + (h.chagrin > 0.02 ? barre('chagrin', h.chagrin) : '');
+    barre('rancune', h.rancune) + (h.chagrin > 0.02 ? barre('chagrin', h.chagrin) : '') +
+    (h.remords > 0.02 ? barre('remords', h.remords) : '') +
+    (h.honte > 0.02 ? barre('honte', h.honte) : '');
 
   const proches = [...h.liens.entries()].filter(([a]) => a.vivant)
     .sort((a, b) => b[1] - a[1]).slice(0, 3);

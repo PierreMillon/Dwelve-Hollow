@@ -52,6 +52,7 @@ export const REGLAGES = {
   // Les conduites rares ne sont plus tirées au sort : elles doivent
   // l'emporter franchement quand leur moment vient, ou ne jamais venir.
   poidsAccuser: 6,      // trouvé au balayage
+  seuilFoule: 3,        // balayage : à 4, un village amoindri ne fait plus jamais foule
   poidsRevolte: 3,
   poidsVol: 4,
   poidsPriere: 1,
@@ -384,6 +385,11 @@ function creerHabitant(role, logis) {
     // besoins : ils montent seuls, ce sont eux le moteur
     faim: entre(0, 0.4), fatigue: entre(0, 0.3), foi: entre(0, 0.5), peur: 0,
     soupcon: entre(0, 0.15), rancune: 0, chagrin: 0,
+    // Deux choses différentes, et c'est tout l'intérêt de les séparer :
+    // le REMORDS est ce qu'on se reproche, il monte qu'on soit vu ou non ;
+    // la HONTE est ce que les autres ont vu, elle ne monte qu'avec un
+    // témoin. Le brouillard ne change rien au premier et tout au second.
+    remords: 0, honte: 0,
     secret: null, secretForce: 0,   // celle dont il n'a jamais rien dit
     courtise: null, deteste: null, suit: null, evite: null, craint: null,  // posé par les règles écrites
     prochainFlirt: 0, rembarrades: 0, aDitPas: false,
@@ -420,6 +426,14 @@ const village = {
   volsCetteNuit: 0,
   fourChauffe: false,        // le four est-il allumé ? (la cheminée fume)
   vent: 0,                   // 0 à 1, il monte et retombe tout seul
+  brouillard: 0,             // il se forme à l'aube, et le vent le chasse
+  // Le décompte de ce qui est arrivé DEPUIS LE PREMIER JOUR. La chronique
+  // ne garde que ses deux cents dernières lignes — parfait pour lire par
+  // -dessus l'épaule du village, inutilisable pour mesurer. Un balayage
+  // sur 120 jours comptait 1 surnom là où il y en avait eu 5 : les
+  // premiers étaient tombés hors du journal. On compte à la source.
+  arrive: { buchers: 0, departs: 0, revoltes: 0, dragons: 0, foires: 0,
+            successions: 0, surnoms: 0, noyades: 0, colporteurs: 0 },
   pluie: 0,                  // 0 à 1, tiré chaque matin
   temps: 0,                      // secondes SIMULÉES écoulées — voir la boucle
   tension: 0, calmeDepuis: 0,    // voir metteurEnScene()
@@ -459,6 +473,8 @@ function rapprocher(a, b, k) {
 }
 
 const estNuit = () => village.heure < 0.22 || village.heure > 0.86;
+// l'aube : la fin de la nuit, quand le brouillard se forme
+const estAube = () => village.heure > 0.16 && village.heure < 0.34;
 const estJour = () => village.heure > 0.28 && village.heure < 0.78;
 const lumiere = () => {                 // 0 la nuit, 1 en plein jour
   const h = village.heure;
@@ -479,11 +495,16 @@ function poidsDes(h) {
   p.push(['dormir', h.fatigue * h.fatigue * (nuit ? 6 : 0.3), `fatigue ${n2(h.fatigue)}${nuit ? ' · il fait nuit' : ''}`]);
   p.push(['manger', h.faim * h.faim * 3 * (village.pain >= 1 ? 1 : 0.04),
           `faim ${n2(h.faim)}${village.pain >= 1 ? '' : ' · plus de pain'}`]);
-  p.push(['prier', (h.foi * h.piete * 1.6 + h.peur * h.piete * 4) * R.poidsPriere * (nuit ? 0.3 : 1),
-          `piété ${n2(h.piete)} × (foi ${n2(h.foi)} + peur ${n2(h.peur)})`]);
-  p.push(['flâner', h.sociabilite * 0.5 * (jour ? 1 : 0.2) * (village.foire > 0 ? 4 : 1),
-          `sociabilité ${n2(h.sociabilite)}${village.foire > 0 ? ' · jour de foire' : ''}`]);
-  p.push(['fuir', h.peur * h.peur * (1 - h.courage) * 7, `peur ${n2(h.peur)} × peu de courage`]);
+  // le remords pousse à l'église : c'est la seule chose qui l'efface vite
+  p.push(['prier', (h.foi * h.piete * 1.6 + h.peur * h.piete * 4 + h.remords * 3) * R.poidsPriere * (nuit ? 0.3 : 1),
+          `piété ${n2(h.piete)} × (foi ${n2(h.foi)} + peur ${n2(h.peur)})` +
+          (h.remords > 0.2 ? ` · remords ${n2(h.remords)}` : '')]);
+  // on ne traîne pas sur la place quand on rase les murs
+  p.push(['flâner', h.sociabilite * 0.5 * (jour ? 1 : 0.2) * (village.foire > 0 ? 4 : 1) * (1 - h.honte * 0.8),
+          `sociabilité ${n2(h.sociabilite)}${village.foire > 0 ? ' · jour de foire' : ''}` +
+          (h.honte > 0.25 ? ` · mais il rase les murs` : '')]);
+  p.push(['fuir', (h.peur * h.peur * (1 - h.courage) * 7) + h.honte * h.honte * 2.5,
+          `peur ${n2(h.peur)} × peu de courage` + (h.honte > 0.25 ? ` · honte ${n2(h.honte)}` : '')]);
   // l'accusation ne demande pas un scénario : il suffit que la peur, la
   // superstition et le soupçon soient hauts en même temps
   const cible = village.sorciereChassee ? village.accuse : habitants.find(a => a.role === 'sorciere' && a.vivant);
@@ -567,6 +588,27 @@ function poidsDes(h) {
 // L'abri et le fait d'en porter une se déduisent du rang, jamais d'un
 // tirage : ajouter un tirage à la naissance décalerait tout le flux de
 // fabrication et changerait le village entier.
+// Combien de vivants pourraient le voir d'ici. Le brouillard aveugle le
+// village : c'est le seul endroit du code où l'on demande qui regarde.
+function temoins(h, portee = 13) {
+  if (village.brouillard > 0.55) return 0;      // on ne voit plus à dix pas
+  let n = 0;
+  for (const a of habitants) {
+    if (!a.vivant || a === h) continue;
+    if (Math.hypot(a.x - h.x, a.z - h.z) < portee && !estNuit()) n++;
+    else if (Math.hypot(a.x - h.x, a.z - h.z) < portee * 0.45) n++;   // la nuit on s'approche
+  }
+  return n;
+}
+
+// Ce qu'on se reproche, et ce qu'on a laissé voir. Le remords se confesse,
+// la honte se cache — d'où deux décroissances différentes.
+function fauter(h, poids, vu = null) {
+  h.remords = Math.min(1, h.remords + poids * (0.3 + h.piete * 1.4));
+  const n = vu === null ? temoins(h) : vu;
+  if (n > 0) h.honte = Math.min(1, h.honte + poids * (0.5 + Math.min(n, 4) * 0.5));
+}
+
 function majTorche(h) {
   const loin = h.logis && Math.hypot(h.x - h.logis.x, h.z - h.logis.z) > 9;
   const discret = h.occupation === 'voler' || h.occupation === 'fuir' || h.occupation === 'accuser';
@@ -576,12 +618,39 @@ function majTorche(h) {
   // Personne ne l'abrite parfaitement : au vent fort, toutes finissent
   // par s'éteindre, simplement pas au même moment.
   const abri = 0.15 + (h.rang % 5) * 0.10;
-  const souffle = village.vent * (1.15 - abri * 0.8) + village.pluie * 0.9;
+  const souffle = village.vent * (1.15 - abri * 0.8) + village.pluie * 0.9 + village.brouillard * 0.5;
   if (h.torche > 0) {
     if (souffle > 0.55) { h.torche = 0; h.rallume = village.temps + 10 + (h.rang % 4) * 5; }
   } else if (village.temps >= h.rallume && souffle < 0.44) {
     h.torche = 1;
   }
+}
+
+// SE PERDRE DANS LE BROUILLARD. Le ruisseau ne se voit plus, et qui le
+// traverse sans lumière peut y tomber. Le pont reste sûr, une torche
+// allumée aussi — c'est la première fois dans ce village qu'en porter
+// une sauve la vie, et ça vaut mieux que de le dire dans un texte.
+function majNoyade(h) {
+  // Quatre conditions, et il en faut quatre : le brouillard le plus
+  // épais, aucune lumière, le milieu du courant, loin du pont — et la
+  // fatigue, parce qu'on ne se noie pas frais et dispos. Premier
+  // réglage mesuré : six noyés par village, le village y passait. Ce
+  // n'est pas un piège, c'est un accident.
+  if (village.brouillard < 0.79 || h.torche > 0 || h.fatigue < 0.62) return;
+  if (Math.abs(distRuisseau(h.x, h.z)) > LARGEUR_EAU * 0.16) return;
+  if (Math.hypot(h.x - POINT_PONT.x, h.z - POINT_PONT.z) < 11) return;
+  h.vivant = false;
+  village.arrive.noyades++;
+  noter(`${nommer(h)} n'a pas vu le ruisseau. On l'a retrouvé${e(h)} au petit jour.`, true, h);
+  for (const a of habitants) {
+    if (!a.vivant || a === h) continue;
+    const l = Math.max(lien(a, h), a.secret === h ? a.secretForce : 0);
+    if (l < 0.3) continue;
+    a.chagrin = Math.min(1, a.chagrin + l);
+    a.compte.deuils++;
+    souvenir(a, `a perdu ${h.prenom}, noyé${e(h)} dans le brouillard`);
+  }
+  if (h.aime && h.aime.vivant) { souvenir(h.aime, `est resté${e(h.aime)} seul${e(h.aime)}`); h.aime.aime = null; }
 }
 
 function majLassitude(h, dt) {
@@ -657,6 +726,12 @@ function simuler(dt) {
   village.vent = 0.5 + 0.5 * (0.55 * Math.sin(village.temps * 0.019)
                             + 0.30 * Math.sin(village.temps * 0.0073 + 1.7)
                             + 0.15 * Math.sin(village.temps * 0.041 + 0.9));
+
+  // LE BROUILLARD. Il monte du ruisseau à l'aube, et seulement les
+  // matins calmes : le vent le chasse. Il ne se tire pas au sort, il se
+  // déduit — c'est ce qui fait qu'on peut le voir venir.
+  const vise = estAube() && !village.pluie ? Math.max(0, 1 - village.vent * 1.6) : 0;
+  village.brouillard += (vise - village.brouillard) * Math.min(1, dt * 0.25);
   const dtJour = dt / JOUR;
   village.heure += dtJour;
   if (village.heure >= 1) {
@@ -681,6 +756,11 @@ function simuler(dt) {
     h.soupcon = Math.max(0, h.soupcon - dt * 0.006);
     h.rancune = Math.max(0, h.rancune - dt * 0.013);
     h.chagrin = Math.max(0, h.chagrin - dt * 0.004);   // il faut du temps
+    // Le remords s'use lentement et se confesse : prier l'efface plus
+    // vite que le temps. La honte, elle, ne s'efface pas en priant — il
+    // faut que le village finisse par regarder ailleurs.
+    h.remords = Math.max(0, h.remords - dt * (h.occupation === 'prier' ? 0.05 : 0.006));
+    h.honte = Math.max(0, h.honte - dt * 0.004);
     // avoir faim pendant que le grenier du manoir est plein, ça ne se
     // pardonne pas : c'est le seul endroit où la faim se change en colère
     if (h.faim > 0.8 && village.impot > 10) h.rancune = Math.min(1, h.rancune + dt * 0.02);
@@ -705,6 +785,8 @@ function simuler(dt) {
     }
     majLassitude(h, dt);
     majTorche(h);
+    majNoyade(h);
+    if (!h.vivant) continue;
     avancer(h, dt);
     agir(h, dt);
   }
@@ -852,6 +934,9 @@ function agir(h, dt) {
       village.farine = Math.max(0, village.farine - dt * R.volParSeconde * 0.86);
       village.volsCetteNuit += dt * R.volParSeconde;
       h.compte.vols += dt * R.volParSeconde;
+      // On se le reproche toujours. On n'en a honte que si quelqu'un
+      // regardait — et dans le brouillard, personne ne regarde.
+      fauter(h, dt * 0.05);
       break;
     }
     case 'colporter': {
@@ -913,10 +998,15 @@ function agir(h, dt) {
 // n'ait rien décidé.
 function majMoulins(dt) {
   for (const m of MOULINS) {
-    const marche = m.etat > 0.12 && village.ble > 0;
-    m.tourne += dt * (marche ? (m.axe === 'roue' ? 1.6 : 1.1) : 0);
+    // LE VENT FAIT TOURNER LE MOULIN. Les deux moulins ne se valent plus :
+    // la roue a le courant, qui ne s'arrête jamais ; les ailes ont le
+    // vent, qui va et vient. Le village dépend donc d'un moulin fiable et
+    // d'un moulin capricieux, et c'est le second qui fait les disettes.
+    const force = m.axe === 'roue' ? 1 : 0.3 + village.vent * 1.4;
+    const marche = m.etat > 0.12 && village.ble > 0 && force > 0.35;
+    m.tourne += dt * (marche ? (m.axe === 'roue' ? 1.6 : 1.1 * force) : 0);
     if (!marche) continue;
-    const debit = dt * R.meuleParSeconde * m.etat;   // plus lent que la moisson, sinon le blé reste à zéro
+    const debit = dt * R.meuleParSeconde * m.etat * force;
     village.ble = Math.max(0, village.ble - debit);
     village.farine += debit * 0.92;
     m.etat = Math.max(0, m.etat - dt * R.usureMeule);      // l'usure de la meule
@@ -970,7 +1060,9 @@ function voisinage(dt) {
 // n'écrit « faire une chasse aux sorcières » ni « déclencher une
 // révolte » : il suffit qu'assez de gens du même avis se retrouvent au
 // même endroit. Deux colères, deux seuils, deux destinations.
-const SEUIL_FOULE = 4, SEUIL_REVOLTE = 4;
+// combien il en faut pour que ça devienne une foule — réglable, parce
+// qu'un village qui perd des habitants n'en rassemble plus autant
+const SEUIL_FOULE = R.seuilFoule, SEUIL_REVOLTE = 4;
 
 // Faute de sorcière, le village en désigne un autre. La règle est d'une
 // simplicité qui fait froid dans le dos : c'est le moins sociable qui est
@@ -1043,6 +1135,7 @@ function majRassemblements() {
   if (!village.fouleRevolte && village.jour >= village.repitRevolte && furieux.length >= SEUIL_REVOLTE) {
     village.fouleRevolte = true;
     noter(`${furieux.length} villageois montent vers le manoir.`, true);
+    village.arrive.revoltes++;
     signaler('rumeur', MANOIR.x, MANOIR.z);
     for (const h of furieux) { h.cible = MANOIR; h.prochainChoix += 25; }
   }
@@ -1090,8 +1183,20 @@ function finirAccusation(v, jusquauBout) {
   }
   if (v.role === 'sorciere') { village.sorciereChassee = true; village.jourSansSorciere = 0; }
   if (village.accuse === v) village.accuse = null;
-  if (jusquauBout) noter(`Le bûcher a brûlé sur la place. ${nommer(v)} n'est plus.`, true);
-  else noter(`${nommer(v)} a pris la route avant eux. La maison est vide.`, true);
+  if (jusquauBout) {
+    noter(`Le bûcher a brûlé sur la place. ${nommer(v)} n'est plus.`, true);
+    village.arrive.buchers++;
+    // Ceux qui ont crié avec les autres s'en veulent après coup, et
+    // d'autant plus qu'ils étaient pieux. La honte, elle, ne vient que
+    // s'il y avait du monde — et il y en avait.
+    for (const h of habitants) {
+      if (!h.vivant || h === v) continue;
+      if (h.occupation !== 'accuser') continue;
+      fauter(h, 0.5 + lien(h, v) * 0.5, 3);
+      souvenir(h, `était sur la place quand le bûcher a brûlé`);
+    }
+  }
+  else { noter(`${nommer(v)} a pris la route avant eux. La maison est vide.`, true); village.arrive.departs++; }
   // le village vient de se priver de ce que cette personne faisait
   const manque = {
     boulanger: 'Il ne reste personne pour tenir le four.',
@@ -1118,6 +1223,7 @@ function succession() {
   nouveaux.push(nouvelle);
   village.sorciereChassee = false;
   village.jourSansSorciere = 0;
+  village.arrive.successions++;
   noter(`${nouvelle.prenom}, que son homme a laissée, s'est installée dans la cabane.`, true, nouvelle);
   souvenir(nouvelle, "s'est installée dans la cabane");
   nouvelle.feminin = true;
@@ -1221,6 +1327,7 @@ function surnommer() {
   const { h, su } = meilleur;
   h.surnomIdx = meilleur.i;
   h.surnom = h.feminin ? su.f : su.m;
+  village.arrive.surnoms++;
   noter(`On a commencé à l'appeler ${h.surnom}. C'était ${h.prenom}.`, false, h);
   souvenir(h, `a gagné son surnom : ${h.surnom}`);
 }
@@ -1230,7 +1337,12 @@ function finDeJournee() {
   // le temps qu'il fait : la plupart des jours sont secs, il pleut
   // franchement de temps en temps. Aucun effet mécanique — c'est là pour
   // que deux minutes de contemplation soient belles.
-  village.pluie = aleaDeco() < 0.26 ? 0.35 + aleaDeco() * 0.65 : 0;
+  // La pluie a changé de camp. Elle était du décor tant qu'elle ne
+  // faisait que tomber ; depuis qu'elle éteint les torches et qu'elle
+  // empêche le brouillard — donc qu'elle décide de qui est vu et de qui
+  // a honte —, c'est un accident du monde. Le contrôle de détermination
+  // l'a attrapé à la première exécution.
+  village.pluie = aleaEvenements() < 0.26 ? 0.35 + aleaEvenements() * 0.65 : 0;
   if (village.pain < 1) noter('Il ne reste plus de pain au village.');
 
   if (village.volsCetteNuit > 1.2) {
@@ -1324,6 +1436,7 @@ function lancerFoire() {
     village.etals.push({ x: Math.cos(a) * r, z: Math.sin(a) * r, angle: aleaDeco() * Math.PI });
   }
   village.ble += 10;
+  village.arrive.foires++;
   noter('Foire aux bestiaux. Les étals se dressent sur la place.', true);
   signaler('foire', PLACE.x, PLACE.z);
   for (const h of habitants) {
@@ -1341,6 +1454,7 @@ function lancerDragon() {
   const a = aleaEvenements() * Math.PI * 2;
   for (const m of MOULINS) m.secousse = 0;
   village.dragon = { a, r: 120, y: 34, t: 0, parti: false };
+  village.arrive.dragons++;
   noter('Une ombre passe sur les toits. Un dragon tourne au-dessus du village.', true);
   signaler('souffle');
 }

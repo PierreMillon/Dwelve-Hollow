@@ -24,15 +24,9 @@ const JOUR = 90, TRANCHE = 0.2;
 const VILLAGES = arg('villages', 6);
 const JOURS = arg('jours', 120);
 
-const MARQUES = [
-  ['buchers', /bûcher a brûlé/],
-  ['revoltes', /montent vers le manoir/],
-  ['surnoms', /On a commencé à l'appeler/],
-];
-
 function mesurer(reglages) {
   const t = { sansPain: 0, famine: 0, faim: 0, rancune: 0, tension: 0, moulin: 0,
-              mesures: 0, morts: 0, buchers: 0, revoltes: 0, surnoms: 0 };
+              mesures: 0, morts: 0, buchers: 0, revoltes: 0, surnoms: 0, noyades: 0 };
   for (let v = 0; v < VILLAGES; v++) {
     const M = creerMonde(1 + v * 7919, reglages);
     const pas = Math.round(JOURS * JOUR / TRANCHE), tousLes = Math.round(60 / TRANCHE);
@@ -49,8 +43,7 @@ function mesurer(reglages) {
       t.mesures++;
     }
     t.morts += M.habitants.filter(h => !h.vivant).length;
-    for (const e of M.chronique)
-      for (const [cle, re] of MARQUES) if (re.test(e.txt)) t[cle]++;
+    for (const cle of ['buchers', 'revoltes', 'surnoms', 'noyades']) t[cle] += M.village.arrive[cle];
   }
   return {
     sansPain: t.sansPain / t.mesures * 100,
@@ -63,6 +56,7 @@ function mesurer(reglages) {
     buchers: t.buchers / VILLAGES,
     revoltes: t.revoltes / VILLAGES,
     surnoms: t.surnoms / VILLAGES,
+    noyades: t.noyades / VILLAGES,
   };
 }
 
@@ -72,6 +66,7 @@ function mesurer(reglages) {
 const BORNES = {
   sansPain: [0, 35], famine: [0, 20], faim: [0.15, 0.70], moulin: [0, 32],
   tension: [0.10, 0.60], buchers: [0.2, 4], revoltes: [0.5, 12], surnoms: [3, 14],
+  noyades: [0, 4],
 };
 const tient = (m) => Object.entries(BORNES).every(([k, [lo, hi]]) => m[k] >= lo && m[k] <= hi);
 // de combien on sort, borne par borne, ramené à la largeur de la borne
@@ -83,8 +78,8 @@ const ecart = (m) => Object.entries(BORNES).reduce((t, [k, [lo, hi]]) =>
 // le poids des deux conduites qui font l'histoire depuis qu'il n'y a plus
 // de dé pour les faire sortir toutes seules.
 const GRILLE = {
-  degatDragon: [0.055, 0.062, 0.07, 0.078],
-  poidsAccuser: [6, 9],
+  poidsAccuser: [6, 11],
+  seuilFoule: [4, 3],
 };
 
 const cles = Object.keys(GRILLE);
