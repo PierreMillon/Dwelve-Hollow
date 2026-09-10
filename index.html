@@ -400,11 +400,34 @@ function poser(dest, src, x, y, z, angle) {
     dest.push(src[i]*c + src[i+2]*sn + x, src[i+1] + y, -src[i]*sn + src[i+2]*c + z);
   }
 }
+// Une fenêtre : un rectangle sur le mur, à peine en saillie pour ne pas
+// se battre avec la face noire. Elle ne sert à rien tant qu'aucun feu ne
+// brûle derrière — et elle devient le point le plus clair du village dès
+// qu'il y en a un.
+function fenetre(S, x, y, z, w, h, surX = false) {
+  const a = w / 2, b = h / 2, e = 0.05;
+  if (surX) {
+    const X = x + Math.sign(x) * e;
+    trait(S, X, y - b, z - a, X, y - b, z + a);
+    trait(S, X, y + b, z - a, X, y + b, z + a);
+    trait(S, X, y - b, z - a, X, y + b, z - a);
+    trait(S, X, y - b, z + a, X, y + b, z + a);
+    trait(S, X, y - b, z,     X, y + b, z);          // le meneau
+  } else {
+    const Z = z + Math.sign(z) * e;
+    trait(S, x - a, y - b, Z, x + a, y - b, Z);
+    trait(S, x - a, y + b, Z, x + a, y + b, Z);
+    trait(S, x - a, y - b, Z, x - a, y + b, Z);
+    trait(S, x + a, y - b, Z, x + a, y + b, Z);
+    trait(S, x,     y - b, Z, x,     y + b, Z);
+  }
+}
 function bloc(fn) { const o = { a: [], f: [] }; fn(o.a, o.f); return o; }
 
 const FORMES = {
   chaumiere: (l = 4.4, p = 5.6, hm = 2.6, ht = 1.7) => bloc((S, T) => {
     boite(S, T, 0, 0, 0, l, hm, p); toit(S, T, 0, hm, 0, l, ht, p);
+    fenetre(S, 0, 1.15, p / 2, 0.9, 0.8);                    // par où la lumière sort
   }),
   boulangerie: () => bloc((S, T) => {
     boite(S, T, 0, 0, 0, 5.4, 3, 6.6); toit(S, T, 0, 3, 0, 5.4, 2, 6.6);
@@ -416,6 +439,9 @@ const FORMES = {
   }),
   eglise: () => bloc((S, T) => {
     boite(S, T, 0, 0, 0, 7, 5, 13); toit(S, T, 0, 5, 0, 7, 3, 13);
+    // trois lancettes de chaque côté : c'est par elles qu'on voit la messe
+    for (const dz of [-3.2, 0, 3.2]) for (const sg of [-1, 1])
+      fenetre(S, sg * 3.5, 2.4, dz, 0.9, 2.6, true);
     boite(S, T, 0, 0, -7.4, 4, 12, 4);                       // le clocher
     toit(S, T, 0, 12, -7.4, 4, 3.2, 4);
     trait(S, 0, 15.2, -7.4, 0, 17.6, -7.4);                  // la croix
@@ -671,7 +697,7 @@ const TOUS_MAT = [matDecor, matGens, matDragon, matEtal, matSol, matTrace, matHa
    Propriété importante : quand aucun feu ne brûle, toutes les intensités
    valent zéro, la somme vaut zéro, et le rendu est exactement celui
    d'avant. Le jour n'a pas bougé d'un pixel. */
-const NB_FEUX = 6;
+const NB_FEUX = 12;
 const FEUX = [];
 for (let i = 0; i < NB_FEUX; i++) FEUX.push(new THREE.Vector4(0, 0, 0, 0));
 const uPortee = { value: 58 };                                  // portée au carré (~7,6 m)
@@ -823,6 +849,24 @@ const HALO = bloc((S) => {
   }
 });
 
+// Un brasier : trois bûches croisées et la flamme au-dessus. Il sert au
+// feu de camp de la place et au bûcher — la même chose, à la hauteur et
+// à l'ardeur près.
+const BRASIER = bloc((S) => {
+  for (let i = 0; i < 5; i++) {
+    const a = i / 5 * Math.PI * 2;
+    trait(S, Math.cos(a) * 1.1, 0, Math.sin(a) * 1.1, Math.cos(a + 2.2) * 0.3, 1.1, Math.sin(a + 2.2) * 0.3);
+  }
+  trait(S, 0, 1.1, 0, 0, 2.2, 0);
+  trait(S, -0.5, 1.7, 0, 0.5, 1.7, 0);
+  trait(S, 0, 1.7, -0.5, 0, 1.7, 0.5);
+});
+const objFeuCamp = ligneDe(BRASIER.a, matFlamme); objFeuCamp.visible = false; scene.add(objFeuCamp);
+const objBucher = ligneDe(BRASIER.a, matFlamme); objBucher.visible = false; scene.add(objBucher);
+objBucher.scale.setScalar(1.6);
+
+const CHAUMIERES_R = LIEUX.filter(l => l.type === 'chaumiere');
+
 for (const h of habitants) {
   const f = ligneDe(FLAMME.a, matFlamme);
   f.position.y = 2.1; f.visible = false;
@@ -872,19 +916,61 @@ function majMeteo(dt) {
                            + 0.050 * Math.sin(t * 3.7 + o * 1.7)
                            + 0.032 * Math.sin(t * 6.3 + o * 2.9);
 
+  // Douze emplacements, servis par ordre d'importance : ce qui compte
+  // pour l'histoire passe avant ce qui décore. Si les douze sont pris,
+  // ce sont les torches de rue qu'on perd, jamais le bûcher.
   let n = 0;
-  // le four chauffait déjà et fumait ; maintenant il éclaire aussi
-  if (village.fourChauffe) FEUX[n++].set(FOUR.x, FOUR.y + 2.2, FOUR.z, 0.8 * vacille(0.4));
+  const feu = (x, y, z, w) => { if (n < NB_FEUX) FEUX[n++].set(x, y, z, w); };
 
+  // 1. LE BÛCHER. La scène la plus lourde du jeu se joue autour d'un feu.
+  const bu = village.bucher;
+  objBucher.visible = !!bu;
+  if (bu) {
+    const y = hauteur(bu.x, bu.z);
+    objBucher.position.set(bu.x, y, bu.z);
+    feu(bu.x, y + 2.2, bu.z, 2.8 * vacille(0.2));
+  }
+
+  // 2. LA MESSE. L'église s'éclaire de l'intérieur, et ça ressort par les
+  //    lancettes — c'est la seule fois où le village voit un mur illuminé.
+  const office = habitants.some(h => h.vivant && h.occupation === 'officier');
+  const fideles = habitants.reduce((t, h) => t + (h.vivant && h.occupation === 'prier' ? 1 : 0), 0);
+  if (office || fideles >= 2) feu(EGLISE.x, EGLISE.y + 2.8, EGLISE.z, (office ? 2.4 : 1.3) * vacille(1.1));
+
+  // 3. LE FOUR. Il chauffait déjà et fumait déjà ; il éclaire maintenant.
+  if (village.fourChauffe) feu(FOUR.x, FOUR.y + 2.2, FOUR.z, 0.8 * vacille(0.4));
+
+  // 4. LE FEU DE CAMP sur la place : jour de foire, ou simplement du monde
+  //    dehors la nuit. Personne ne veille seul dans le noir.
+  const surLaPlace = habitants.reduce((t, h) =>
+    t + (h.vivant && Math.hypot(h.x - PLACE.x, h.z - PLACE.z) < 8 ? 1 : 0), 0);
+  const campement = (nuit && surLaPlace >= 3) || village.foire > 0;
+  objFeuCamp.visible = campement;
+  if (campement) {
+    objFeuCamp.position.set(PLACE.x, PLACE.y, PLACE.z);
+    feu(PLACE.x, PLACE.y + 1.9, PLACE.z, 1.7 * vacille(2.3));
+  }
+
+  // 5. LES FENÊTRES. Une chaumière où quelqu'un est rentré s'éclaire, et
+  //    la lumière se pose devant sa fenêtre, pas au milieu de la maison.
+  if (nuit) for (const c of CHAUMIERES_R) {
+    const rentre = habitants.some(h => h.vivant && h.logis === c &&
+                                       Math.hypot(h.x - c.x, h.z - c.z) < 4);
+    if (!rentre) continue;
+    const d = ((c.args && c.args[1]) || 5.6) / 2 + 0.45;
+    feu(c.x + Math.sin(c.angle) * d, c.y + 1.2, c.z + Math.cos(c.angle) * d, 0.6);
+  }
+
+  // 6. LES TORCHES, en dernier. C'est la simulation qui décide qui en
+  //    porte une et quand elle s'éteint — vent, pluie, ou l'envie de ne
+  //    pas être vu. Le rendu ne fait que la montrer.
   for (const h of habitants) {
     if (!h.flamme) continue;
-    const dehors = h.logis && Math.hypot(h.x - h.logis.x, h.z - h.logis.z) > 6;
-    const allumee = h.vivant && nuit && dehors;
-    h.flamme.visible = allumee;
-    if (!allumee) continue;
+    h.flamme.visible = h.vivant && h.torche > 0;
+    if (!h.flamme.visible) continue;
     const v = vacille(h.rang);
     h.flamme.scale.setScalar(v);
-    if (n < NB_FEUX) FEUX[n++].set(h.x, hauteur(h.x, h.z) + 2.1, h.z, v);
+    feu(h.x, hauteur(h.x, h.z) + 2.1, h.z, 0.9 * v);
   }
   while (n < NB_FEUX) FEUX[n++].w = 0;     // les emplacements libres n'éclairent rien
   matHalo.opacity = 0.10 + 0.035 * Math.sin(t * 2.1);

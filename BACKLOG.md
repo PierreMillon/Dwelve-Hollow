@@ -1354,6 +1354,69 @@ un surnom qui se donne à tout le monde ne distingue personne.
 
 ---
 
+## Les six feux, et les torches qui s'éteignent (v0.16, suite)
+
+Retours de Pierre en direct, dans l'ordre où ils sont arrivés : « faut des
+lumières aussi dans certains bâtiments avec la lumière qui sort par les
+fenêtres », « y a trop de lumière dans la rue », « prévois des feux de
+campagne et le bûcher en lumière aussi et la messe très éclairée depuis
+l'intérieur », « des fois des gens qui marchent la nuit avec une torche »,
+« qui peut s'éteindre par le vent ou la pluie ou par eux-mêmes pour être
+discret ».
+
+### Douze emplacements, servis par ordre d'importance
+
+Le nuanceur en connaît douze. S'ils sont tous pris, ce sont les torches de
+rue qu'on perd, jamais le bûcher.
+
+1. **Le bûcher** — la scène la plus lourde du jeu se joue autour d'un feu.
+2. **La messe** — l'église s'éclaire de l'intérieur et ça ressort par ses
+   six lancettes. C'est le seul moment où le village voit un mur illuminé.
+3. **Le four** — il chauffait déjà, il fumait déjà, il éclaire maintenant.
+4. **Le feu de camp** de la place — jour de foire, ou simplement trois
+   personnes dehors la nuit. Personne ne veille seul dans le noir.
+5. **Les fenêtres** — une chaumière où quelqu'un est rentré. La lumière se
+   pose **devant** la fenêtre, pas au milieu de la maison.
+6. **Les torches** de rue, en dernier.
+
+Les fenêtres ont été ajoutées à la géométrie : un rectangle à peine en
+saillie sur le mur, avec son meneau. Elles ne servent à rien tant qu'aucun
+feu ne brûle derrière, et deviennent le point le plus clair du village dès
+qu'il y en a un.
+
+### La torche devient un état du monde, pas un effet de rendu
+
+Elle vit dans `sim/monde.mjs`, elle est déterministe, et le contrôle la
+couvre. Un habitant sur trois en porte une, et seulement s'il est à plus
+de neuf mètres de chez lui.
+
+Elle s'éteint de trois façons :
+
+- **le vent**, nouveau : trois sinusoïdes de périodes non multiples, qui
+  le font monter et retomber de 0,04 à 0,99 sans jamais se répéter et sans
+  consommer un seul tirage ;
+- **la pluie**, qui existait depuis la v0.14 et n'avait aucun effet — elle
+  en a enfin un ;
+- **soi-même** : on n'éclaire pas son chemin quand on va voler, quand on
+  fuit, ou quand on monte accuser quelqu'un.
+
+Personne ne l'abrite parfaitement. Au vent fort, toutes finissent par
+s'éteindre, simplement pas au même moment — l'abri se déduit du rang, pas
+d'un tirage, pour ne pas décaler le flux de fabrication.
+
+**Mesuré sur 60 jours** : 2,0 torches allumées en moyenne la nuit, 45 % des
+relevés nocturnes sans aucune, un maximum de 7 les nuits calmes. Avant ce
+réglage : 3,7 en moyenne, ce qui faisait dire à Pierre qu'il y avait trop
+de lumière dans la rue.
+
+### Ce qui n'a pas été fait, et pourquoi
+
+Le vent ne fait pas encore tourner le moulin. Ce serait juste, mais ça
+toucherait la production de farine, donc l'équilibre entier. À faire comme
+un chantier à part, avec un balayage.
+
+---
+
 ## 📜 Historique
 
 - **2026-09-10 (après-midi, suite)** — Lumière des torches calculée par

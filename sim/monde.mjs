@@ -387,7 +387,8 @@ function creerHabitant(role, logis) {
     secret: null, secretForce: 0,   // celle dont il n'a jamais rien dit
     courtise: null, deteste: null, suit: null, evite: null, craint: null,  // posé par les règles écrites
     prochainFlirt: 0, rembarrades: 0, aDitPas: false,
-    surnom: null, surnomIdx: null, attache: null,          // voir surnommer() et nomComplet()
+    surnom: null, surnomIdx: null, attache: null,
+    torche: 0, rallume: 0,        // voir majTorche()          // voir surnommer() et nomComplet()
     compte: { reparations: 0, vols: 0, prieres: 0, rembarrades: 0, accusations: 0,
               moissons: 0, foires: 0, deuils: 0 },
     memoire: [],            // ce qu'il a fait, et ce qu'on lui a fait
@@ -418,6 +419,7 @@ const village = {
   ble: 12, farine: 5, pain: 8, outils: 6, meubles: 0, chantier: 0,
   volsCetteNuit: 0,
   fourChauffe: false,        // le four est-il allumé ? (la cheminée fume)
+  vent: 0,                   // 0 à 1, il monte et retombe tout seul
   pluie: 0,                  // 0 à 1, tiré chaque matin
   temps: 0,                      // secondes SIMULÉES écoulées — voir la boucle
   tension: 0, calmeDepuis: 0,    // voir metteurEnScene()
@@ -558,6 +560,30 @@ function poidsDes(h) {
 // passer à l'église, parce que le travail pèserait toujours plus lourd
 // que la prière. Avec elle, il travaille, il s'en lasse, et le reste
 // remonte à la surface.
+// LA TORCHE. Tout le monde n'en porte pas, et celle qu'on porte
+// s'éteint. Trois façons : le vent, la pluie, et soi-même — on ne
+// s'éclaire pas quand on préfère ne pas être vu.
+//
+// L'abri et le fait d'en porter une se déduisent du rang, jamais d'un
+// tirage : ajouter un tirage à la naissance décalerait tout le flux de
+// fabrication et changerait le village entier.
+function majTorche(h) {
+  const loin = h.logis && Math.hypot(h.x - h.logis.x, h.z - h.logis.z) > 9;
+  const discret = h.occupation === 'voler' || h.occupation === 'fuir' || h.occupation === 'accuser';
+  const porteur = h.rang % 3 === 0;      // tout le monde n'en porte pas
+  if (!h.vivant || !estNuit() || !loin || discret || !porteur) { h.torche = 0; return; }
+
+  // Personne ne l'abrite parfaitement : au vent fort, toutes finissent
+  // par s'éteindre, simplement pas au même moment.
+  const abri = 0.15 + (h.rang % 5) * 0.10;
+  const souffle = village.vent * (1.15 - abri * 0.8) + village.pluie * 0.9;
+  if (h.torche > 0) {
+    if (souffle > 0.55) { h.torche = 0; h.rallume = village.temps + 10 + (h.rang % 4) * 5; }
+  } else if (village.temps >= h.rallume && souffle < 0.44) {
+    h.torche = 1;
+  }
+}
+
 function majLassitude(h, dt) {
   for (const o of OCCUPATIONS) {
     if (o === h.occupation) h.usage[o] = Math.min(R.plafondLassitude, h.usage[o] + dt * R.lassitude);
@@ -624,6 +650,13 @@ const PROCHE = 2.6;
 
 function simuler(dt) {
   village.temps += dt;
+  // LE VENT. Trois sinusoïdes de périodes non multiples : il monte et
+  // retombe sur des heures sans jamais se répéter à l'œil, et il ne
+  // consomme aucun tirage. Il n'a qu'un effet, mais il compte : il
+  // souffle les torches.
+  village.vent = 0.5 + 0.5 * (0.55 * Math.sin(village.temps * 0.019)
+                            + 0.30 * Math.sin(village.temps * 0.0073 + 1.7)
+                            + 0.15 * Math.sin(village.temps * 0.041 + 0.9));
   const dtJour = dt / JOUR;
   village.heure += dtJour;
   if (village.heure >= 1) {
@@ -671,6 +704,7 @@ function simuler(dt) {
       h.prochainChoix = village.temps + h.cadence * (1 - h.peur * 0.5);
     }
     majLassitude(h, dt);
+    majTorche(h);
     avancer(h, dt);
     agir(h, dt);
   }
