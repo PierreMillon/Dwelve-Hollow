@@ -8,7 +8,7 @@ qu'on n'agit. Rendu filaire vert sur fond noir, esprit terminal.
 
 ## Ce qu'il y a pour l'instant
 
-`index.html` — la page de test 3D. Charge un modèle OBJ et le dessine en
+`index.html` — le village. `test-3d.html` — le banc d'essai OBJ. Charge un modèle OBJ et le dessine en
 filaire vert. Trois réglages : arêtes vives contre filaire brut, seuil
 d'angle des arêtes, rotation. Un bouton et le glisser-déposer permettent
 de charger n'importe quel `.obj` depuis le disque, sans passer par le

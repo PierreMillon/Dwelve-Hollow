@@ -527,8 +527,103 @@ Si c'est lent sur son appareil, le bouton « trait » redescend à 1,0 px
 
 ---
 
+## Le village (v0.8) — fait
+
+Premier jeu réel, plus un banc d'essai. Le banc OBJ reste disponible dans
+`test-3d.html` (lien en bas de page) : c'est toujours la boucle Blender.
+
+### Le plan
+
+Place centrale et son puits, église avec clocher et croix, manoir à deux
+tours, boulangerie reconnaissable à sa cheminée, deux ateliers à auvent,
+sept chaumières en arc, trois champs labourés, une route qui traverse du
+nord aux champs — et **la cabane de la sorcière, seule, loin de tout**.
+Cette distance n'est pas décorative : elle est la raison pour laquelle
+c'est toujours elle qu'on accuse.
+
+Tout est écrit comme des **listes d'arêtes** (`trait`, `boite`, `toit`),
+pas comme des maillages convertis : chaque bâtiment se lit et se modifie
+ligne par ligne, et c'est ce qui coûte le moins cher à dessiner.
+
+### Les habitants
+
+Seize : un seigneur, une dame, un prêtre, un boulanger, trois artisans,
+une sorcière, huit paysans. Chacun a **cinq traits** (piété, courage,
+cupidité, sociabilité, superstition) et **quatre besoins** qui montent
+seuls (faim, fatigue, foi, peur), plus un soupçon.
+
+**Aucune décision n'est écrite en dur.** À chaque re-tirage (toutes les
+4 à 9 secondes), chaque occupation possible reçoit un poids calculé à
+partir des besoins, des traits et de l'état du village ; on tire dedans.
+Deux habitants aux traits différents ne font pas les mêmes choix dans la
+même situation.
+
+### Les règles qui font la complexité
+
+- **Économie** : les paysans font du blé, le boulanger le change en pain,
+  tout le monde en mange. Un seul boulanger — donc un seul point de
+  rupture, volontairement.
+- **La peur arrête le travail.** C'est la ligne qui porte tout le drame.
+- **Le dragon ne tue personne.** Il tourne, il fait peur, il repart. Mais
+  la peur vide le four, le four vide affame, et la faim cherche un
+  coupable. Le dragon n'a pas besoin d'IA : il n'est qu'une valeur qui
+  monte.
+- **La rumeur se contamine** : deux villageois qui se croisent rapprochent
+  leurs soupçons, pondéré par leur sociabilité. Personne ne « décide »
+  d'une rumeur.
+- **Seuil de regroupement** (le motif repris de Bastion Orbit) : quatre
+  accusateurs convaincus au même endroit et la foule se forme, puis
+  marche sur la cabane. Aucune ligne ne dit « faire une chasse aux
+  sorcières » — ça arrive tout seul.
+- **Le village se punit** : la sorcière partie, les fièvres ne se
+  soignent plus.
+- **La foire** tous les six jours : étals dressés, blé acheté, tout le
+  monde sur la place — et donc le pire moment pour qu'un dragon passe.
+
+### Équilibrage : quatre défauts trouvés en mesurant, pas en regardant
+
+Le simulateur promis (principe n°6) n'existe pas encore, mais la page a
+été instrumentée et relevée toutes les 2,5 s sur six journées simulées.
+
+1. **Un boulanger ne nourrit pas seize personnes.** Mesuré : il ne tient
+   le four qu'un quart du temps (le reste il dort, mange, puis accuse),
+   soit 0,19 pain/s pour une demande de 0,29. Famine permanente dès le
+   3ᵉ jour. Corrigé : une fournée sort beaucoup de pains d'un coup.
+2. **La famine était un état absorbant.** Une fois la faim à 1, tout le
+   monde passait son temps à chercher à manger — boulanger compris — et
+   le village ne repartait jamais. Corrigé : un ventre vide devant une
+   huche vide retourne travailler.
+3. **La demande dépassait l'offre par construction** : un pain ne calmait
+   que la moitié d'une faim. Corrigé, et c'est ce qui a fait respirer la
+   courbe (faim moyenne entre 0,25 et 0,88 au lieu de rester collée à 1).
+4. **Le soupçon était un cliquet** : il montait et ne redescendait
+   jamais, laissant le village indéfiniment à une occasion près du
+   bûcher. Corrigé : il retombe les jours calmes, donc il fait des
+   vagues.
+
+État mesuré après correction : blé et pain en cycles d'abondance et de
+disette, famine possible mais qui se résorbe, soupçon en vagues, chasse
+aux sorcières possible sans être systématique. Aucune erreur console,
+41 images/s en fenêtre bureau et 58 en fenêtre de téléphone (rendu
+logiciel).
+
+### Réserve de conception, à traiter ensuite
+
+**Une fois la sorcière partie, le village perd son moteur dramatique.**
+Il reste l'économie et la faim, mais plus personne à accuser. Il manque
+un deuxième acte : le prêtre qui gagne en autorité après chaque frayeur,
+le seigneur qui lève l'impôt, un bouc émissaire qui tourne. À concevoir
+avant d'ajouter quoi que ce soit d'autre — c'est plus important que
+n'importe quel nouveau bâtiment.
+
+---
+
 ## 📜 Historique
 
+- **2026-09-10** — Le village : plan, seize habitants à traits et besoins,
+  économie du blé et du pain, rumeur contagieuse, seuil de foule, foire et
+  dragon, chronique. Quatre défauts d'équilibrage trouvés en instrumentant
+  la page et corrigés. v0.8.
 - **2026-09-09 (nuit, suite)** — Escalier sur les diagonales diagnostiqué
   (MSAA bien actif, mais 4 paliers sur un trait d'un seul pixel) et
   corrigé par des traits en géométrie ; interface remise à plat (menu,

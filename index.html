@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Dwelve Hollow — test 3D</title>
+<title>Dwelve Hollow</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' fill='%23000'/%3E%3Cpath d='M3 12V6l5-3 5 3v6' fill='none' stroke='%2346ffa0' stroke-width='1.2'/%3E%3C/svg%3E">
 <style>
   :root {
@@ -22,7 +22,7 @@
   canvas { display: block; touch-action: none; }
 
   #hud {
-    position: fixed; top: 0; left: 0;
+    position: fixed; top: 0; left: 0; z-index: 2;
     padding: 8px 12px;
     padding-top: max(8px, env(safe-area-inset-top));
     padding-left: max(12px, env(safe-area-inset-left));
@@ -33,28 +33,49 @@
   #btn-menu { padding: 5px 9px; line-height: 1; }
 
   #version {
-    position: fixed; top: 0; right: 0;
+    position: fixed; top: 0; right: 0; z-index: 2;
     margin-top: max(8px, env(safe-area-inset-top));
     margin-right: max(10px, env(safe-area-inset-right));
   }
 
+  /* la chronique : dans un jeu où l'on regarde, le texte EST le jeu */
+  #chronique {
+    position: fixed; right: 0; top: 44px; bottom: 60px; z-index: 1;
+    width: min(340px, 46vw);
+    padding: 0 14px 0 10px;
+    padding-right: max(14px, env(safe-area-inset-right));
+    display: flex; flex-direction: column; justify-content: flex-end;
+    gap: 3px; pointer-events: none; overflow: hidden;
+    mask-image: linear-gradient(to bottom, transparent, #000 22%);
+    -webkit-mask-image: linear-gradient(to bottom, transparent, #000 22%);
+  }
+  #chronique div { color: var(--ph-dim); text-align: right; }
+  #chronique div:last-child { color: var(--ph-text); }
+  #chronique div.fort:last-child { color: var(--ph-line); }
+
+  #saison {
+    position: fixed; left: 0; z-index: 2;
+    top: 40px; padding-left: max(12px, env(safe-area-inset-left));
+    color: var(--ph-dim);
+  }
+  #saison b { color: var(--ph-text); font-weight: normal; }
+
   #controls {
-    position: fixed; left: 0; right: 0; bottom: 0;
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 2;
     padding: 10px 12px;
     padding-bottom: max(10px, env(safe-area-inset-bottom));
     display: flex; gap: 6px; flex-wrap: wrap; align-items: center;
   }
-  button, label.fichier {
+  button, label.fichier, a.lien {
     font: inherit; color: var(--ph-text);
     background: var(--ph-panel);
     border: 1px solid var(--ph-dim);
     padding: 7px 10px; cursor: pointer;
-    letter-spacing: 0.05em; white-space: nowrap;
+    letter-spacing: 0.05em; white-space: nowrap; text-decoration: none;
   }
   button:active, button[aria-pressed="true"] {
     color: #04120c; background: var(--ph-line); border-color: var(--ph-line);
   }
-  label.fichier input { display: none; }
 
   #menu, #changelog {
     position: fixed; inset: 0; display: none; z-index: 10;
@@ -77,24 +98,14 @@
   #menu .reglage label { display: block; color: var(--ph-dim); margin-bottom: 6px; }
   #menu .reglage .val { color: var(--ph-text); }
   #menu input[type="range"] {
-    width: 100%; max-width: 320px; accent-color: var(--ph-line);
-    background: transparent;
+    width: 100%; max-width: 320px; accent-color: var(--ph-line); background: transparent;
   }
-  #menu .note { color: var(--ph-dim); max-width: 420px; }
+  #menu .note { color: var(--ph-dim); max-width: 440px; }
   #menu .diag { color: var(--ph-dim); }
   #menu .diag .val { color: var(--ph-text); }
-
-  #msg {
-    position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%);
-    color: var(--ph-line); text-align: center; padding: 20px;
-    display: none; pointer-events: none;
-  }
-  body.glisse::after {
-    content: 'déposer un .obj';
-    position: fixed; inset: 12px; border: 1px dashed var(--ph-line);
-    display: flex; align-items: center; justify-content: center;
-    color: var(--ph-line); letter-spacing: 0.2em; pointer-events: none; z-index: 5;
-  }
+  #menu table { border-collapse: collapse; width: 100%; max-width: 440px; }
+  #menu td { padding: 2px 10px 2px 0; color: var(--ph-dim); }
+  #menu td.v { color: var(--ph-text); text-align: right; width: 70px; }
 </style>
 </head>
 <body>
@@ -104,15 +115,19 @@
   <span class="title">DWELVE HOLLOW</span>
 </div>
 
-<button id="version">v0.7</button>
+<button id="version">v0.8</button>
+
+<div id="saison">jour <b id="s-jour">1</b> · <b id="s-phase">aube</b> · pain <b id="s-pain">0</b> · peur <b id="s-peur">0 %</b></div>
+
+<div id="chronique"></div>
 
 <div id="controls">
-  <button id="btn-modele">modèle</button>
-  <button id="btn-seuil">seuil 1°</button>
-  <button id="btn-trait">trait 1.8</button>
-  <button id="btn-net">net ×1</button>
+  <button id="btn-vitesse">×1</button>
+  <button id="btn-pause" aria-pressed="false">pause</button>
+  <button id="btn-foire">foire</button>
+  <button id="btn-dragon">dragon</button>
   <button id="btn-spin" aria-pressed="true">⟳</button>
-  <label class="fichier">+ obj<input type="file" id="fichier" accept=".obj"></label>
+  <a class="lien" href="test-3d.html">banc d'essai</a>
 </div>
 
 <div id="menu">
@@ -123,22 +138,22 @@
       <label for="vol-sfx">bruitages <span class="val" id="vol-sfx-val">100 %</span></label>
       <input type="range" id="vol-sfx" min="0" max="100" value="100">
     </div>
-
     <div class="reglage">
       <label for="vol-mus">musique <span class="val" id="vol-mus-val">60 %</span></label>
       <input type="range" id="vol-mus" min="0" max="100" value="60">
     </div>
+    <p class="note">Aucun son n'est encore branché — les curseurs sont en place et leur
+    réglage est conservé, ils prendront effet dès que les bruitages et la musique
+    existeront.</p>
 
-    <p class="note">Aucun son n'est encore branché — les deux curseurs sont en
-    place et leur réglage est conservé, ils prendront effet dès que les
-    bruitages et la musique existeront.</p>
+    <h2 style="margin-top:26px">LE VILLAGE</h2>
+    <table id="tableau-roles"></table>
 
     <h2 style="margin-top:26px">DIAGNOSTIC</h2>
-    <div class="diag">modèle <span class="val" id="h-model">—</span></div>
-    <div class="diag">taille <span class="val" id="h-taille">—</span></div>
-    <div class="diag">faces <span class="val" id="h-faces">—</span></div>
+    <div class="diag">habitants <span class="val" id="h-pop">—</span></div>
     <div class="diag">segments <span class="val" id="h-seg">—</span></div>
     <div class="diag">ips <span class="val" id="h-fps">—</span></div>
+    <div class="diag">graine <span class="val" id="h-graine">—</span></div>
 
     <button class="fermer" id="btn-menu-fermer">fermer</button>
   </div>
@@ -148,45 +163,40 @@
   <div class="contenu">
     <h2>DWELVE HOLLOW — HISTORIQUE</h2>
 
-    <div class="v courante"><b>v0.7</b> — le fondu des traits passe en transparence
-      classique au lieu d'alphaToCoverage : ce dernier faisait repasser le dégradé
-      du nuanceur par les 4 échantillons du MSAA, donc le requantifiait en
-      4 paliers — exactement les marches qu'on voulait supprimer. Mesuré sur une
-      diagonale : 3 niveaux intermédiaires avant, une douzaine après.</div>
+    <div class="v courante"><b>v0.8</b> — le village. Église, manoir, boulangerie, ateliers,
+      chaumières, puits, champs et la cabane de la sorcière à l'écart. Seize habitants avec
+      un métier, cinq traits de caractère et des besoins qui montent ; ils choisissent leur
+      occupation au tirage pondéré, pas sur un script. Économie du blé et du pain, foire aux
+      bestiaux, dragon, rumeur qui se propage de bouche à oreille et foule qui se forme
+      au-delà d'un seuil. Chronique des événements à droite.</div>
 
-    <div class="v"><b>v0.6</b> — coin haut-gauche réduit au titre et à un
-      bouton de menu. Le menu accueille les curseurs de bruitages et de musique
-      (réglage conservé, le son n'est pas encore branché) et les informations de
-      diagnostic qui encombraient l'écran.</div>
+    <div class="v"><b>v0.7</b> — le fondu des traits passe en transparence classique au lieu
+      d'alphaToCoverage : ce dernier faisait repasser le dégradé du nuanceur par les
+      4 échantillons du MSAA, donc le requantifiait en 4 paliers — exactement les marches
+      qu'on voulait supprimer.</div>
 
-    <div class="v"><b>v0.5</b> — la bascule arêtes vives / filaire brut est
-      retirée : la comparaison a servi, elle est tranchée. Les arêtes vives sont
-      désormais le seul rendu, et le seuil d'angle reste le réglage qui compte.</div>
+    <div class="v"><b>v0.6</b> — coin haut-gauche réduit au titre et à un bouton de menu.
+      Curseurs de bruitages et de musique, diagnostic déplacé dans le menu.</div>
 
-    <div class="v"><b>v0.4</b> — traits épais antialiasés dans le nuanceur
-      (fin de l'escalier sur les diagonales : MSAA à 4 échantillons ne donnait que
-      4 niveaux de dégradé sur un trait d'un seul pixel) ; épaisseur de trait
-      réglable ; réglage de netteté (suréchantillonnage ×1 / ×1,5 / ×2) ;
-      ce numéro de version cliquable.</div>
+    <div class="v"><b>v0.5</b> — bascule arêtes vives / filaire brut retirée : la comparaison
+      a servi, elle est tranchée.</div>
 
-    <div class="v"><b>v0.3</b> — caméra isométrique vraie : projection orthographique
-      (parallèle, sans point de fuite), tangage verrouillé à 54,7356° — l'angle qui
-      donne les arêtes de sol à 30°, comme Bastion Orbit. On ne peut que tourner et
-      zoomer. Banc Poly Haven (CC0) ajouté, bouton de changement de modèle.</div>
+    <div class="v"><b>v0.4</b> — traits épais antialiasés dans le nuanceur (fin de l'escalier
+      sur les diagonales) ; épaisseur réglable ; réglage de netteté ; numéro de version
+      cliquable.</div>
 
-    <div class="v"><b>v0.2</b> — cadrage caméra et grille calculés depuis la boîte
-      englobante (un modèle en centimètres et un en mètres se cadrent aussi bien) ;
-      seuil d'angle des arêtes réglable ; chargement d'un .obj local par bouton ou
-      glisser-déposer, sans passer par le dépôt.</div>
+    <div class="v"><b>v0.3</b> — caméra isométrique vraie : projection orthographique,
+      tangage verrouillé à 54,7356°. On ne peut que tourner et zoomer.</div>
 
-    <div class="v"><b>v0.1</b> — premier test : chargement d'un OBJ, filaire vert sur
-      fond noir, comparaison arêtes vives contre filaire brut, rotation lente.</div>
+    <div class="v"><b>v0.2</b> — cadrage calculé depuis la boîte englobante, seuil d'angle
+      des arêtes réglable, chargement d'un .obj par glisser-déposer.</div>
+
+    <div class="v"><b>v0.1</b> — premier test : chargement d'un OBJ, filaire vert sur fond
+      noir, rotation lente.</div>
 
     <button class="fermer" id="btn-fermer">fermer</button>
   </div>
 </div>
-
-<div id="msg"></div>
 
 <script type="importmap">
 { "imports": { "three": "./vendor/three/three.module.js" } }
@@ -194,286 +204,679 @@
 
 <script type="module">
 import * as THREE from 'three';
-import { OBJLoader } from './vendor/three/OBJLoader.js';
 import { OrbitControls } from './vendor/three/OrbitControls.js';
 import { LineSegments2 } from './vendor/three/LineSegments2.js';
 import { LineSegmentsGeometry } from './vendor/three/LineSegmentsGeometry.js';
 import { LineMaterial } from './vendor/three/LineMaterial.js';
 
-const LINE = 0x46ffa0;            // vert phosphore, repris de Bastion Orbit
-const SEUILS = [1, 15, 30, 45];   // degrés, seuil d'arête vive — voir majAretes()
-const TRAITS = [1.8, 2.6, 1.0];   // épaisseur en pixels ; 1.0 = comme avant, pour comparer
-const NETTETE = [1, 1.5, 2];      // suréchantillonnage par-dessus la densité de l'écran
-const MODELES = [
-  { url: 'models/maison.obj', nom: 'maison' },
-  { url: 'models/banc.obj',   nom: 'banc (Poly Haven, CC0)' },
+/* ================================================================
+   1. HASARD REPRODUCTIBLE
+   Tout le hasard passe par ce générateur à graine, jamais par
+   Math.random() nu : une même graine doit rejouer exactement le même
+   village et la même histoire. C'est la règle de Knight Wars, et c'est
+   ce qui rendra possible un simulateur sans rendu (principe n°6).
+   ================================================================ */
+function graineDepuis(txt) {
+  let h = 2166136261;
+  for (let i = 0; i < txt.length; i++) { h ^= txt.charCodeAt(i); h = Math.imul(h, 16777619); }
+  return h >>> 0;
+}
+function generateur(graine) {
+  let a = graine >>> 0;
+  return function () {
+    a |= 0; a = (a + 0x6D2B79F5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+const GRAINE = graineDepuis(location.hash.slice(1) || 'dwelve');
+const alea = generateur(GRAINE);
+const entre = (a, b) => a + alea() * (b - a);
+const parmi = (t) => t[Math.floor(alea() * t.length)];
+
+/* ================================================================
+   2. FORMES — tout est une liste d'arêtes, écrite à la main
+   Pas de maillage, pas de conversion : on empile directement des
+   couples de points. C'est ce qui rend chaque bâtiment lisible et
+   modifiable ligne par ligne, et ce qui coûte le moins cher à dessiner.
+   ================================================================ */
+function trait(S, ax, ay, az, bx, by, bz) { S.push(ax, ay, az, bx, by, bz); }
+
+function boite(S, x, y, z, w, h, d) {
+  const X = w / 2, Z = d / 2, y2 = y + h;
+  const c = [[-X,-Z],[X,-Z],[X,Z],[-X,Z]];
+  for (let i = 0; i < 4; i++) {
+    const [ax, az] = c[i], [bx, bz] = c[(i + 1) % 4];
+    trait(S, x+ax, y,  z+az, x+bx, y,  z+bz);   // bas
+    trait(S, x+ax, y2, z+az, x+bx, y2, z+bz);   // haut
+    trait(S, x+ax, y,  z+az, x+ax, y2, z+az);   // montant
+  }
+}
+// toit à deux pentes ; faîtage le long de X
+function toit(S, x, y, z, w, h, d) {
+  const X = w / 2, Z = d / 2, y2 = y + h;
+  trait(S, x-X, y2, z, x+X, y2, z);                       // faîtage
+  for (const s of [-1, 1]) {
+    trait(S, x-X, y, z+s*Z, x-X, y2, z);
+    trait(S, x+X, y, z+s*Z, x+X, y2, z);
+    trait(S, x-X, y, z+s*Z, x+X, y, z+s*Z);               // gouttière
+  }
+}
+// applique une rotation autour de Y puis une translation à un bloc de segments
+function poser(dest, src, x, z, angle) {
+  const c = Math.cos(angle), s = Math.sin(angle);
+  for (let i = 0; i < src.length; i += 3) {
+    dest.push(src[i]*c + src[i+2]*s + x, src[i+1], -src[i]*s + src[i+2]*c + z);
+  }
+}
+function bloc(fn) { const S = []; fn(S); return S; }
+
+const FORMES = {
+  chaumiere: (l = 4.4, p = 5.6, hm = 2.6, ht = 1.7) => bloc((S) => {
+    boite(S, 0, 0, 0, l, hm, p); toit(S, 0, hm, 0, l, ht, p);
+  }),
+  boulangerie: () => bloc((S) => {
+    boite(S, 0, 0, 0, 5.4, 3, 6.6); toit(S, 0, 3, 0, 5.4, 2, 6.6);
+    boite(S, 1.7, 3, -2, 1, 3.4, 1);                       // la cheminée : on la reconnaît de loin
+  }),
+  atelier: () => bloc((S) => {
+    boite(S, 0, 0, 0, 4.6, 2.7, 5.2); toit(S, 0, 2.7, 0, 4.6, 1.4, 5.2);
+    boite(S, 0, 0, 3.6, 4.6, 2.2, 0.1);                     // l'auvent ouvert sur la rue
+  }),
+  eglise: () => bloc((S) => {
+    boite(S, 0, 0, 0, 7, 5, 13); toit(S, 0, 5, 0, 7, 3, 13);
+    boite(S, 0, 0, -7.4, 4, 12, 4);                         // le clocher
+    toit(S, 0, 12, -7.4, 4, 3.2, 4);
+    trait(S, 0, 15.2, -7.4, 0, 17.6, -7.4);                 // la croix
+    trait(S, -0.8, 16.6, -7.4, 0.8, 16.6, -7.4);
+  }),
+  manoir: () => bloc((S) => {
+    boite(S, 0, 0, 0, 9, 6, 7.5); toit(S, 0, 6, 0, 9, 2.6, 7.5);
+    boite(S, -3.4, 0, 0, 3, 9, 3);  toit(S, -3.4, 9, 0, 3, 1.8, 3);   // la tour d'angle
+    boite(S,  3.4, 0, 0, 3, 9, 3);  toit(S,  3.4, 9, 0, 3, 1.8, 3);
+  }),
+  cabane: () => bloc((S) => {   // basse, de guingois, à l'écart du reste
+    boite(S, 0, 0, 0, 3.2, 2, 3.6); toit(S, 0, 2, 0, 3.2, 2.6, 3.6);
+    trait(S, -2.4, 0, -2.4, -1.6, 2.8, -1.6);               // un mât planté de travers
+  }),
+  puits: () => bloc((S) => {
+    boite(S, 0, 0, 0, 2, 1, 2);
+    for (const s of [-1, 1]) trait(S, s*0.9, 1, 0, s*0.9, 3, 0);
+    trait(S, -0.9, 3, 0, 0.9, 3, 0);
+    trait(S, 0, 3, 0, 0, 2.2, 0);                           // le seau au bout de sa corde
+  }),
+  etal: () => bloc((S) => {                                 // dressé les jours de foire
+    boite(S, 0, 0, 0, 2.6, 1, 1.6);
+    for (const s of [-1, 1]) trait(S, s*1.3, 1, 0, s*1.3, 2.4, 0);
+    trait(S, -1.3, 2.4, 0, 1.3, 2.4, 0);
+    trait(S, -1.5, 2.1, -0.9, 1.5, 2.4, 0);                 // la toile tendue de travers
+  }),
+};
+
+// silhouettes des habitants : ce qui les distingue, c'est la taille et
+// un détail au sommet — en filaire monochrome, seule la forme parle
+function silhouette(role) {
+  const S = [];
+  const h = { seigneur: 1.9, dame: 1.75, pretre: 1.85, sorciere: 1.7, boulanger: 1.75,
+              artisan: 1.75, paysan: 1.7, marchand: 1.75 }[role] || 1.7;
+  boite(S, 0, 0, 0, 0.5, h * 0.62, 0.4);                    // le corps
+  trait(S, 0, h * 0.62, 0, 0, h, 0);                        // le cou et la tête
+  if (role === 'pretre')   { trait(S, -0.3, h + 0.15, 0, 0.3, h + 0.15, 0); trait(S, 0, h, 0, 0, h + 0.45, 0); }
+  if (role === 'sorciere') { for (const s of [-1, 1]) trait(S, s*0.35, h, 0, 0, h + 0.75, 0); }   // le chapeau pointu
+  if (role === 'seigneur' || role === 'dame') { trait(S, -0.4, h + 0.1, 0, 0.4, h + 0.1, 0); }    // le large bord
+  if (role === 'boulanger') { boite(S, 0, h * 0.62, 0.3, 0.7, 0.2, 0.2); }                        // la planche à pain
+  if (role === 'marchand')  { boite(S, 0.45, 0.3, 0, 0.4, 0.5, 0.4); }                            // le ballot
+  return S;
+}
+
+const DRAGON = bloc((S) => {
+  const c = [[0,0,-5.5],[1.1,0.6,-1.5],[1.4,0.3,2],[0.6,0.2,5],[0,0.1,9]];   // le corps, de la gueule à la queue
+  for (let i = 0; i < c.length - 1; i++) {
+    for (const s of [-1, 1]) trait(S, s*c[i][0], c[i][1], c[i][2], s*c[i+1][0], c[i+1][1], c[i+1][2]);
+    trait(S, -c[i][0], c[i][1], c[i][2], c[i][0], c[i][1], c[i][2]);
+  }
+  for (const s of [-1, 1]) {                                 // les ailes, deux grands triangles
+    trait(S, s*1.2, 0.5, -0.5, s*9, 3.2, 1.5);
+    trait(S, s*9, 3.2, 1.5, s*1.2, 0.3, 4);
+    trait(S, s*9, 3.2, 1.5, s*4.5, 1.2, 2);
+  }
+});
+
+/* ================================================================
+   3. LE VILLAGE — plan et lieux
+   ================================================================ */
+const LIEUX = [];
+function lieu(nom, type, x, z, angle = 0, forme = null) {
+  const l = { nom, type, x, z, angle };
+  LIEUX.push(l);
+  if (forme) poser(SEG_DECOR, forme, x, z, angle);
+  return l;
+}
+const SEG_DECOR = [];
+
+const PLACE   = { nom: 'la place', type: 'place', x: 0, z: 0 };
+LIEUX.push(PLACE);
+lieu('le puits', 'puits', 2.5, 2, 0, FORMES.puits());
+const EGLISE  = lieu("l'église", 'eglise', -2, -26, 0, FORMES.eglise());
+const MANOIR  = lieu('le manoir', 'manoir', 24, -6, -0.45, FORMES.manoir());
+const FOUR    = lieu('la boulangerie', 'boulangerie', -14, 6, 0.3, FORMES.boulangerie());
+const ATELIERS = [
+  lieu("l'atelier du charron", 'atelier', 13, 10, -0.7, FORMES.atelier()),
+  lieu("l'atelier du forgeron", 'atelier', -13, 17, 0.5, FORMES.atelier()),
 ];
+const CABANE  = lieu('la cabane', 'cabane', -34, 30, 0.9, FORMES.cabane());   // à l'écart, et ça compte
+const CHAUMIERES = [];
+for (let i = 0; i < 7; i++) {
+  const a = -0.6 + i * 0.72 + entre(-0.12, 0.12);
+  const r = entre(19, 27);
+  CHAUMIERES.push(lieu('une chaumière', 'chaumiere', Math.cos(a) * r, Math.sin(a) * r + 6,
+                       entre(-0.5, 0.5), FORMES.chaumiere(entre(3.8, 5), entre(5, 6.4))));
+}
+const CHAMPS = [];
+for (let i = 0; i < 3; i++) {
+  const x = -18 + i * 17, z = 40;
+  CHAMPS.push(lieu('les champs', 'champ', x, z));
+  const w = 13, d = 11;                                       // sillons dessinés à même le sol
+  for (let s = 0; s <= 6; s++) {
+    const zz = z - d/2 + (d * s) / 6;
+    trait(SEG_DECOR, x - w/2, 0.02, zz, x + w/2, 0.02, zz);
+  }
+  trait(SEG_DECOR, x - w/2, 0.02, z - d/2, x - w/2, 0.02, z + d/2);
+  trait(SEG_DECOR, x + w/2, 0.02, z - d/2, x + w/2, 0.02, z + d/2);
+}
+// la route : elle vient du nord, passe la place et s'en va vers les champs
+(function route() {
+  const pts = [[-4, -60], [-3, -40], [-1, -18], [0, 0], [2, 18], [4, 40], [6, 62]];
+  for (let i = 0; i < pts.length - 1; i++) {
+    for (const c of [-2.2, 2.2]) {
+      trait(SEG_DECOR, pts[i][0] + c, 0.01, pts[i][1], pts[i+1][0] + c, 0.01, pts[i+1][1]);
+    }
+  }
+})();
 
-// --- scène ---
+/* ================================================================
+   4. LES HABITANTS
+   Un métier, cinq traits de caractère, des besoins qui montent tout
+   seuls. Aucune décision n'est écrite en dur : à chaque re-tirage,
+   chaque occupation possible reçoit un poids et on tire dedans. Deux
+   habitants aux traits différents ne feront pas les mêmes choix dans
+   la même situation — c'est là que naît ce qu'on n'a pas programmé.
+   ================================================================ */
+const ROLES = [
+  ['seigneur', 1], ['dame', 1], ['pretre', 1], ['boulanger', 1],
+  ['artisan', 3], ['sorciere', 1], ['paysan', 8],
+];
+const NOM_ROLE = {
+  seigneur: 'le seigneur', dame: 'la dame', pretre: 'le prêtre', boulanger: 'le boulanger',
+  artisan: "l'artisan", sorciere: 'la sorcière', paysan: 'le paysan', marchand: 'le marchand',
+};
+
+const habitants = [];
+function creerHabitant(role, logis) {
+  return {
+    role, logis,
+    x: logis.x + entre(-2, 2), z: logis.z + entre(-2, 2), cible: null,
+    vitesse: entre(2.4, 3.4),
+    // caractère : cinq nombres, jamais une branche de code
+    piete: role === 'pretre' ? entre(0.8, 1) : entre(0, 1),
+    courage: role === 'seigneur' ? entre(0.6, 1) : entre(0, 1),
+    cupidite: entre(0, 1),
+    sociabilite: entre(0.1, 1),
+    superstition: role === 'pretre' ? entre(0.5, 1) : entre(0, 1),
+    // besoins : ils montent seuls, ce sont eux le moteur
+    faim: entre(0, 0.4), fatigue: entre(0, 0.3), foi: entre(0, 0.5), peur: 0,
+    soupcon: entre(0, 0.15),
+    occupation: 'flâner', prochainChoix: 0, vivant: true,
+  };
+}
+{
+  let i = 0;
+  for (const [role, n] of ROLES) {
+    for (let k = 0; k < n; k++) {
+      const logis = role === 'sorciere' ? CABANE
+                  : (role === 'seigneur' || role === 'dame') ? MANOIR
+                  : role === 'pretre' ? EGLISE
+                  : role === 'boulanger' ? FOUR
+                  : CHAUMIERES[i++ % CHAUMIERES.length];
+      habitants.push(creerHabitant(role, logis));
+    }
+  }
+}
+
+/* ================================================================
+   5. L'ÉTAT DU VILLAGE
+   ================================================================ */
+const village = {
+  jour: 1, heure: 0.28,          // 0 = minuit, 0.5 = midi
+  ble: 12, pain: 8,
+  foire: 0,                      // durée restante, en journées
+  dragon: null,
+  sorciereChassee: false,
+  foule: false,
+  etals: [],
+};
+const chronique = [];
+function noter(txt, fort = false) {
+  chronique.push({ txt: `jour ${village.jour} — ${txt}`, fort });
+  if (chronique.length > 60) chronique.shift();
+  majChronique();
+}
+
+const estNuit = () => village.heure < 0.22 || village.heure > 0.86;
+const estJour = () => village.heure > 0.28 && village.heure < 0.78;
+const lumiere = () => {                 // 0 la nuit, 1 en plein jour
+  const h = village.heure;
+  if (h < 0.2 || h > 0.9) return 0.05;
+  if (h < 0.3) return (h - 0.2) / 0.1;
+  if (h > 0.8) return 1 - (h - 0.8) / 0.1;
+  return 1;
+};
+
+/* ---- le choix d'occupation : le cœur du système ---- */
+function poidsDes(h) {
+  const p = [];
+  const nuit = estNuit(), jour = estJour();
+  p.push(['dormir', h.fatigue * h.fatigue * (nuit ? 6 : 0.3)]);
+  p.push(['manger', h.faim * h.faim * 3 * (village.pain >= 1 ? 1 : 0.04)]);
+  p.push(['prier', (h.foi * h.piete * 1.6 + h.peur * h.piete * 4) * (nuit ? 0.3 : 1)]);
+  p.push(['flâner', h.sociabilite * 0.5 * (jour ? 1 : 0.2) * (village.foire > 0 ? 4 : 1)]);
+  p.push(['fuir', h.peur * h.peur * (1 - h.courage) * 7]);
+  // l'accusation ne demande pas un scénario : il suffit que la peur, la
+  // superstition et le soupçon soient hauts en même temps
+  if (!village.sorciereChassee && h.role !== 'sorciere') {
+    p.push(['accuser', h.soupcon * h.superstition * (0.25 + h.peur) * 3.5]);
+  }
+  if (jour) {
+    const travail = 1.1 * (1 - h.fatigue) * (1 - h.peur * 0.9);
+    if (h.role === 'paysan') p.push(['moissonner', travail * (village.ble < PLAFOND_BLE ? 1 : 0.08)]);
+    if (h.role === 'boulanger') {
+      // il voit bien que la huche est vide, et plus elle l'est, plus il s'y met
+      const urgence = village.pain < 1 ? 5 : (village.pain < 4 ? 3.2 : 1);
+      p.push(['cuire', travail * (village.ble > 0 ? 1.6 : 0.2) * urgence]);
+    }
+    if (h.role === 'artisan') p.push(['forger', travail]);
+    if (h.role === 'pretre') p.push(['officier', travail * 1.4]);
+    if (h.role === 'sorciere') p.push(['herboriser', travail]);
+    if (h.role === 'seigneur') p.push(['inspecter', travail * (0.6 + h.cupidite)]);
+    if (h.role === 'dame') p.push(['visiter', travail * h.sociabilite]);
+  }
+  return p;
+}
+function choisirOccupation(h) {
+  const p = poidsDes(h);
+  let total = 0;
+  for (const [, w] of p) total += Math.max(0, w);
+  if (total <= 0) return 'flâner';
+  let r = alea() * total;
+  for (const [nom, w] of p) { r -= Math.max(0, w); if (r <= 0) return nom; }
+  return 'flâner';
+}
+function lieuDe(h, occ) {
+  switch (occ) {
+    case 'dormir': case 'fuir': return h.logis;
+    case 'manger': return alea() < 0.5 ? h.logis : PLACE;
+    case 'prier': case 'officier': return EGLISE;
+    case 'flâner': return PLACE;
+    case 'accuser': return village.foule ? CABANE : PLACE;   // on se rassemble d'abord, on marche ensuite
+    case 'moissonner': return parmi(CHAMPS);
+    case 'cuire': return FOUR;
+    case 'forger': return parmi(ATELIERS);
+    case 'herboriser': return CABANE;
+    case 'inspecter': return parmi([PLACE, ...CHAMPS, FOUR]);
+    case 'visiter': return parmi([PLACE, EGLISE, ...CHAUMIERES]);
+    default: return PLACE;
+  }
+}
+
+/* ================================================================
+   6. LA SIMULATION
+   ================================================================ */
+const JOUR = 90;            // secondes réelles pour une journée, à vitesse ×1
+const PLAFOND_BLE = 70;     // au-delà, les greniers débordent et les paysans lèvent le pied
+const PROCHE = 2.6;
+
+function simuler(dt) {
+  const dtJour = dt / JOUR;
+  village.heure += dtJour;
+  if (village.heure >= 1) {
+    village.heure -= 1; village.jour++;
+    finDeJournee();
+  }
+
+  if (village.foire > 0) village.foire = Math.max(0, village.foire - dtJour);
+  majDragon(dt);
+
+  let peurTotale = 0, vivants = 0;
+  for (const h of habitants) {
+    if (!h.vivant) continue;
+    vivants++;
+
+    // les besoins montent seuls
+    h.faim = Math.min(1, h.faim + dt * 0.010);
+    h.fatigue = Math.min(1, h.fatigue + dt * (estNuit() ? 0.014 : 0.007));
+    h.foi = Math.min(1, h.foi + dt * 0.006);
+    h.peur = Math.max(0, h.peur - dt * 0.022);
+    h.soupcon = Math.max(0, h.soupcon - dt * 0.006);
+    // la faim qui dure cherche un coupable — c'est ce lien qui fait
+    // qu'un dragon qui ne tue personne finit quand même en bûcher
+    if (h.faim > 0.85) h.soupcon = Math.min(1, h.soupcon + dt * 0.02 * h.superstition);
+    peurTotale += h.peur;
+
+    if (performance.now() / 1000 > h.prochainChoix) {
+      h.occupation = choisirOccupation(h);
+      h.cible = lieuDe(h, h.occupation);
+      h.prochainChoix = performance.now() / 1000 + entre(4, 9);
+    }
+    avancer(h, dt);
+    agir(h, dt);
+  }
+  village.peur = vivants ? peurTotale / vivants : 0;
+
+  rumeur(dt);
+  majFoule();
+  majAffichage();
+}
+
+function avancer(h, dt) {
+  if (!h.cible) return;
+  const dx = h.cible.x - h.x, dz = h.cible.z - h.z;
+  const d = Math.hypot(dx, dz);
+  if (d < PROCHE) return;
+  const v = h.vitesse * (h.occupation === 'fuir' ? 2 : 1) * (1 - h.fatigue * 0.4);
+  h.x += (dx / d) * v * dt;
+  h.z += (dz / d) * v * dt;
+}
+const arrive = (h) => h.cible && Math.hypot(h.cible.x - h.x, h.cible.z - h.z) < PROCHE;
+
+function agir(h, dt) {
+  if (!arrive(h)) return;
+  switch (h.occupation) {
+    case 'dormir': h.fatigue = Math.max(0, h.fatigue - dt * 0.09); break;
+    case 'manger':
+      if (village.pain >= 1 && h.faim > 0.2) {
+        village.pain--; h.faim = Math.max(0, h.faim - 0.9);
+      }
+      break;
+    case 'prier': case 'officier':
+      h.foi = Math.max(0, h.foi - dt * 0.11);
+      h.peur = Math.max(0, h.peur - dt * 0.09);
+      // le prêtre apaise tout le monde autour de lui, pas seulement lui
+      if (h.role === 'pretre') for (const a of habitants) {
+        if (a.vivant && Math.hypot(a.x - h.x, a.z - h.z) < 14) a.peur = Math.max(0, a.peur - dt * 0.05);
+      }
+      break;
+    case 'moissonner':
+      if (village.ble < PLAFOND_BLE) village.ble += dt * 0.55;
+      break;
+    case 'cuire':
+      if (village.ble >= dt * 1.1) { village.ble -= dt * 1.1; village.pain += dt * 2.2; }
+      break;
+    case 'herboriser':
+      // la sorcière soigne : elle enlève de la fatigue à qui passe la voir
+      for (const a of habitants) {
+        if (a.vivant && a !== h && Math.hypot(a.x - h.x, a.z - h.z) < 8) a.fatigue = Math.max(0, a.fatigue - dt * 0.05);
+      }
+      break;
+    case 'flâner':
+      if (h.sociabilite > 0.5) h.foi = Math.max(0, h.foi - dt * 0.01);
+      break;
+  }
+}
+
+/* ---- la rumeur : elle ne se décrète pas, elle se contamine ---- */
+function rumeur(dt) {
+  if (village.sorciereChassee) return;
+  for (let i = 0; i < habitants.length; i++) {
+    const a = habitants[i];
+    if (!a.vivant || a.role === 'sorciere') continue;
+    for (let j = i + 1; j < habitants.length; j++) {
+      const b = habitants[j];
+      if (!b.vivant || b.role === 'sorciere') continue;
+      if (Math.hypot(a.x - b.x, a.z - b.z) > 5) continue;
+      // deux voisins qui se croisent rapprochent leurs soupçons — le plus
+      // convaincu tire l'autre à lui, jamais l'inverse en entier
+      const m = (a.soupcon + b.soupcon) / 2;
+      const k = dt * 0.35;
+      a.soupcon += (m - a.soupcon) * k * (0.4 + b.sociabilite);
+      b.soupcon += (m - b.soupcon) * k * (0.4 + a.sociabilite);
+    }
+  }
+}
+
+// SEUIL DE REGROUPEMENT — le meilleur moment des trois jeux précédents,
+// repris ici : personne n'a écrit « faire une chasse aux sorcières ». Il
+// suffit que quatre accusateurs se retrouvent au même endroit.
+const SEUIL_FOULE = 4;
+function majFoule() {
+  if (village.sorciereChassee) return;
+  const accusateurs = habitants.filter(h => h.vivant && h.occupation === 'accuser' &&
+    h.soupcon > 0.55 &&
+    Math.hypot(h.x - PLACE.x, h.z - PLACE.z) < 12);
+  if (!village.foule && accusateurs.length >= SEUIL_FOULE) {
+    village.foule = true;
+    noter(`${accusateurs.length} villageois se rassemblent sur la place. Ils parlent de la cabane.`, true);
+    for (const h of accusateurs) { h.cible = CABANE; h.prochainChoix += 30; }
+  }
+  if (village.foule) {
+    const arrivés = habitants.filter(h => h.vivant && h.occupation === 'accuser' &&
+      Math.hypot(h.x - CABANE.x, h.z - CABANE.z) < 6);
+    if (arrivés.length >= 2) {
+      village.sorciereChassee = true; village.foule = false;
+      const s = habitants.find(h => h.role === 'sorciere');
+      if (s) s.vivant = false;
+      noter('La cabane est vide. La sorcière a pris la route avant eux.', true);
+      for (const h of habitants) { h.soupcon = 0; h.prochainChoix = 0; }
+    }
+  }
+}
+
+function finDeJournee() {
+  if (village.pain < 1) noter("Il ne reste plus de pain au village.");
+  if (village.jour % 6 === 0) lancerFoire();
+  else if (village.jour > 3 && alea() < 0.14) lancerDragon();
+  if (village.sorciereChassee && village.jour % 4 === 0) {
+    // le village se punit lui-même : sans elle, les maux ne se soignent plus
+    for (const h of habitants) if (h.vivant) h.fatigue = Math.min(1, h.fatigue + 0.18);
+    noter('Les fièvres traînent. Plus personne ne sait quoi faire des simples.');
+  }
+}
+
+function lancerFoire() {
+  village.foire = 0.55;
+  village.etals = [];
+  for (let i = 0; i < 5; i++) {
+    const a = alea() * Math.PI * 2, r = entre(5, 9);
+    village.etals.push({ x: Math.cos(a) * r, z: Math.sin(a) * r, angle: alea() * Math.PI });
+  }
+  village.ble += 10;
+  noter('Foire aux bestiaux. Les étals se dressent sur la place.', true);
+  for (const h of habitants) { if (h.vivant) { h.prochainChoix = 0; h.sociabilite = Math.min(1, h.sociabilite + 0.05); } }
+}
+
+function lancerDragon() {
+  if (village.dragon) return;
+  const a = alea() * Math.PI * 2;
+  village.dragon = { a, r: 120, y: 34, t: 0, parti: false };
+  noter('Une ombre passe sur les toits. Un dragon tourne au-dessus du village.', true);
+}
+function majDragon(dt) {
+  const d = village.dragon;
+  if (!d) return;
+  d.t += dt;
+  d.a += dt * 0.28;
+  d.r += (d.parti ? 26 : (34 - d.r) * dt * 0.5);
+  d.y += (d.parti ? dt * 5 : (26 - d.y) * dt * 0.4);
+  if (!d.parti && d.t > 26) { d.parti = true; noter("Le dragon s'éloigne. Personne n'a rien tenté."); }
+  if (d.parti && d.r > 200) { village.dragon = null; return; }
+  if (d.parti) return;
+  // Le dragon ne tue personne. Il fait peur — et c'est la peur qui
+  // arrête le travail, vide le four, affame le village, et finit par
+  // désigner un coupable. Tout le drame tient dans cette seule ligne.
+  for (const h of habitants) {
+    if (!h.vivant) continue;
+    const effroi = dt * 0.5 * (1 - h.courage * 0.7) * (village.foire > 0 ? 1.5 : 1);
+    h.peur = Math.min(1, h.peur + effroi);
+    h.soupcon = Math.min(0.5, h.soupcon + effroi * h.superstition * 0.3);
+    if (alea() < dt * 0.4) h.prochainChoix = 0;      // on change d'avis sur-le-champ
+  }
+}
+
+/* ================================================================
+   7. RENDU
+   ================================================================ */
 const scene = new THREE.Scene();
-
-// Caméra ISOMÉTRIQUE : projection ORTHOGRAPHIQUE, donc parallèle — aucun
-// point de fuite, deux cubes de même taille se dessinent identiques
-// qu'ils soient devant ou au fond. C'est l'impression de dé.
-//
-// L'angle : vu depuis la direction (1,1,1), les arêtes du sol tombent
-// exactement à 30° de l'horizontale — la projection de Bastion Orbit au
-// degré près (son project() utilise cos(π/6)/sin(π/6)). L'inclinaison
-// correspondante depuis la verticale vaut arccos(1/√3).
-const ISO_POLAIRE = Math.acos(1 / Math.sqrt(3));   // 54,7356°
-const ISO_AZIMUT = Math.PI / 4;                    // 45°, le quart de tour de départ
-let demiHauteur = 10;                              // moitié de la hauteur de cadrage, en unités du monde
-
-const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.01, 10000);
-
+const ISO_POLAIRE = Math.acos(1 / Math.sqrt(3));   // 54,7356° : les arêtes du sol tombent à 30°
+let demiHauteur = 46;
+const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.01, 4000);
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setClearColor(0x000000, 1);
 document.body.appendChild(renderer.domElement);
 
 const controls = new OrbitControls(camera, renderer.domElement);
 controls.enableDamping = true;
-controls.enablePan = false;          // pas de déplacement latéral : on reste centré sur la place
+controls.enablePan = false;
 controls.autoRotate = true;
-controls.autoRotateSpeed = 0.6;      // lent : le jeu est contemplatif
-// tangage VERROUILLÉ : les deux bornes sont égales, donc l'inclinaison
-// isométrique ne peut pas bouger d'un degré. On tourne et on zoome, on ne
-// monte ni ne descend jamais.
-controls.minPolarAngle = ISO_POLAIRE;
+controls.autoRotateSpeed = 0.35;
+controls.minPolarAngle = ISO_POLAIRE;    // tangage verrouillé : on tourne et on zoome, rien d'autre
 controls.maxPolarAngle = ISO_POLAIRE;
+controls.minZoom = 0.5; controls.maxZoom = 8;
+controls.target.set(0, 4, 4);
 
-// Traits épais, dessinés comme de la GÉOMÉTRIE et non comme des lignes
-// OpenGL. Deux raisons, dans cet ordre :
-//   1. l'antialiasing. Un trait GL fait forcément 1 pixel de large (les
-//      navigateurs ignorent linewidth), donc CHAQUE pixel d'une diagonale
-//      est un pixel de bord, et le MSAA à 4 échantillons ne peut le
-//      nuancer qu'en 4 paliers (25/50/75/100 %) — d'où l'escalier bien
-//      visible sur un vert saturé posé sur du noir pur. Ici le trait est
-//      un ruban de triangles et son fondu est calculé au pixel dans le
-//      nuanceur : dégradé continu, plus 4 marches.
-//   2. l'épaisseur elle-même devient réglable, ce qui était impossible.
-// `transparent` plutôt que `alphaToCoverage`, et ce n'est pas un détail :
-// alphaToCoverage fait repasser le fondu calculé par le nuanceur à travers
-// les 4 échantillons du MSAA, donc il le REQUANTIFIE en 4 paliers — les
-// mêmes marches qu'on cherchait à supprimer. Mesuré sur une diagonale de
-// toit : avec alphaToCoverage, les seuls niveaux intermédiaires sont 64,
-// 128 et 192 ; en fondu classique, on obtient aussi 73, 81, 89, 104, 136,
-// 144, 152 — une vraie rampe continue.
-const materiau = new LineMaterial({
-  color: LINE,
-  linewidth: TRAITS[0],     // en pixels CSS
-  transparent: true,
-  alphaToCoverage: false,
-});
-
-// Un seul rendu : les arêtes vives. WireframeGeometry (tous les côtés de
-// tous les triangles, diagonales comprises) n'était là que pour montrer
-// la différence — la comparaison est faite, le choix est tranché.
-const groupeAretes = new THREE.Group();
-scene.add(groupeAretes);
-
-let grille = null;
-let geometries = [];
-let decalage = new THREE.Vector3();
-let segAretes = 0, nbFaces = 0;
-let iSeuil = 0, iTrait = 0, iNet = 0;
-
-function traitDe(geoLignes) {
-  const g = new LineSegmentsGeometry().fromEdgesGeometry(geoLignes);
-  const l = new LineSegments2(g, materiau);
-  l.position.copy(decalage);
-  return l;
+const LINE = 0x46ffa0;
+function materiau(opacite = 1) {
+  // transparence classique, jamais alphaToCoverage : ce dernier requantifie
+  // le fondu du nuanceur en 4 paliers et l'escalier revient (mesuré en v0.7)
+  return new LineMaterial({ color: LINE, linewidth: 1.7, transparent: true, opacity: opacite, alphaToCoverage: false });
 }
+const matDecor = materiau(1), matGens = materiau(1), matDragon = materiau(1), matEtal = materiau(1);
+const TOUS_MAT = [matDecor, matGens, matDragon, matEtal];
 
-// --- affichage d'un modèle chargé ---
-function afficher(obj, nom) {
-  groupeAretes.clear();
-  geometries = []; nbFaces = 0;
-
-  const boite = new THREE.Box3().setFromObject(obj);
-  if (boite.isEmpty()) { message('Aucune géométrie dans ce fichier.'); return; }
-  const centre = boite.getCenter(new THREE.Vector3());
-  decalage.set(-centre.x, -boite.min.y, -centre.z);   // recentré, posé au sol
-
-  obj.traverse((enfant) => {
-    if (!enfant.isMesh) return;
-    const geo = enfant.geometry;
-    geometries.push(geo);
-    nbFaces += geo.attributes.position.count / 3;
-  });
-
-  majAretes();
-  cadrer(boite);
-
-  const t = boite.getSize(new THREE.Vector3());
-  document.getElementById('h-model').textContent = nom;
-  document.getElementById('h-taille').textContent =
-    `${t.x.toFixed(1)} × ${t.y.toFixed(1)} × ${t.z.toFixed(1)}`;
-  document.getElementById('h-faces').textContent = Math.round(nbFaces);
-  majHud();
-  message(null);
+function objetDe(segments, mat) {
+  const g = new LineSegmentsGeometry(); g.setPositions(segments);
+  return new LineSegments2(g, mat);
 }
+scene.add(objetDe(SEG_DECOR, matDecor));
 
-// EdgesGeometry ne garde que les arêtes où deux faces forment un angle
-// supérieur au seuil, plus les bords libres. Sur une forme anguleuse, 1°
-// suffit ; sur une forme courbe et dense, un seuil bas redessine chaque
-// triangle — c'est le réglage qui décide de la lisibilité du filaire.
-function majAretes() {
-  groupeAretes.clear();
-  segAretes = 0;
-  for (const geo of geometries) {
-    const e = new THREE.EdgesGeometry(geo, SEUILS[iSeuil]);
-    segAretes += e.attributes.position.count / 2;
-    groupeAretes.add(traitDe(e));
+const grille = new THREE.GridHelper(160, 32, LINE, LINE);
+grille.material.transparent = true; grille.material.opacity = 0.09;
+scene.add(grille);
+
+for (const h of habitants) {
+  h.objet = objetDe(silhouette(h.role), matGens);
+  scene.add(h.objet);
+}
+const objDragon = objetDe(DRAGON, matDragon);
+objDragon.visible = false;
+scene.add(objDragon);
+
+const groupeEtals = new THREE.Group();
+scene.add(groupeEtals);
+let etalsDressés = false;
+
+function majRendu() {
+  const l = lumiere();
+  matDecor.opacity = 0.42 + l * 0.58;      // la nuit tombe sur le décor
+  matGens.opacity = 0.55 + l * 0.45;
+  grille.material.opacity = 0.03 + l * 0.07;
+
+  for (const h of habitants) {
+    h.objet.visible = h.vivant;
+    if (!h.vivant) continue;
+    h.objet.position.set(h.x, 0, h.z);
+  }
+
+  const d = village.dragon;
+  objDragon.visible = !!d;
+  if (d) {
+    objDragon.position.set(Math.cos(d.a) * d.r, d.y, Math.sin(d.a) * d.r);
+    objDragon.rotation.y = -d.a + Math.PI / 2;
+  }
+
+  const foire = village.foire > 0;
+  if (foire !== etalsDressés) {
+    groupeEtals.clear();
+    if (foire) for (const e of village.etals) {
+      const S = []; poser(S, FORMES.etal(), e.x, e.z, e.angle);
+      groupeEtals.add(objetDe(S, matEtal));
+    }
+    etalsDressés = foire;
   }
 }
 
-// place caméra et grille selon la taille du modèle — un banc en
-// centimètres et une maison en mètres doivent se cadrer aussi bien
-function cadrer(boite) {
-  const t = boite.getSize(new THREE.Vector3());
-  const rayon = Math.max(t.x, t.y, t.z) * 0.5 || 1;
-
-  // en projection parallèle la distance ne change pas la taille à
-  // l'écran : c'est la hauteur de cadrage qui cadre, la distance sert
-  // seulement à garder la scène devant la caméra
-  demiHauteur = rayon * 1.5;
-  const dist = rayon * 6;
-  majCadrage();
-
-  camera.near = 0.01;
-  camera.far = dist * 4;
-  controls.target.set(0, t.y * 0.45, 0);
-
-  const sinP = Math.sin(ISO_POLAIRE);
-  camera.position.set(
-    controls.target.x + dist * sinP * Math.sin(ISO_AZIMUT),
-    controls.target.y + dist * Math.cos(ISO_POLAIRE),
-    controls.target.z + dist * sinP * Math.cos(ISO_AZIMUT),
-  );
-  camera.zoom = 1;
-  camera.updateProjectionMatrix();
-  controls.minZoom = 0.6;   // dézoom : la scène entière tient largement
-  controls.maxZoom = 12;    // zoom : de quoi détailler une seule maison
-  controls.update();
-
-  if (grille) { scene.remove(grille); grille.geometry.dispose(); grille.material.dispose(); }
-  const pas = Math.pow(10, Math.round(Math.log10(rayon))) / 2;
-  grille = new THREE.GridHelper(pas * 40, 40, LINE, LINE);
-  grille.material.transparent = true;
-  grille.material.opacity = 0.13;
-  scene.add(grille);
-}
-
-// le cadre orthographique et la résolution des traits dépendent tous deux
-// de la fenêtre : à recalculer au chargement comme au redimensionnement
 function majCadrage() {
   const a = innerWidth / innerHeight;
-  camera.left = -demiHauteur * a;
-  camera.right = demiHauteur * a;
-  camera.top = demiHauteur;
-  camera.bottom = -demiHauteur;
+  camera.left = -demiHauteur * a; camera.right = demiHauteur * a;
+  camera.top = demiHauteur; camera.bottom = -demiHauteur;
   camera.updateProjectionMatrix();
-
-  renderer.setPixelRatio(Math.min(devicePixelRatio * NETTETE[iNet], 4));
+  renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
   renderer.setSize(innerWidth, innerHeight);
-  // LineMaterial a besoin de la taille de la vue pour convertir une
-  // épaisseur en pixels vers l'espace de découpe — sinon le trait a la
-  // mauvaise largeur, ou disparaît
-  materiau.resolution.set(innerWidth, innerHeight);
+  for (const m of TOUS_MAT) m.resolution.set(innerWidth, innerHeight);
+}
+{
+  const dist = 260, sinP = Math.sin(ISO_POLAIRE);
+  camera.position.set(dist * sinP * Math.sin(Math.PI / 4), dist * Math.cos(ISO_POLAIRE),
+                      dist * sinP * Math.cos(Math.PI / 4));
+  majCadrage(); controls.update();
 }
 
-function message(txt) {
-  const m = document.getElementById('msg');
-  m.style.display = txt ? 'block' : 'none';
-  m.textContent = txt || '';
-}
-
-// --- chargements ---
-const loader = new OBJLoader();
-let iModele = 0;
-
-function chargerModele(i) {
-  const m = MODELES[i];
-  message('chargement…');
-  loader.load(m.url, (o) => afficher(o, m.nom),
-    undefined, () => message('Modèle introuvable : ' + m.url));
-}
-chargerModele(iModele);
-
-function chargerFichier(f) {
-  if (!f) return;
-  const lecteur = new FileReader();
-  lecteur.onload = () => {
-    try { afficher(loader.parse(lecteur.result), f.name); }
-    catch (e) { message('Fichier illisible : ' + e.message); }
-  };
-  lecteur.readAsText(f);
-}
-document.getElementById('fichier').addEventListener('change', (e) => chargerFichier(e.target.files[0]));
-
-// glisser-déposer : exporter depuis Blender puis lâcher le fichier sur la
-// page, sans rien committer
-addEventListener('dragover', (e) => { e.preventDefault(); document.body.classList.add('glisse'); });
-addEventListener('dragleave', () => document.body.classList.remove('glisse'));
-addEventListener('drop', (e) => {
-  e.preventDefault(); document.body.classList.remove('glisse');
-  chargerFichier(e.dataTransfer.files[0]);
-});
-
-// --- interface ---
+/* ================================================================
+   8. INTERFACE
+   ================================================================ */
 const $ = (id) => document.getElementById(id);
+const PHASES = [[0.22, 'nuit'], [0.3, 'aube'], [0.75, 'jour'], [0.86, 'soir'], [1, 'nuit']];
 
-function majHud() {
-  $('h-seg').textContent = Math.round(segAretes);
+function majChronique() {
+  const c = $('chronique');
+  c.innerHTML = '';
+  for (const e of chronique.slice(-8)) {
+    const d = document.createElement('div');
+    d.textContent = e.txt;
+    if (e.fort) d.className = 'fort';
+    c.appendChild(d);
+  }
+}
+function majAffichage() {
+  $('s-jour').textContent = village.jour;
+  $('s-phase').textContent = (PHASES.find(([h]) => village.heure < h) || PHASES[0])[1];
+  $('s-pain').textContent = Math.floor(village.pain);
+  $('s-peur').textContent = Math.round(village.peur * 100) + ' %';
 }
 
-$('btn-modele').addEventListener('click', () => {
-  iModele = (iModele + 1) % MODELES.length;
-  chargerModele(iModele);
+const VITESSES = [1, 3, 8];
+let iVitesse = 0, enPause = false;
+$('btn-vitesse').addEventListener('click', (e) => {
+  iVitesse = (iVitesse + 1) % VITESSES.length;
+  e.target.textContent = '×' + VITESSES[iVitesse];
 });
-$('btn-seuil').addEventListener('click', (e) => {
-  iSeuil = (iSeuil + 1) % SEUILS.length;
-  e.target.textContent = 'seuil ' + SEUILS[iSeuil] + '°';
-  majAretes();
-  majHud();
+$('btn-pause').addEventListener('click', (e) => {
+  enPause = !enPause;
+  e.target.setAttribute('aria-pressed', String(enPause));
+  e.target.textContent = enPause ? 'reprendre' : 'pause';
 });
-$('btn-trait').addEventListener('click', (e) => {
-  iTrait = (iTrait + 1) % TRAITS.length;
-  materiau.linewidth = TRAITS[iTrait];
-  e.target.textContent = 'trait ' + TRAITS[iTrait].toFixed(1);
-});
-$('btn-net').addEventListener('click', (e) => {
-  iNet = (iNet + 1) % NETTETE.length;
-  e.target.textContent = 'net ×' + NETTETE[iNet];
-  majCadrage();
-});
+$('btn-foire').addEventListener('click', lancerFoire);
+$('btn-dragon').addEventListener('click', lancerDragon);
 $('btn-spin').addEventListener('click', (e) => {
   controls.autoRotate = !controls.autoRotate;
   e.target.setAttribute('aria-pressed', String(controls.autoRotate));
 });
 
-// les deux panneaux (menu et historique) se comportent pareil : on clique
-// pour ouvrir, on referme par le bouton ou en cliquant hors du contenu
 function brancherPanneau(idPanneau, idOuvre, idFerme) {
-  const panneau = $(idPanneau);
-  $(idOuvre).addEventListener('click', () => panneau.classList.toggle('ouvert'));
-  $(idFerme).addEventListener('click', () => panneau.classList.remove('ouvert'));
-  panneau.addEventListener('click', (e) => {
-    if (e.target === panneau) panneau.classList.remove('ouvert');
-  });
+  const p = $(idPanneau);
+  $(idOuvre).addEventListener('click', () => p.classList.toggle('ouvert'));
+  $(idFerme).addEventListener('click', () => p.classList.remove('ouvert'));
+  p.addEventListener('click', (e) => { if (e.target === p) p.classList.remove('ouvert'); });
 }
 brancherPanneau('menu', 'btn-menu', 'btn-menu-fermer');
 brancherPanneau('changelog', 'version', 'btn-fermer');
 
-// volumes : rien à piloter encore, mais le réglage est conservé d'une
-// session à l'autre pour qu'il soit déjà bon le jour où le son arrive
 const volumes = { sfx: 100, musique: 60 };
 function brancherVolume(cle, idCurseur, idValeur, cleStockage) {
   const curseur = $(idCurseur), valeur = $(idValeur);
   try {
     const v = parseInt(localStorage.getItem(cleStockage), 10);
     if (!isNaN(v) && v >= 0 && v <= 100) volumes[cle] = v;
-  } catch (e) { /* stockage indisponible : on garde la valeur par défaut */ }
+  } catch (e) { /* stockage indisponible */ }
   curseur.value = volumes[cle];
   valeur.textContent = volumes[cle] + ' %';
   curseur.addEventListener('input', () => {
@@ -485,24 +888,49 @@ function brancherVolume(cle, idCurseur, idValeur, cleStockage) {
 brancherVolume('sfx', 'vol-sfx', 'vol-sfx-val', 'dh_volSfx');
 brancherVolume('musique', 'vol-mus', 'vol-mus-val', 'dh_volMusique');
 
+// le tableau du menu : qui habite ici, et ce qu'il est en train de faire
+function majTableau() {
+  const t = $('tableau-roles');
+  t.innerHTML = '';
+  for (const h of habitants) {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td>${NOM_ROLE[h.role]}</td><td class="v">${h.vivant ? h.occupation : 'parti'}</td>`;
+    t.appendChild(tr);
+  }
+}
+$('h-pop').textContent = habitants.length;
+$('h-graine').textContent = GRAINE;
+$('h-seg').textContent = (SEG_DECOR.length / 6) + habitants.reduce((n, h) => n + silhouette(h.role).length / 6, 0);
+
 addEventListener('resize', majCadrage);
+window.DH = { scene, camera, controls, renderer, village, habitants, chronique, LIEUX,
+              lancerDragon, lancerFoire, THREE };
 
-// exposé pour le débogage en console et les vérifications automatisées —
-// même esprit que les réglages debug des autres jeux
-window.DH = { scene, camera, controls, renderer, materiau, volumes, THREE };
+noter('Le village se réveille.');
+majAffichage(); majTableau();
 
-// --- boucle ---
-const champIps = $('h-fps');
-let images = 0, dernierCompte = performance.now();
-
+/* ================================================================
+   9. BOUCLE
+   ================================================================ */
+let precedent = performance.now(), images = 0, dernierCompte = precedent, dernierTableau = 0;
 renderer.setAnimationLoop((maintenant) => {
+  let dt = (maintenant - precedent) / 1000;
+  precedent = maintenant;
+  dt = Math.min(dt, 0.1);                       // un onglet en arrière-plan ne doit pas sauter une semaine
+  if (!enPause) {
+    const pas = dt * VITESSES[iVitesse];
+    simuler(pas);
+  }
+  majRendu();
   controls.update();
   renderer.render(scene, camera);
+
   images++;
   if (maintenant - dernierCompte >= 1000) {
-    champIps.textContent = Math.round(images * 1000 / (maintenant - dernierCompte));
+    $('h-fps').textContent = Math.round(images * 1000 / (maintenant - dernierCompte));
     images = 0; dernierCompte = maintenant;
   }
+  if (maintenant - dernierTableau > 700) { majTableau(); dernierTableau = maintenant; }
 });
 </script>
 </body>

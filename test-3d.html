@@ -1,0 +1,466 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Dwelve Hollow — banc d'essai OBJ</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' fill='%23000'/%3E%3Cpath d='M3 12V6l5-3 5 3v6' fill='none' stroke='%2346ffa0' stroke-width='1.2'/%3E%3C/svg%3E">
+<style>
+  :root {
+    --ph-line: #46ffa0;
+    --ph-text: #8ffcc4;
+    --ph-dim: rgba(70, 255, 160, 0.4);
+    --ph-panel: #071812;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0; height: 100%; overflow: hidden;
+    background: #000; color: var(--ph-text);
+    font: 12px/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    -webkit-tap-highlight-color: transparent;
+  }
+  canvas { display: block; touch-action: none; }
+
+  #hud {
+    position: fixed; top: 0; left: 0;
+    padding: 8px 12px;
+    padding-top: max(8px, env(safe-area-inset-top));
+    padding-left: max(12px, env(safe-area-inset-left));
+    display: flex; align-items: center; gap: 10px;
+    text-shadow: 0 0 6px rgba(70, 255, 160, 0.25);
+  }
+  #hud .title { color: var(--ph-line); letter-spacing: 0.12em; }
+  #retour { color: var(--ph-text); text-decoration: none; border: 1px solid var(--ph-dim);
+    background: var(--ph-panel); padding: 5px 9px; }
+
+  #version {
+    position: fixed; top: 0; right: 0;
+    margin-top: max(8px, env(safe-area-inset-top));
+    margin-right: max(10px, env(safe-area-inset-right));
+  }
+
+  #controls {
+    position: fixed; left: 0; right: 0; bottom: 0;
+    padding: 10px 12px;
+    padding-bottom: max(10px, env(safe-area-inset-bottom));
+    display: flex; gap: 6px; flex-wrap: wrap; align-items: center;
+  }
+  button, label.fichier {
+    font: inherit; color: var(--ph-text);
+    background: var(--ph-panel);
+    border: 1px solid var(--ph-dim);
+    padding: 7px 10px; cursor: pointer;
+    letter-spacing: 0.05em; white-space: nowrap;
+  }
+  button:active, button[aria-pressed="true"] {
+    color: #04120c; background: var(--ph-line); border-color: var(--ph-line);
+  }
+  label.fichier input { display: none; }
+
+  #menu, #changelog {
+    position: fixed; inset: 0; display: none; z-index: 10;
+    background: rgba(2, 8, 5, 0.94);
+    padding: 24px 20px;
+    padding-top: max(24px, env(safe-area-inset-top));
+    overflow-y: auto;
+  }
+  #menu.ouvert, #changelog.ouvert { display: block; }
+  #menu .contenu, #changelog .contenu { max-width: 640px; margin: 0 auto; }
+  #menu h2, #changelog h2 {
+    color: var(--ph-line); font-size: 13px; font-weight: normal;
+    letter-spacing: 0.16em; margin: 0 0 18px;
+  }
+  #changelog .v { margin-bottom: 14px; }
+  #changelog .v b { color: var(--ph-line); font-weight: normal; }
+  #changelog .v.courante b::after { content: ' ← ici'; color: var(--ph-dim); }
+  #menu .fermer, #changelog .fermer { margin-top: 24px; }
+  #menu .reglage { margin-bottom: 18px; }
+  #menu .reglage label { display: block; color: var(--ph-dim); margin-bottom: 6px; }
+  #menu .reglage .val { color: var(--ph-text); }
+  #menu input[type="range"] {
+    width: 100%; max-width: 320px; accent-color: var(--ph-line);
+    background: transparent;
+  }
+  #menu .note { color: var(--ph-dim); max-width: 420px; }
+  #menu .diag { color: var(--ph-dim); }
+  #menu .diag .val { color: var(--ph-text); }
+
+  #msg {
+    position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%);
+    color: var(--ph-line); text-align: center; padding: 20px;
+    display: none; pointer-events: none;
+  }
+  body.glisse::after {
+    content: 'déposer un .obj';
+    position: fixed; inset: 12px; border: 1px dashed var(--ph-line);
+    display: flex; align-items: center; justify-content: center;
+    color: var(--ph-line); letter-spacing: 0.2em; pointer-events: none; z-index: 5;
+  }
+</style>
+</head>
+<body>
+
+<div id="hud">
+  <a id="retour" href="index.html">← village</a>
+  <span class="title">BANC D'ESSAI OBJ</span>
+</div>
+
+<button id="version">v0.7</button>
+
+<div id="controls">
+  <button id="btn-modele">modèle</button>
+  <button id="btn-seuil">seuil 1°</button>
+  <button id="btn-trait">trait 1.8</button>
+  <button id="btn-net">net ×1</button>
+  <button id="btn-spin" aria-pressed="true">⟳</button>
+  <label class="fichier">+ obj<input type="file" id="fichier" accept=".obj"></label>
+</div>
+
+<div id="diag-cache" hidden>
+  <span id="h-model"></span><span id="h-taille"></span><span id="h-faces"></span>
+  <span id="h-seg"></span><span id="h-fps"></span>
+</div>
+
+<div id="changelog">
+  <div class="contenu">
+    <h2>DWELVE HOLLOW — HISTORIQUE</h2>
+
+    <div class="v courante"><b>v0.7</b> — le fondu des traits passe en transparence
+      classique au lieu d'alphaToCoverage : ce dernier faisait repasser le dégradé
+      du nuanceur par les 4 échantillons du MSAA, donc le requantifiait en
+      4 paliers — exactement les marches qu'on voulait supprimer. Mesuré sur une
+      diagonale : 3 niveaux intermédiaires avant, une douzaine après.</div>
+
+    <div class="v"><b>v0.6</b> — coin haut-gauche réduit au titre et à un
+      bouton de menu. Le menu accueille les curseurs de bruitages et de musique
+      (réglage conservé, le son n'est pas encore branché) et les informations de
+      diagnostic qui encombraient l'écran.</div>
+
+    <div class="v"><b>v0.5</b> — la bascule arêtes vives / filaire brut est
+      retirée : la comparaison a servi, elle est tranchée. Les arêtes vives sont
+      désormais le seul rendu, et le seuil d'angle reste le réglage qui compte.</div>
+
+    <div class="v"><b>v0.4</b> — traits épais antialiasés dans le nuanceur
+      (fin de l'escalier sur les diagonales : MSAA à 4 échantillons ne donnait que
+      4 niveaux de dégradé sur un trait d'un seul pixel) ; épaisseur de trait
+      réglable ; réglage de netteté (suréchantillonnage ×1 / ×1,5 / ×2) ;
+      ce numéro de version cliquable.</div>
+
+    <div class="v"><b>v0.3</b> — caméra isométrique vraie : projection orthographique
+      (parallèle, sans point de fuite), tangage verrouillé à 54,7356° — l'angle qui
+      donne les arêtes de sol à 30°, comme Bastion Orbit. On ne peut que tourner et
+      zoomer. Banc Poly Haven (CC0) ajouté, bouton de changement de modèle.</div>
+
+    <div class="v"><b>v0.2</b> — cadrage caméra et grille calculés depuis la boîte
+      englobante (un modèle en centimètres et un en mètres se cadrent aussi bien) ;
+      seuil d'angle des arêtes réglable ; chargement d'un .obj local par bouton ou
+      glisser-déposer, sans passer par le dépôt.</div>
+
+    <div class="v"><b>v0.1</b> — premier test : chargement d'un OBJ, filaire vert sur
+      fond noir, comparaison arêtes vives contre filaire brut, rotation lente.</div>
+
+    <button class="fermer" id="btn-fermer">fermer</button>
+  </div>
+</div>
+
+<div id="msg"></div>
+
+<script type="importmap">
+{ "imports": { "three": "./vendor/three/three.module.js" } }
+</script>
+
+<script type="module">
+import * as THREE from 'three';
+import { OBJLoader } from './vendor/three/OBJLoader.js';
+import { OrbitControls } from './vendor/three/OrbitControls.js';
+import { LineSegments2 } from './vendor/three/LineSegments2.js';
+import { LineSegmentsGeometry } from './vendor/three/LineSegmentsGeometry.js';
+import { LineMaterial } from './vendor/three/LineMaterial.js';
+
+const LINE = 0x46ffa0;            // vert phosphore, repris de Bastion Orbit
+const SEUILS = [1, 15, 30, 45];   // degrés, seuil d'arête vive — voir majAretes()
+const TRAITS = [1.8, 2.6, 1.0];   // épaisseur en pixels ; 1.0 = comme avant, pour comparer
+const NETTETE = [1, 1.5, 2];      // suréchantillonnage par-dessus la densité de l'écran
+const MODELES = [
+  { url: 'models/maison.obj', nom: 'maison' },
+  { url: 'models/banc.obj',   nom: 'banc (Poly Haven, CC0)' },
+];
+
+// --- scène ---
+const scene = new THREE.Scene();
+
+// Caméra ISOMÉTRIQUE : projection ORTHOGRAPHIQUE, donc parallèle — aucun
+// point de fuite, deux cubes de même taille se dessinent identiques
+// qu'ils soient devant ou au fond. C'est l'impression de dé.
+//
+// L'angle : vu depuis la direction (1,1,1), les arêtes du sol tombent
+// exactement à 30° de l'horizontale — la projection de Bastion Orbit au
+// degré près (son project() utilise cos(π/6)/sin(π/6)). L'inclinaison
+// correspondante depuis la verticale vaut arccos(1/√3).
+const ISO_POLAIRE = Math.acos(1 / Math.sqrt(3));   // 54,7356°
+const ISO_AZIMUT = Math.PI / 4;                    // 45°, le quart de tour de départ
+let demiHauteur = 10;                              // moitié de la hauteur de cadrage, en unités du monde
+
+const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.01, 10000);
+
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setClearColor(0x000000, 1);
+document.body.appendChild(renderer.domElement);
+
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true;
+controls.enablePan = false;          // pas de déplacement latéral : on reste centré sur la place
+controls.autoRotate = true;
+controls.autoRotateSpeed = 0.6;      // lent : le jeu est contemplatif
+// tangage VERROUILLÉ : les deux bornes sont égales, donc l'inclinaison
+// isométrique ne peut pas bouger d'un degré. On tourne et on zoome, on ne
+// monte ni ne descend jamais.
+controls.minPolarAngle = ISO_POLAIRE;
+controls.maxPolarAngle = ISO_POLAIRE;
+
+// Traits épais, dessinés comme de la GÉOMÉTRIE et non comme des lignes
+// OpenGL. Deux raisons, dans cet ordre :
+//   1. l'antialiasing. Un trait GL fait forcément 1 pixel de large (les
+//      navigateurs ignorent linewidth), donc CHAQUE pixel d'une diagonale
+//      est un pixel de bord, et le MSAA à 4 échantillons ne peut le
+//      nuancer qu'en 4 paliers (25/50/75/100 %) — d'où l'escalier bien
+//      visible sur un vert saturé posé sur du noir pur. Ici le trait est
+//      un ruban de triangles et son fondu est calculé au pixel dans le
+//      nuanceur : dégradé continu, plus 4 marches.
+//   2. l'épaisseur elle-même devient réglable, ce qui était impossible.
+// `transparent` plutôt que `alphaToCoverage`, et ce n'est pas un détail :
+// alphaToCoverage fait repasser le fondu calculé par le nuanceur à travers
+// les 4 échantillons du MSAA, donc il le REQUANTIFIE en 4 paliers — les
+// mêmes marches qu'on cherchait à supprimer. Mesuré sur une diagonale de
+// toit : avec alphaToCoverage, les seuls niveaux intermédiaires sont 64,
+// 128 et 192 ; en fondu classique, on obtient aussi 73, 81, 89, 104, 136,
+// 144, 152 — une vraie rampe continue.
+const materiau = new LineMaterial({
+  color: LINE,
+  linewidth: TRAITS[0],     // en pixels CSS
+  transparent: true,
+  alphaToCoverage: false,
+});
+
+// Un seul rendu : les arêtes vives. WireframeGeometry (tous les côtés de
+// tous les triangles, diagonales comprises) n'était là que pour montrer
+// la différence — la comparaison est faite, le choix est tranché.
+const groupeAretes = new THREE.Group();
+scene.add(groupeAretes);
+
+let grille = null;
+let geometries = [];
+let decalage = new THREE.Vector3();
+let segAretes = 0, nbFaces = 0;
+let iSeuil = 0, iTrait = 0, iNet = 0;
+
+function traitDe(geoLignes) {
+  const g = new LineSegmentsGeometry().fromEdgesGeometry(geoLignes);
+  const l = new LineSegments2(g, materiau);
+  l.position.copy(decalage);
+  return l;
+}
+
+// --- affichage d'un modèle chargé ---
+function afficher(obj, nom) {
+  groupeAretes.clear();
+  geometries = []; nbFaces = 0;
+
+  const boite = new THREE.Box3().setFromObject(obj);
+  if (boite.isEmpty()) { message('Aucune géométrie dans ce fichier.'); return; }
+  const centre = boite.getCenter(new THREE.Vector3());
+  decalage.set(-centre.x, -boite.min.y, -centre.z);   // recentré, posé au sol
+
+  obj.traverse((enfant) => {
+    if (!enfant.isMesh) return;
+    const geo = enfant.geometry;
+    geometries.push(geo);
+    nbFaces += geo.attributes.position.count / 3;
+  });
+
+  majAretes();
+  cadrer(boite);
+
+  const t = boite.getSize(new THREE.Vector3());
+  document.getElementById('h-model').textContent = nom;
+  document.getElementById('h-taille').textContent =
+    `${t.x.toFixed(1)} × ${t.y.toFixed(1)} × ${t.z.toFixed(1)}`;
+  document.getElementById('h-faces').textContent = Math.round(nbFaces);
+  majHud();
+  message(null);
+}
+
+// EdgesGeometry ne garde que les arêtes où deux faces forment un angle
+// supérieur au seuil, plus les bords libres. Sur une forme anguleuse, 1°
+// suffit ; sur une forme courbe et dense, un seuil bas redessine chaque
+// triangle — c'est le réglage qui décide de la lisibilité du filaire.
+function majAretes() {
+  groupeAretes.clear();
+  segAretes = 0;
+  for (const geo of geometries) {
+    const e = new THREE.EdgesGeometry(geo, SEUILS[iSeuil]);
+    segAretes += e.attributes.position.count / 2;
+    groupeAretes.add(traitDe(e));
+  }
+}
+
+// place caméra et grille selon la taille du modèle — un banc en
+// centimètres et une maison en mètres doivent se cadrer aussi bien
+function cadrer(boite) {
+  const t = boite.getSize(new THREE.Vector3());
+  const rayon = Math.max(t.x, t.y, t.z) * 0.5 || 1;
+
+  // en projection parallèle la distance ne change pas la taille à
+  // l'écran : c'est la hauteur de cadrage qui cadre, la distance sert
+  // seulement à garder la scène devant la caméra
+  demiHauteur = rayon * 1.5;
+  const dist = rayon * 6;
+  majCadrage();
+
+  camera.near = 0.01;
+  camera.far = dist * 4;
+  controls.target.set(0, t.y * 0.45, 0);
+
+  const sinP = Math.sin(ISO_POLAIRE);
+  camera.position.set(
+    controls.target.x + dist * sinP * Math.sin(ISO_AZIMUT),
+    controls.target.y + dist * Math.cos(ISO_POLAIRE),
+    controls.target.z + dist * sinP * Math.cos(ISO_AZIMUT),
+  );
+  camera.zoom = 1;
+  camera.updateProjectionMatrix();
+  controls.minZoom = 0.6;   // dézoom : la scène entière tient largement
+  controls.maxZoom = 12;    // zoom : de quoi détailler une seule maison
+  controls.update();
+
+  if (grille) { scene.remove(grille); grille.geometry.dispose(); grille.material.dispose(); }
+  const pas = Math.pow(10, Math.round(Math.log10(rayon))) / 2;
+  grille = new THREE.GridHelper(pas * 40, 40, LINE, LINE);
+  grille.material.transparent = true;
+  grille.material.opacity = 0.13;
+  scene.add(grille);
+}
+
+// le cadre orthographique et la résolution des traits dépendent tous deux
+// de la fenêtre : à recalculer au chargement comme au redimensionnement
+function majCadrage() {
+  const a = innerWidth / innerHeight;
+  camera.left = -demiHauteur * a;
+  camera.right = demiHauteur * a;
+  camera.top = demiHauteur;
+  camera.bottom = -demiHauteur;
+  camera.updateProjectionMatrix();
+
+  renderer.setPixelRatio(Math.min(devicePixelRatio * NETTETE[iNet], 4));
+  renderer.setSize(innerWidth, innerHeight);
+  // LineMaterial a besoin de la taille de la vue pour convertir une
+  // épaisseur en pixels vers l'espace de découpe — sinon le trait a la
+  // mauvaise largeur, ou disparaît
+  materiau.resolution.set(innerWidth, innerHeight);
+}
+
+function message(txt) {
+  const m = document.getElementById('msg');
+  m.style.display = txt ? 'block' : 'none';
+  m.textContent = txt || '';
+}
+
+// --- chargements ---
+const loader = new OBJLoader();
+let iModele = 0;
+
+function chargerModele(i) {
+  const m = MODELES[i];
+  message('chargement…');
+  loader.load(m.url, (o) => afficher(o, m.nom),
+    undefined, () => message('Modèle introuvable : ' + m.url));
+}
+chargerModele(iModele);
+
+function chargerFichier(f) {
+  if (!f) return;
+  const lecteur = new FileReader();
+  lecteur.onload = () => {
+    try { afficher(loader.parse(lecteur.result), f.name); }
+    catch (e) { message('Fichier illisible : ' + e.message); }
+  };
+  lecteur.readAsText(f);
+}
+document.getElementById('fichier').addEventListener('change', (e) => chargerFichier(e.target.files[0]));
+
+// glisser-déposer : exporter depuis Blender puis lâcher le fichier sur la
+// page, sans rien committer
+addEventListener('dragover', (e) => { e.preventDefault(); document.body.classList.add('glisse'); });
+addEventListener('dragleave', () => document.body.classList.remove('glisse'));
+addEventListener('drop', (e) => {
+  e.preventDefault(); document.body.classList.remove('glisse');
+  chargerFichier(e.dataTransfer.files[0]);
+});
+
+// --- interface ---
+const $ = (id) => document.getElementById(id);
+
+function majHud() {
+  $('h-seg').textContent = Math.round(segAretes);
+}
+
+$('btn-modele').addEventListener('click', () => {
+  iModele = (iModele + 1) % MODELES.length;
+  chargerModele(iModele);
+});
+$('btn-seuil').addEventListener('click', (e) => {
+  iSeuil = (iSeuil + 1) % SEUILS.length;
+  e.target.textContent = 'seuil ' + SEUILS[iSeuil] + '°';
+  majAretes();
+  majHud();
+});
+$('btn-trait').addEventListener('click', (e) => {
+  iTrait = (iTrait + 1) % TRAITS.length;
+  materiau.linewidth = TRAITS[iTrait];
+  e.target.textContent = 'trait ' + TRAITS[iTrait].toFixed(1);
+});
+$('btn-net').addEventListener('click', (e) => {
+  iNet = (iNet + 1) % NETTETE.length;
+  e.target.textContent = 'net ×' + NETTETE[iNet];
+  majCadrage();
+});
+$('btn-spin').addEventListener('click', (e) => {
+  controls.autoRotate = !controls.autoRotate;
+  e.target.setAttribute('aria-pressed', String(controls.autoRotate));
+});
+
+// les deux panneaux (menu et historique) se comportent pareil : on clique
+// pour ouvrir, on referme par le bouton ou en cliquant hors du contenu
+function brancherPanneau(idPanneau, idOuvre, idFerme) {
+  const panneau = $(idPanneau);
+  $(idOuvre).addEventListener('click', () => panneau.classList.toggle('ouvert'));
+  $(idFerme).addEventListener('click', () => panneau.classList.remove('ouvert'));
+  panneau.addEventListener('click', (e) => {
+    if (e.target === panneau) panneau.classList.remove('ouvert');
+  });
+}
+brancherPanneau('changelog', 'version', 'btn-fermer');
+
+
+addEventListener('resize', majCadrage);
+
+// exposé pour le débogage en console et les vérifications automatisées —
+// même esprit que les réglages debug des autres jeux
+window.DH = { scene, camera, controls, renderer, materiau, THREE };
+
+// --- boucle ---
+const champIps = $('h-fps');
+let images = 0, dernierCompte = performance.now();
+
+renderer.setAnimationLoop((maintenant) => {
+  controls.update();
+  renderer.render(scene, camera);
+  images++;
+  if (maintenant - dernierCompte >= 1000) {
+    champIps.textContent = Math.round(images * 1000 / (maintenant - dernierCompte));
+    images = 0; dernierCompte = maintenant;
+  }
+});
+</script>
+</body>
+</html>
