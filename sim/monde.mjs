@@ -77,6 +77,14 @@ export const REGLAGES = {
   poidsVol: 4,
   poidsPriere: 1,
   degatDragon: 0.078,   // balayage : au-dessous, les moulins ne cassent plus assez            // sa chance d'arracher une aile, par seconde de survol
+  // LE TROISIÈME ACTE. Un métier ne se reprend que s'il reste quelqu'un
+  // pour l'avoir appris. C'est ce nombre-là qui décide si un village
+  // peut perdre son boulanger pour de bon.
+  apprentissage: 4,     // journées passées près d'un maître pour savoir son métier
+  ruineApres: 6,        // journées avant qu'une maison vide commence à tomber
+  // LA MÉMOIRE. Ce qu'on doit à quelqu'un divise ce qu'on lui soupçonne.
+  poidsDette: 5,
+  detteQuiSauve: 0.55,  // au-delà, on parle devant la foule
 };
 
 export function creerMonde(GRAINE = 1, reglages = {}) {
@@ -353,6 +361,15 @@ const PRENOMS_H = ['Guillaume','Thibaut','Jehan','Renaud','Gautier','Colin','Fou
 const PRENOMS_F = ['Aliénor','Perrine','Mahaut','Blanche','Aude','Isabeau','Ermengarde','Sibylle',
                    'Emmeline','Guibourc'];
 const FEMININ = { dame: 1, sorciere: 1 };
+
+// LES LIGNÉES. Un prénom se réemploie, un nom de maison non : quand le
+// dernier qui le portait meurt, il ne revient jamais. C'est la première
+// chose de ce village qui soit vraiment sans retour. Le prêtre et la
+// guérisseuse n'en ont pas — ils n'ont personne après eux, et c'est déjà
+// une façon de le dire.
+const LIGNEES = ['Beaufort', 'Roquemaure', 'Aiguebelle', 'Fontcaude', 'Bellegarde',
+                 'Malaunay', 'Vaugrenier', 'Quintefeuille', 'Hautfaye', 'Craonne'];
+const SANS_LIGNEE = { pretre: 1, sorciere: 1, colporteur: 1, etranger: 1, chasseur: 1 };
 let iH = 0, iF = 0;
 function prenomPour(role) {
   const f = !!(FEMININ[role] || ((role === 'paysan' || role === 'enfant') && alea() < 0.45));
@@ -454,6 +471,15 @@ function creerHabitant(role, logis) {
     courtise: null, deteste: null, suit: null, evite: null, craint: null,  // posé par les règles écrites
     prochainFlirt: 0, rembarrades: 0, aDitPas: false,
     surnom: null, surnomIdx: null, attache: null,
+    lignee: null,           // le nom de maison, hérité de la mère — voir majLignees()
+    // CE QU'IL SAIT FAIRE. Un rôle est ce qu'on fait aujourd'hui ; le
+    // savoir est ce qu'on pourrait encore transmettre demain. Les deux se
+    // séparent le jour où le dernier qui savait meurt.
+    savoir: new Set(), appris: {},
+    // CE QU'ON DOIT. Pas de l'affection : une dette. On n'accuse pas
+    // celle qui a soigné votre mère, et si la foule vient quand même,
+    // c'est celui qui lui doit le plus qui parle.
+    dette: new Map(),
     torche: 0, rallume: 0,        // voir majTorche()
     egare: false, fou: 0,         // la pleine lune fait perdre le nord          // voir surnommer() et nomComplet()
     compte: { reparations: 0, vols: 0, prieres: 0, rembarrades: 0, accusations: 0,
@@ -472,7 +498,7 @@ function creerHabitant(role, logis) {
   };
 }
 {
-  let i = 0;
+  let i = 0, iLignee = 0;
   for (const [role, n] of ROLES) {
     for (let k = 0; k < n; k++) {
       const logis = role === 'sorciere' ? CABANE
@@ -480,7 +506,13 @@ function creerHabitant(role, logis) {
                   : role === 'pretre' ? EGLISE
                   : role === 'boulanger' ? FOUR
                   : CHAUMIERES[i++ % CHAUMIERES.length];
-      habitants.push(creerHabitant(role, logis));
+      const h = creerHabitant(role, logis);
+      if (ROLES_UTILES.includes(role)) h.savoir.add(role);
+      if (!SANS_LIGNEE[role]) {
+        if (!logis.lignee) logis.lignee = LIGNEES[iLignee++ % LIGNEES.length];
+        h.lignee = logis.lignee;
+      }
+      habitants.push(h);
     }
   }
 }
@@ -516,7 +548,16 @@ const village = {
             successions: 0, surnoms: 0, noyades: 0, colporteurs: 0,
             sabbats: 0, loups: 0, betes: 0, meurtres: 0, egares: 0, fous: 0,
             naissances: 0, vieillesses: 0, majorites: 0,
-            etrangers: 0, chasseurs: 0, imposteurs: 0, vampire: 0 },
+            etrangers: 0, chasseurs: 0, imposteurs: 0, vampire: 0,
+            extinctions: 0, metiersPerdus: 0, ruines: 0,
+            sauvetages: 0, paroles: 0 },
+  // LE TROISIÈME ACTE. Tout le reste de ce village revient : la faim
+  // passe, la peur retombe, le moulin se répare, un enfant reprend le
+  // métier. Voici la liste de ce qui ne reviendra pas. Elle ne fait que
+  // s'allonger, et c'est ce qui distingue un village d'une boucle.
+  pertes: [],
+  lignees: new Map(),        // nom de maison → { nom, logis, eteinte, jour }
+  perdus: new Set(),         // les métiers dont plus personne ne sait rien
   pluie: 0,                  // 0 à 1, tiré chaque matin
   temps: 0,                      // secondes SIMULÉES écoulées — voir la boucle
   tension: 0, calmeDepuis: 0,    // voir metteurEnScene()
@@ -537,10 +578,23 @@ const village = {
   accuse: null,                  // celui que le village a désigné, faute de sorcière
   jourDime: 0, jourImpot: 0,
 };
+// on enregistre les maisons fondatrices : ce sont elles qui peuvent
+// s'éteindre, et la maison qui va avec
+for (const h of habitants) {
+  if (!h.lignee || village.lignees.has(h.lignee)) continue;
+  village.lignees.set(h.lignee, { nom: h.lignee, logis: h.logis, eteinte: false, jour: 0 });
+}
+// LA MÉMOIRE DU VILLAGE. La chronique n'était qu'un fil qui défilait :
+// deux cents lignes, puis l'oubli. Or c'est la mémoire qui doit décider —
+// on n'accuse pas celle qui a soigné votre mère. Alors chaque ligne porte
+// maintenant son jour et son GENRE, on la garde longtemps, et on peut la
+// relire par le bout qu'on veut.
+const GENRES = ['mort', 'naissance', 'bienfait', 'peur', 'perte', 'legende', 'village'];
 const chronique = [];
-function noter(txt, fort = false, qui = null) {
-  chronique.push({ txt: `jour ${village.jour} — ${txt}`, fort, qui });
-  if (chronique.length > 200) chronique.shift();
+function noter(txt, fort = false, qui = null, genre = 'village') {
+  chronique.push({ txt: `jour ${village.jour} — ${txt}`, nu: txt, jour: village.jour,
+                   fort, qui, genre });
+  if (chronique.length > 3000) chronique.shift();
 }
 
 // Un habitant qui accumule un passé devient quelqu'un. Sans ça, il n'y a
@@ -550,6 +604,38 @@ function souvenir(h, txt) {
   if (h.memoire.length > 14) h.memoire.shift();
 }
 const lien = (a, b) => a.liens.get(b) || 0;
+
+/* ---- CE QU'ON DOIT ---- */
+// Une dette n'est pas de l'affection : on peut devoir beaucoup à
+// quelqu'un qu'on n'aime pas, et c'est justement ce cas-là qui est
+// intéressant. Elle se transmet un peu aux proches — celui dont on a
+// soigné la mère doit lui aussi, sans l'avoir demandé.
+const detteDe = (qui, envers) => (qui.dette.get(envers) || 0);
+
+function devoir(qui, envers, montant, raison = null) {
+  if (!qui || !envers || qui === envers) return;
+  if (!qui.vivant || !envers.vivant) return;
+  const avant = detteDe(qui, envers);
+  const apres = Math.min(1, avant + montant);
+  qui.dette.set(envers, apres);
+  // on ne note que le moment où ça devient une dette dont on parle
+  if (raison && avant < 0.5 && apres >= 0.5) {
+    noter(`${nommer(envers)} ${raison} ${qui.prenom}.`, false, envers, 'bienfait');
+    souvenir(qui, `doit quelque chose à ${envers.prenom}`);
+    // les siens l'apprennent, et le doivent à moitié
+    for (const b of habitants) {
+      if (!b.vivant || b === qui || b === envers) continue;
+      if (b.mere !== qui && qui.mere !== b && b.aime !== qui) continue;
+      b.dette.set(envers, Math.min(1, detteDe(b, envers) + apres * 0.5));
+    }
+  }
+}
+// à qui doit-on le plus, parmi les vivants
+function creancier(h) {
+  let qui = null, v = 0;
+  for (const [a, d] of h.dette) if (a.vivant && d > v) { v = d; qui = a; }
+  return { qui, valeur: v };
+}
 /* ---- LE SOUPÇON, ET SUR QUI ---- */
 // combien « qui » soupçonne « cible »
 const soupconDe = (qui, cible) => qui.soupconne.get(cible) || 0;
@@ -557,7 +643,10 @@ const soupconDe = (qui, cible) => qui.soupconne.get(cible) || 0;
 function soupconner(qui, cible, montant) {
   if (!qui || !cible || qui === cible || !qui.vivant || !cible.vivant) return;
   // on ne soupçonne pas volontiers celui qu'on aime, ni celui qu'on tait
-  const proche = Math.max(lien(qui, cible), qui.secret === cible ? qui.secretForce : 0);
+  // Ce qu'on lui doit compte AUTANT que ce qu'on ressent pour lui. C'est
+  // le point où la mémoire du village entre dans ses décisions.
+  const proche = Math.max(lien(qui, cible), qui.secret === cible ? qui.secretForce : 0,
+                          detteDe(qui, cible) * (R.poidsDette / 6));
   const v = Math.min(1, soupconDe(qui, cible) + montant * (1 - proche * 0.85));
   qui.soupconne.set(cible, v);
   // soupçonner quelqu'un, c'est aussi être inquiet en général
@@ -942,7 +1031,7 @@ function majPleineLune(dt) {
 // n'ait pas trois versions différentes selon la façon dont on meurt.
 function mourir(h, texte) {
   h.vivant = false;
-  noter(texte, true, h);
+  noter(texte, true, h, 'mort');
   for (const a of habitants) {
     if (!a.vivant || a === h) continue;
     const l = Math.max(lien(a, h), a.secret === h ? a.secretForce : 0);
@@ -967,15 +1056,24 @@ function majAge(h, dt) {
   h.usure += (Math.min(1, dur) - h.usure) * dt * 0.0004;
 
   if (h.role === 'enfant' && h.age >= R.ageAdulte) {
-    // il prend le métier qui manque le plus au village
+    // Il prend le métier qui manque le plus au village — mais seulement
+    // parmi ceux qu'il reste quelqu'un pour savoir. On n'improvise pas
+    // boulanger parce que la place est libre : il faut avoir regardé
+    // faire. C'est là que le village peut perdre quelque chose pour de
+    // bon.
+    const su = savoirsVivants();
     const compte = {};
     for (const a of habitants) if (a.vivant && a.role !== 'enfant') compte[a.role] = (compte[a.role] || 0) + 1;
     let manque = 'paysan', pire = 99;
-    for (const r of ROLES_UTILES) { const n = compte[r] || 0; if (n < pire) { pire = n; manque = r; } }
+    for (const r of ROLES_UTILES) {
+      if (!su.has(r)) continue;
+      const n = compte[r] || 0; if (n < pire) { pire = n; manque = r; }
+    }
     h.role = manque;
+    h.savoir.add(manque);
     h.suit = null;
     village.arrive.majorites++;
-    noter(`${h.prenom} a pris le métier de ${NOM_ROLE[manque]}. ${h.feminin ? 'Elle' : 'Il'} a quatorze ans.`, true, h);
+    noter(`${h.prenom} a pris le métier de ${NOM_ROLE[manque]}. ${h.feminin ? 'Elle' : 'Il'} a quatorze ans.`, true, h, 'naissance');
     souvenir(h, `est devenu${e(h)} ${NOM_ROLE[manque]}`);
     return;
   }
@@ -998,9 +1096,23 @@ function majNoyade(h) {
   if (village.brouillard < 0.79 || h.torche > 0 || h.fatigue < 0.62) return;
   if (Math.abs(distRuisseau(h.x, h.z)) > LARGEUR_EAU * 0.16) return;
   if (Math.hypot(h.x - POINT_PONT.x, h.z - POINT_PONT.z) < 11) return;
+  // ON PEUT ÊTRE REPÊCHÉ. S'il y a quelqu'un à portée de voix avec une
+  // torche, il voit et il tire. C'est la plus grosse dette que ce
+  // village sache créer — et elle vaut plus tard, devant un bûcher.
+  const sauveur = habitants.find(a => a.vivant && a !== h && a.role !== 'enfant' &&
+    Math.hypot(a.x - h.x, a.z - h.z) < (a.torche > 0 ? 14 : 5));
+  if (sauveur) {
+    h.fatigue = Math.max(0, h.fatigue - 0.5);
+    h.peur = Math.min(1, h.peur + 0.4);
+    village.arrive.sauvetages++;
+    devoir(h, sauveur, 1, 'a tiré du ruisseau');
+    noter(`${nommer(sauveur)} a entendu remuer dans l'eau. ${h.prenom} a eu de la chance.`, true, sauveur, 'bienfait');
+    souvenir(sauveur, `a repêché ${h.prenom} dans le brouillard`);
+    return;
+  }
   h.vivant = false;
   village.arrive.noyades++;
-  noter(`${nommer(h)} n'a pas vu le ruisseau. On l'a retrouvé${e(h)} au petit jour.`, true, h);
+  noter(`${nommer(h)} n'a pas vu le ruisseau. On l'a retrouvé${e(h)} au petit jour.`, true, h, 'mort');
   for (const a of habitants) {
     if (!a.vivant || a === h) continue;
     const l = Math.max(lien(a, h), a.secret === h ? a.secretForce : 0);
@@ -1390,7 +1502,11 @@ function agir(h, dt) {
       for (const a of habitants) {
         if (!a.vivant || a === h) continue;
         if (Math.hypot(a.x - h.x, a.z - h.z) >= 8) continue;
+        const avant = a.fatigue;
         a.fatigue = Math.max(0, a.fatigue - dt * 0.05);
+        // On ne doit rien à qui vous soulage d'un rien : c'est celui
+        // qu'elle a relevé de très bas qui lui doit, et les siens avec.
+        if (avant > 0.45) devoir(a, h, dt * 0.12, 'a soigné');
         // Et il arrive qu'on s'attache à celle qui vous soigne quand
         // personne d'autre ne vous parle. Ça ne se déclare jamais — elle
         // ne le saura pas, le village non plus. Mais le jour où on vient
@@ -1585,11 +1701,17 @@ function majRassemblements() {
         village.foule = false; village.bucher = null;
         village.repitFoule = village.jour + 2;
         if (protege) {
-          noter(`${nommer(sgr)} s'est interposé. La foule s'est défaite.`, true);
+          noter(`${nommer(sgr)} s'est interposé. La foule s'est défaite.`, true, sgr, 'bienfait');
+          // On lui doit d'être encore là. Le seigneur ne le fait pas pour
+          // ça, mais le village s'en souviendra le jour de la révolte.
+          devoir(visee, sgr, 0.9);
           village.autorite = Math.max(0, village.autorite - 0.2);
           // tout le monde change d'avis, pas seulement les arrivés — sinon
           // les autres relancent une foule dans la seconde
           for (const h of chauds) { h.soupcon *= 0.3; h.prochainChoix = 0; }
+        } else if (rappeler(visee)) {
+          // quelqu'un a parlé : voir rappeler()
+          for (const h of chauds) { h.soupcon *= 0.35; h.prochainChoix = 0; }
         } else {
           const courageMoyen = arrives.reduce((t, h) => t + h.courage, 0) / arrives.length;
           finirAccusation(visee, courageMoyen > 0.5);
@@ -1651,7 +1773,7 @@ function finirAccusation(v, jusquauBout) {
   if (v.role === 'sorciere') { village.sorciereChassee = true; village.jourSansSorciere = 0; }
   if (village.accuse === v) village.accuse = null;
   if (jusquauBout) {
-    noter(`Le bûcher a brûlé sur la place. ${nommer(v)} n'est plus.`, true);
+    noter(`Le bûcher a brûlé sur la place. ${nommer(v)} n'est plus.`, true, v, 'mort');
     village.arrive.buchers++;
     // Ceux qui ont crié avec les autres s'en veulent après coup, et
     // d'autant plus qu'ils étaient pieux. La honte, elle, ne vient que
@@ -1663,7 +1785,7 @@ function finirAccusation(v, jusquauBout) {
       souvenir(h, `était sur la place quand le bûcher a brûlé`);
     }
   }
-  else { noter(`${nommer(v)} a pris la route avant eux. La maison est vide.`, true); village.arrive.departs++; }
+  else { noter(`${nommer(v)} a pris la route avant eux. La maison est vide.`, true, v, 'mort'); village.arrive.departs++; }
   // le village vient de se priver de ce que cette personne faisait
   const manque = {
     boulanger: 'Il ne reste personne pour tenir le four.',
@@ -1926,10 +2048,12 @@ function naissances() {
     bebe.mere = m;
     bebe.suit = m;
     bebe.usure = Math.min(1, m.usure * 0.5);
+    // le nom de maison vient de la mère, et à défaut du père
+    bebe.lignee = m.lignee || (m.aime && m.aime.lignee) || null;
     habitants.push(bebe);
     nouveaux.push(bebe);
     village.arrive.naissances++;
-    noter(`${m.prenom} a eu un enfant. On l'appelle ${bebe.prenom}.`, true, bebe);
+    noter(`${m.prenom} a eu un enfant. On l'appelle ${bebe.prenom}.`, true, bebe, 'naissance');
     souvenir(m, `a mis ${bebe.prenom} au monde`);
     souvenir(m.aime, `est devenu${e(m.aime)} parent de ${bebe.prenom}`);
     return;                       // une naissance par jour, pas davantage
@@ -2047,8 +2171,142 @@ function majRats(dt) {
   village.ble = Math.max(0, village.ble - dt * village.rats * R.ratsMangent * 0.02);
 }
 
+/* ================================================================
+   LE TROISIÈME ACTE — CE QUI NE REVIENT PAS
+   Tout le reste de ce village se répare. La faim passe, la peur
+   retombe, le moulin se remonte, un enfant reprend le métier. Un jeu
+   fait de ça seul est une boucle : on peut le regarder longtemps sans
+   que rien ne soit jamais en jeu. Ici trois choses ne reviennent pas —
+   un nom de maison qui s'éteint, un métier que plus personne ne sait,
+   une maison vide qui finit par tomber. Elles ne s'annoncent pas ;
+   elles se constatent, un matin, dans la chronique.
+   ================================================================ */
+
+function perdre(quoi, texte) {
+  village.pertes.push({ jour: village.jour, annee: village.annee, quoi, texte });
+  noter(texte, true, null, 'perte');
+}
+
+// ---- LES LIGNÉES ----
+// Le nom de maison est enregistré à la fondation. On regarde chaque soir
+// s'il reste quelqu'un pour le porter.
+function majLignees() {
+  const compte = new Map();
+  for (const h of habitants) if (h.vivant && h.lignee) compte.set(h.lignee, (compte.get(h.lignee) || 0) + 1);
+  for (const [nom, l] of village.lignees) {
+    if (l.eteinte) continue;
+    if (compte.get(nom)) continue;
+    l.eteinte = true; l.jour = village.jour;
+    village.arrive.extinctions++;
+    perdre('lignee', `Il n'y a plus de ${nom} au village. La maison restera vide.`);
+    // la maison ne se relouera pas : personne n'arrive jamais ici pour
+    // s'installer, et c'est exactement pour ça que le vide se voit
+    if (l.logis && !habitants.some(h => h.vivant && h.logis === l.logis)) {
+      l.logis.vide = true;
+      if (l.logis.abandon === undefined) l.logis.abandon = 0;
+    }
+  }
+}
+
+// ---- LES MAISONS VIDES ----
+// Une maison sans personne dedans ne tombe pas le lendemain. Elle se
+// tait d'abord — pas de fumée, pas de lumière — puis le toit cède.
+function majRuines() {
+  for (const l of LIEUX) {
+    if (!l.vide || l.ruine) continue;
+    if (habitants.some(h => h.vivant && h.logis === l)) { l.vide = false; l.abandon = 0; continue; }
+    l.abandon = (l.abandon || 0) + 1;
+    if (l.abandon >= R.ruineApres) {
+      l.ruine = true;
+      village.arrive.ruines++;
+      perdre('ruine', `Le toit de la maison vide a cédé. On passe devant sans plus la regarder.`);
+    }
+  }
+}
+
+// ---- LES MÉTIERS ----
+// Ce que le village sait encore faire, ce soir. Le travail de la terre
+// n'est jamais perdu : tout le monde a vu faire.
+function savoirsVivants() {
+  const su = new Set(['paysan']);
+  for (const h of habitants) if (h.vivant) for (const r of h.savoir) su.add(r);
+  return su;
+}
+
+// UN ENFANT APPREND EN REGARDANT. Pas un rôle : quelqu'un. C'est
+// l'adulte dont il est le plus proche qui lui transmet, et si cet
+// adulte meurt avant le terme, l'apprentissage s'arrête là.
+function apprendre() {
+  for (const h of habitants) {
+    if (!h.vivant || h.role !== 'enfant') continue;
+    let maitre = null, meilleur = 0.25;
+    for (const a of habitants) {
+      if (!a.vivant || a === h || a.role === 'enfant') continue;
+      if (!ROLES_UTILES.includes(a.role)) continue;
+      const l = lien(h, a) + (a === h.mere ? 0.4 : 0);
+      if (l > meilleur) { meilleur = l; maitre = a; }
+    }
+    if (!maitre) continue;
+    const r = maitre.role;
+    h.appris[r] = (h.appris[r] || 0) + 1;
+    if (h.appris[r] === R.apprentissage && !h.savoir.has(r)) {
+      h.savoir.add(r);
+      souvenir(h, `a appris ${NOM_ROLE[r]} en regardant ${maitre.prenom}`);
+      souvenir(maitre, `a montré son métier à ${h.prenom}`);
+    }
+  }
+}
+
+// Et le soir où plus personne ne sait, on ne l'apprend pas tout de
+// suite : on s'en aperçoit à la première meule cassée.
+function majMetiers() {
+  const su = savoirsVivants();
+  for (const r of ROLES_UTILES) {
+    if (su.has(r) || village.perdus.has(r)) continue;
+    village.perdus.add(r);
+    village.arrive.metiersPerdus++;
+    const suite = {
+      boulanger: 'Le four ne rallumera pas.',
+      charpentier: 'Aucune meule ne sera plus remontée.',
+      forgeron: "Les outils s'useront jusqu'au dernier.",
+      pretre: "L'église restera fermée.",
+      bucheron: 'On ira chercher son bois soi-même, et moins loin.',
+      tailleur: 'Le chantier de l\'église s\'arrête ici.',
+      ebeniste: 'Plus personne ne travaille le bois pour le plaisir.',
+    }[r] || '';
+    perdre('metier', `Plus personne ne sait ${NOM_ROLE[r]}. ${suite}`.trim());
+  }
+}
+
+// ---- LA PAROLE QUI SAUVE ----
+// La foule est devant la porte. S'il y a là quelqu'un qui doit
+// vraiment quelque chose à l'accusé, il le dit — et parler contre les
+// siens coûte : les autres le regarderont de travers ensuite.
+function rappeler(visee) {
+  // Pas parmi les accusateurs : la dette empêche précisément d'accuser,
+  // donc celui qui doit n'est jamais dans la foule. Il est sur le pas de
+  // sa porte, il regarde, et à un moment il ne peut plus se taire.
+  let qui = null, dette = R.detteQuiSauve;
+  const temoins = habitants.filter(h => h.vivant && h !== visee && h.role !== 'enfant' &&
+    Math.hypot(h.x - visee.logis.x, h.z - visee.logis.z) < 20);
+  for (const h of temoins) { const d = detteDe(h, visee); if (d > dette) { dette = d; qui = h; } }
+  if (!qui) return false;
+  village.arrive.paroles++;
+  noter(`${nommer(qui)} a rappelé devant tous ce que ${visee.prenom} avait fait pour ${qui.feminin ? 'elle' : 'lui'}. On s'est tu.`,
+        true, qui, 'bienfait');
+  souvenir(qui, `a parlé pour ${visee.prenom} devant la foule`);
+  souvenir(visee, `a été défendu${e(visee)} par ${qui.prenom}`);
+  // celui qui défend l'accusé devient un peu suspect à son tour
+  for (const h of temoins) if (h !== qui) soupconner(h, qui, 0.18);
+  return true;
+}
+
 function finDeJournee() {
   naissances();
+  apprendre();
+  majLignees();
+  majRuines();
+  majMetiers();
   // CELUI QU'ON NE VOIT JAMAIS. Chaque jour, un peu de soupçon se porte
   // sur qui n'est pas venu sur la place. Ce n'est pas une punition de
   // l'écart : c'est ce que fait un village.
@@ -2323,6 +2581,7 @@ return {
   avancer: simuler,
   poidsDes, choisirOccupation, lieuDe, tensionActuelle,
   nommer, nomComplet, souvenir, noter, lien, e, NOM_ROLE, ROLES, metierDe,
+  detteDe, creancier, savoirsVivants, GENRES, LIGNEES,
   estNuit, estJour, lumiere,
   analyser, appliquerRegles, resoudre,
   lancerDragon, lancerFoire, surnommer,

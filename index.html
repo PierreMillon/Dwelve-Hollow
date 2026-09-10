@@ -82,6 +82,35 @@
   #fiche .souvenir { color: var(--ph-dim); }
   #fiche-fermer { position: absolute; top: 6px; right: 6px; padding: 2px 7px; line-height: 1.1; }
 
+  /* LA MÉMOIRE DU VILLAGE. La chronique passe et s'efface ; ici on la
+     relit par le bout qu'on veut. En haut, ce qui ne reviendra pas. */
+  #memoire {
+    position: fixed; right: 0; top: 66px; z-index: 3;
+    width: min(340px, 74vw); max-height: calc(100% - 150px);
+    margin-right: max(12px, env(safe-area-inset-right));
+    background: rgba(4, 12, 8, 0.94);
+    border: 1px solid var(--ph-dim);
+    padding: 10px 12px; overflow-y: auto;
+  }
+  #memoire[hidden] { display: none; }
+  #memoire .nom { color: var(--ph-line); letter-spacing: 0.08em; padding-right: 18px; }
+  #memoire .section {
+    color: var(--ph-line); opacity: 0.55; letter-spacing: 0.14em;
+    margin: 12px 0 5px; font-size: 10px;
+  }
+  #memoire .perte { color: var(--ph-line); margin-bottom: 4px; }
+  #memoire .perte span { color: var(--ph-dim); }
+  #memoire .rien { color: var(--ph-dim); }
+  #m-filtres { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 6px; }
+  #m-filtres button { padding: 1px 6px; line-height: 1.4; }
+
+  #m-cherche { width: 100%; margin-bottom: 6px; }
+  #m-lignes div { color: var(--ph-dim); margin-bottom: 3px; }
+  #m-lignes div.fort { color: var(--ph-text); }
+  #m-lignes div.cliquable { cursor: pointer; }
+  #m-lignes div.cliquable:hover { color: var(--ph-line); }
+  #memoire-fermer { position: absolute; top: 6px; right: 6px; padding: 2px 7px; line-height: 1.1; }
+
   #etiquette {
     position: fixed; z-index: 3; pointer-events: none;
     color: var(--ph-line); text-shadow: 0 0 8px rgba(0,0,0,0.9);
@@ -198,7 +227,7 @@
   <span class="title">DWELVE HOLLOW</span>
 </div>
 
-<button id="version">v0.23</button>
+<button id="version">v0.24</button>
 
 <div id="saison">an <b id="s-an">1</b> · <b id="s-saison">printemps</b> · jour <b id="s-jour">1</b> · <b id="s-phase">aube</b> · <b id="s-lune">lune</b> · pain <b id="s-pain">0</b> · peur <b id="s-peur">0 %</b></div>
 
@@ -208,6 +237,7 @@
   <button id="fiche-fermer">×</button>
   <div class="nom" id="f-nom">—</div>
   <div class="occ" id="f-occ">—</div>
+  <div id="f-etat"></div>
   <div class="section">POURQUOI — LA PREMIÈRE LIGNE L'EMPORTE</div>
   <div id="f-pourquoi"></div>
   <div class="section">BESOINS</div>
@@ -216,8 +246,21 @@
   <div id="f-soupcons"></div>
   <div class="section">LIENS</div>
   <div id="f-liens"></div>
+  <div class="section">IL DOIT</div>
+  <div id="f-dettes"></div>
   <div class="section">SOUVENIRS</div>
   <div id="f-memoire"></div>
+</div>
+
+<div id="memoire" hidden>
+  <button id="memoire-fermer">×</button>
+  <div class="nom">la mémoire du village</div>
+  <div class="section">ce qui ne reviendra pas</div>
+  <div id="m-pertes"></div>
+  <div class="section">relire</div>
+  <div id="m-filtres"></div>
+  <input type="text" id="m-cherche" placeholder="un nom, un mot" autocomplete="off" spellcheck="false">
+  <div id="m-lignes"></div>
 </div>
 
 <div id="etiquette" hidden></div>
@@ -246,6 +289,7 @@
   <button id="btn-vitesse">×1</button>
   <button id="btn-pause" aria-pressed="false">pause</button>
   <button id="btn-chronique" aria-pressed="true">chronique</button>
+  <button id="btn-memoire" aria-pressed="false">mémoire</button>
   <button id="btn-spin" aria-pressed="true">⟳</button>
   <input id="regle" placeholder="Jehan aime Perrine" autocomplete="off" spellcheck="false">
   <a class="lien" href="test-3d.html">banc d'essai</a>
@@ -293,7 +337,25 @@
   <div class="contenu">
     <h2>DWELVE HOLLOW — HISTORIQUE</h2>
 
-    <div class="v courante"><b>v0.23</b> — <b>les légendes.</b> Une auberge, le seul toit du
+    <div class="v courante"><b>v0.24</b> — <b>ce qui ne revient pas, et la mémoire qui
+      décide.</b> Tout, jusqu'ici, revenait : la faim passait, la peur retombait, le
+      moulin se remontait, un enfant reprenait le métier du mort. Trois choses ne
+      reviennent plus. Chaque maison porte un nom — Beaufort, Roquemaure, Aiguebelle —
+      que l'enfant tient de sa mère, et le jour où le dernier qui le portait meurt, ce nom
+      est perdu. Un métier ne se reprend que si quelqu'un l'a appris en regardant faire,
+      pendant quatre journées, un adulte dont il était proche : le boulanger qui meurt
+      sans avoir montré son four emporte le pain avec lui. Et la maison vide ne se reloue
+      pas — elle s'éteint d'abord, puis le toit cède, et il en reste trois pans et les
+      poutres couchées dedans. En face, la chronique cesse d'être un fil qui passe :
+      elle est gardée, datée, classée, relisible par le bout qu'on veut, et en tête
+      d'elle la seule liste de ce village qui ne fait que s'allonger. Elle décide aussi.
+      On doit quelque chose à celle qui vous a soigné, à celui qui vous a tiré du
+      ruisseau — et une dette n'est pas de l'affection : on peut devoir beaucoup à
+      quelqu'un qu'on n'aime pas. Elle empêche d'accuser, et si la foule vient quand
+      même, celui qui doit le plus parle devant tous. On se tait. Et on le regarde de
+      travers pendant quelques jours.</div>
+
+    <div class="v"><b>v0.23</b> — <b>les légendes.</b> Une auberge, le seul toit du
       village qui ne soit à personne. Des étrangers y descendent, dont on ne sait rien — et
       c'est exactement pour ça qu'on les soupçonne. Un <b>chasseur de monstres</b> arrive
       quand le village a peur : logé gratuitement, il regarde longuement quelqu'un et ne dit
@@ -477,6 +539,7 @@ const {
   poidsDes, nommer, nomComplet, lien, e, NOM_ROLE, metierDe,
   estNuit, estJour, lumiere, analyser, appliquerRegles, noter,
   souvenir, surnommer, lancerDragon, lancerFoire, evenements,
+  detteDe, creancier, GENRES,
 } = M;
 
 
@@ -531,6 +594,36 @@ function bloc(fn) { const o = { a: [], f: [] }; fn(o.a, o.f); return o; }
 const FORMES = {
   chaumiere: (l = 4.4, p = 5.6, hm = 2.6, ht = 1.7) => bloc((S, T) => {
     boite(S, T, 0, 0, 0, l, hm, p); toit(S, T, 0, hm, 0, l, ht, p);
+  }),
+  // LA MAISON TOMBÉE. Elle garde l'emprise de celle qui était là — même
+  // place, même angle — mais il n'en reste que trois pans inégaux et le
+  // toit couché dedans. On la reconnaît de loin sans avoir à la nommer.
+  ruine: (l = 4.4, p = 5.6) => bloc((S, T) => {
+    const X = l / 2, Z = p / 2;
+    // Le pignon de droite tient encore, les trois autres pans sont
+    // retombés à hauteur d'homme ou moins. C'est ce pignon debout qui
+    // dit « il y avait une maison ici » plutôt que « il y a un muret ».
+    const reste = [0.55, 1.5, 1.45, 0.85];
+    const c = [[-X, -Z], [X, -Z], [X, Z], [-X, Z]];
+    for (let i = 0; i < 4; i++) {
+      const [ax, az] = c[i], [bx, bz] = c[(i + 1) % 4];
+      const ha = reste[i], hb = reste[(i + 1) % 4];
+      trait(S, ax, 0, az, bx, 0, bz);                 // l'assise
+      trait(S, ax, 0, az, ax, ha, az);                // le montant
+      trait(S, ax, ha, az, bx, hb, bz);               // l'arase, de travers
+      if (T) quad(T, [ax, 0, az], [bx, 0, bz], [bx, hb, bz], [ax, ha, az]);
+    }
+    // Deux poteaux de charpente restés plantés. Un pignon debout aurait
+    // été plus beau, mais selon l'angle de la maison il passe derrière
+    // les faces noires des murs de devant et se met à flotter tout seul
+    // au-dessus du reste. Un poteau d'angle est sur la silhouette quel
+    // que soit l'angle.
+    trait(S, X, reste[1], -Z, X * 0.86, 2.5, -Z * 0.9);
+    trait(S, -X, reste[3], Z, -X * 0.92, 2.1, Z * 0.82);
+    // et le toit est tombé dedans : trois poutres en travers
+    trait(S, -X * 0.8, 0.9,  -Z * 0.7, X * 0.7, 0.1,  Z * 0.5);
+    trait(S, -X * 0.6, 0.2,   Z * 0.6, X * 0.8, 1.2, -Z * 0.4);
+    trait(S, -X * 0.9, 0.6,   Z * 0.1, X * 0.4, 0.15, -Z * 0.8);
   }),
   boulangerie: () => bloc((S, T) => {
     boite(S, T, 0, 0, 0, 5.4, 3, 6.6); toit(S, T, 0, 3, 0, 5.4, 2, 6.6);
@@ -752,9 +845,15 @@ const SEG_TRACE = [];                    // route, ruisseau, sillons : entre les
 })();
 
 // --- les bâtiments : on relit LIEUX et on va chercher la forme nommée ---
+// Tout est fondu dans une seule géométrie — sauf les chaumières. Une
+// maison peut se vider et tomber, et on ne défait pas un maillage fondu.
+// Sept objets de plus, c'est le prix de la seule chose de ce village qui
+// ne se répare pas.
+const A_POSER = [];
 for (const l of LIEUX) {
   if (!l.forme || !FORMES[l.forme]) continue;
   const o = FORMES[l.forme](...(l.args || []));
+  if (l.type === 'chaumiere') { A_POSER.push({ l, o }); continue; }
   poser(SEG_DECOR, o.a, l.x, l.y, l.z, l.angle);
   poser(FACE_DECOR, o.f, l.x, l.y, l.z, l.angle);
 }
@@ -908,6 +1007,19 @@ function ensemble(forme, mat) {
 }
 
 scene.add(ensemble({ a: SEG_DECOR, f: FACE_DECOR }, matDecor));
+
+// chaque chaumière a deux visages : debout, et tombée
+const MAISONS = new Map();
+for (const { l, o } of A_POSER) {
+  const debout = ensemble(o, matDecor);
+  debout.position.set(l.x, l.y, l.z); debout.rotation.y = l.angle;
+  scene.add(debout);
+  const tombee = ensemble(FORMES.ruine(...(l.args || [])), matDecor);
+  tombee.position.set(l.x, l.y, l.z); tombee.rotation.y = l.angle;
+  tombee.visible = false;
+  scene.add(tombee);
+  MAISONS.set(l, { debout, tombee, vue: false });
+}
 const objSol = ligneDe(SEG_SOL, matSol);
 scene.add(objSol);
 scene.add(ligneDe(SEG_TRACE, matTrace));
@@ -1131,8 +1243,15 @@ scene.add(objFen);
 // éteinte : un simple trait de mur. allumée : le point le plus clair du village.
 function peindreFenetres() {
   for (const f of FENETRES) {
+    // Un trou dans un mur tombé n'est plus une fenêtre : on l'éteint
+    // presque entièrement plutôt que de défaire la géométrie fondue.
     const a = f.allumee;
-    const r = 0.10 + a * 0.90, v = 0.42 + a * 0.52, b = 0.24 + a * 0.56;
+    // Un trou dans un mur tombé n'est plus une fenêtre : on l'éteint
+    // presque entièrement plutôt que de défaire la géométrie fondue.
+    const tombee = f.lieu && f.lieu.ruine;
+    const r = tombee ? 0.02 : 0.10 + a * 0.90,
+          v = tombee ? 0.05 : 0.42 + a * 0.52,
+          b = tombee ? 0.03 : 0.24 + a * 0.56;
     for (let i = f.debut * 6; i < f.fin * 6; i += 3) {
       COUL_FEN[i] = r; COUL_FEN[i + 1] = v; COUL_FEN[i + 2] = b;
     }
@@ -1183,7 +1302,10 @@ const RAYONS = { chaumiere: 3.2, boulangerie: 3.9, atelier: 3.3, eglise: 6,
                  grange: 4.2, auberge: 4 };
 for (const l of LIEUX) {
   const h = HAUTEURS[l.forme];
-  if (h) OMBRAGEURS.push({ x: l.x, z: l.z, r: RAYONS[l.forme], h });
+  if (!h) continue;
+  // on garde la référence : une maison tombée ne porte plus la même ombre
+  l.ombrageur = { x: l.x, z: l.z, r: RAYONS[l.forme], h };
+  OMBRAGEURS.push(l.ombrageur);
 }
 
 // le sol reçoit une couleur par segment : claire, ou éteinte par une ombre
@@ -1532,6 +1654,18 @@ function majCadrage() {
    ================================================================ */
 const $ = (id) => document.getElementById(id);
 const PHASES = [[0.22, 'nuit'], [0.3, 'aube'], [0.75, 'jour'], [0.86, 'soir'], [1, 'nuit']];
+
+// LE TROISIÈME ACTE, CÔTÉ IMAGE. Une seule fois par maison, et jamais
+// dans l'autre sens : c'est bien là tout le propos.
+function majMaisons() {
+  for (const [l, m] of MAISONS) {
+    if (!l.ruine || m.vue) continue;
+    m.vue = true;
+    m.debout.visible = false;
+    m.tombee.visible = true;
+    if (l.ombrageur) l.ombrageur.h = 1.8;
+  }
+}
 
 function majChronique() {
   const c = $('chronique');
@@ -1955,6 +2089,14 @@ function majFiche() {
     : `${h.prenom}, ${metierDe(h)}`;
   $('f-occ').textContent = h.occupation + (h.cible ? ` → ${h.cible.nom}` : '');
 
+  // Le nom de maison ne sert à rien tant que quelqu'un le porte. Il ne
+  // devient lisible que le jour où il n'y a plus personne pour ça.
+  const savus = [...h.savoir].filter(r => r !== h.role).map(r => NOM_ROLE[r]);
+  $('f-etat').innerHTML =
+    (h.lignee ? `<div class="ligne"><span class="pq">maison</span> ${h.lignee}</div>` : '') +
+    `<div class="ligne"><span class="pq">âge</span> ${Math.floor(h.age)} ans</div>` +
+    (savus.length ? `<div class="ligne"><span class="pq">sait aussi</span> ${savus.join(', ')}</div>` : '');
+
   const p = poidsDes(h).filter(x => x[1] > 0.001).sort((a, b) => b[1] - a[1]).slice(0, 4);
   $('f-pourquoi').innerHTML = p.map(([nom, w, pq], i) =>
     `<div class="ligne${i ? '' : ' premier'}">${nom} ${w.toFixed(2)}` +
@@ -1998,10 +2140,98 @@ function majFiche() {
       `<div class="ligne"><span class="pq">${v.toFixed(2)}</span> ${a.prenom}, ${NOM_ROLE[a.role]}</div>`).join('')
       : (tu || ditesRegles ? '' : '<div class="ligne"><span class="pq">personne, pour l\'instant</span></div>'));
 
+  // CE QU'IL DOIT. Ce n'est pas de l'affection : on peut devoir beaucoup
+  // à quelqu'un qu'on n'aime pas. C'est ce nombre-là qui l'empêche
+  // d'accuser, et qui le fera parler devant la foule.
+  const dus = [...h.dette.entries()].filter(([a, v]) => a.vivant && v > 0.08)
+    .sort((a, b) => b[1] - a[1]).slice(0, 3);
+  $('f-dettes').innerHTML = dus.length
+    ? dus.map(([a, v]) => barre(a.prenom, v)).join('')
+    : '<div class="ligne"><span class="pq">rien à personne</span></div>';
+
   $('f-memoire').innerHTML = h.memoire.length
     ? h.memoire.slice(-6).reverse().map(t => `<div class="souvenir">${t}</div>`).join('')
     : '<div class="souvenir">rien encore</div>';
 }
+
+/* ---- LA MÉMOIRE DU VILLAGE ----
+   La chronique défilait et se perdait : quatorze lignes en bas de
+   l'écran, puis plus rien. Or c'est elle qui décide — on n'accuse pas
+   celle qui a soigné votre mère. Elle est donc gardée, datée, classée,
+   et relisible par le bout qu'on veut. En tête : ce qui ne reviendra
+   pas, la seule liste de ce village qui ne fait que s'allonger. */
+const FILTRES = [
+  ['tout', 'tout'], ['perte', 'ce qui ne revient pas'], ['mort', 'morts'],
+  ['naissance', 'naissances'], ['bienfait', 'bienfaits'], ['legende', 'légendes'],
+  ['village', 'le village'],
+];
+let genreVu = 'tout', chercheVu = '';
+let memoireVisible = false;
+
+(function poserFiltres() {
+  const c = $('m-filtres');
+  for (const [cle, nom] of FILTRES) {
+    const b = document.createElement('button');
+    b.type = 'button'; b.textContent = nom;
+    b.setAttribute('aria-pressed', String(cle === genreVu));
+    b.addEventListener('click', () => {
+      genreVu = cle;
+      for (const autre of c.children) autre.setAttribute('aria-pressed', String(autre === b));
+      majMemoire();
+    });
+    c.appendChild(b);
+  }
+})();
+
+$('m-cherche').addEventListener('input', (ev) => {
+  chercheVu = ev.target.value.trim().toLowerCase();
+  majMemoire();
+});
+
+function majMemoire() {
+  if (!memoireVisible) return;
+
+  const pertes = $('m-pertes');
+  pertes.innerHTML = village.pertes.length
+    ? village.pertes.slice().reverse().map(p =>
+        `<div class="perte">${p.texte}<span> · an ${p.annee}</span></div>`).join('')
+    : '<div class="rien">rien encore. Tout se répare toujours.</div>';
+
+  const lignes = $('m-lignes');
+  lignes.innerHTML = '';
+  const gardees = chronique.filter(ev =>
+    (genreVu === 'tout' || ev.genre === genreVu) &&
+    (!chercheVu || ev.nu.toLowerCase().includes(chercheVu)));
+  if (!gardees.length) {
+    lignes.innerHTML = '<div class="rien">on ne se souvient de rien de tel.</div>';
+    return;
+  }
+  // les cent dernières, la plus récente en haut
+  for (const ev of gardees.slice(-100).reverse()) {
+    const d = document.createElement('div');
+    d.textContent = ev.txt;
+    if (ev.fort) d.classList.add('fort');
+    if (ev.qui) {
+      d.classList.add('cliquable');
+      d.addEventListener('click', () => selectionner(ev.qui));
+    }
+    lignes.appendChild(d);
+  }
+}
+
+function majBoutonMemoire() {
+  $('memoire').hidden = !memoireVisible;
+  $('btn-memoire').setAttribute('aria-pressed', String(memoireVisible));
+  majMemoire();
+}
+$('btn-memoire').addEventListener('click', () => {
+  memoireVisible = !memoireVisible;
+  majBoutonMemoire();
+});
+$('memoire-fermer').addEventListener('click', () => {
+  memoireVisible = false;
+  majBoutonMemoire();
+});
 
 // ---- le bouton de la chronique ----
 let chroniqueVisible = true;
@@ -2021,7 +2251,7 @@ addEventListener('resize', majCadrage);
 window.DH = { scene, camera, controls, renderer, village, habitants, chronique, LIEUX,
               MOULINS, hauteur, lancerDragon, lancerFoire, tenterMusique, evenements, bruit, majMeteo,
               selectionner, poidsDes, ecranDe, distRoute, distRuisseau, analyser, regles,
-              appliquerRegles, nomComplet, surnommer,
+              appliquerRegles, nomComplet, surnommer, noter, majMaisons, majMemoire,
               get selection() { return selection; },
               etatAudio: () => ({ ctx: ctxAudio && ctxAudio.state, bornes,
                                   duree: tamponMusique && tamponMusique.duration,
@@ -2059,7 +2289,12 @@ renderer.setAnimationLoop((maintenant) => {
   while (evenements.length) bruit(evenements.shift().quoi);
   if (maintenant - dernierTexte > 200) {
     dernierTexte = maintenant;
-    if (chronique.length !== chroniqueVue) { chroniqueVue = chronique.length; majChronique(); }
+    if (chronique.length !== chroniqueVue) {
+      chroniqueVue = chronique.length;
+      majChronique();
+      majMaisons();
+      majMemoire();
+    }
     majAffichage();
   }
 

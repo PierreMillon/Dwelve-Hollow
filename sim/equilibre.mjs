@@ -96,6 +96,13 @@ function agreger(lots) {
     meurtres: m(s => s.meurtres || 0),
     couples: m(s => s.couples), vivants: m(s => s.vivants),
     autorite: m(s => s.autorite),
+    // ce qui ne revient pas, et la mémoire qui décide
+    extinctions: m(s => s.extinctions || 0),
+    metiersPerdus: m(s => s.metiersPerdus || 0),
+    ruines: m(s => s.ruines || 0),
+    paroles: m(s => s.paroles || 0),
+    sauvetages: m(s => s.sauvetages || 0),
+    pertes: m(s => (s.extinctions || 0) + (s.metiersPerdus || 0) + (s.ruines || 0)),
   };
 }
 
@@ -128,6 +135,13 @@ function afficher(a, titre) {
   console.log(`  morts de vieillesse       ${num(a.vieillesses ?? 0)}`);
   console.log(`  loups · meurtres          ${num(a.loups ?? 0)} · ${num(a.meurtres ?? 0)}`);
   console.log(`  couples formés            ${num(a.couples)}`);
+  console.log('  ── ce qui ne revient pas ─────────────────────');
+  console.log(`  lignées éteintes          ${num(a.extinctions ?? 0)}`);
+  console.log(`  métiers perdus            ${num(a.metiersPerdus ?? 0)}`);
+  console.log(`  maisons tombées           ${num(a.ruines ?? 0)}`);
+  console.log('  ── la mémoire qui décide ─────────────────────');
+  console.log(`  foules arrêtées d'un mot  ${num(a.paroles ?? 0)}`);
+  console.log(`  repêchés du ruisseau      ${num(a.sauvetages ?? 0)}`);
   console.log(`  habitants en vie          ${num(a.vivants)}`);
 }
 
@@ -158,6 +172,14 @@ const CIBLES = [
   // noyait six habitants par village et le village y passait.
   ['noyés dans le brouillard', (a) => a.noyades,   0,    7,   ''],
   ['naissances par village', (a) => a.naissances,  1,    16,  ''],
+  // LE TROISIÈME ACTE. Une borne basse à zéro ne dirait rien : c'est
+  // justement le risque qu'il ne se passe jamais rien d'irréversible.
+  // Une borne haute non plus : un village qui perd trois métiers en six
+  // ans ne se raconte pas, il s'effondre.
+  ['pertes définitives',    (a) => a.pertes,       0.4,  4,   ''],
+  // LA MÉMOIRE QUI DÉCIDE. Si personne ne parle jamais devant la foule,
+  // la dette n'est qu'un nombre rangé dans un coin.
+  ["foules arrêtées d'un mot", (a) => a.paroles,   0.5,  8,   ''],
 ];
 
 function verifier(a) {

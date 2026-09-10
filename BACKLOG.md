@@ -2024,6 +2024,116 @@ tranche, et on ne l'apprend qu'aux pronoms de la chronique.
 
 ---
 
+## Ce qui ne revient pas, et la mémoire qui décide (v0.24)
+
+Deux chantiers qui n'en font qu'un : le village peut enfin perdre
+quelque chose pour de bon, et il se souvient assez pour que ça compte.
+
+### Le problème, dit simplement
+
+Tout, dans ce village, revenait. La faim passait, la peur retombait, le
+moulin se remontait, un enfant reprenait le métier du mort. Un jeu fait
+de ça seul est une boucle : on peut le regarder longtemps sans que rien
+ne soit jamais en jeu. Il manquait le troisième acte — quelque chose qui
+ne revienne pas.
+
+### Trois choses qui ne reviennent pas
+
+**Les lignées.** Chaque maison fondatrice porte un nom — Beaufort,
+Roquemaure, Aiguebelle… — et l'enfant hérite de celui de sa mère. Le
+prêtre et la guérisseuse n'en ont pas : ils n'ont personne après eux, et
+c'est déjà une façon de le dire. Le jour où le dernier qui portait un
+nom meurt, la chronique l'écrit : *« Il n'y a plus de Beaufort au
+village. »* Ce nom ne reviendra jamais.
+
+**Les métiers.** Un rôle est ce qu'on fait aujourd'hui ; le savoir est ce
+qu'on pourrait encore transmettre demain. Les deux se séparent le jour
+où le dernier qui savait meurt. Un enfant apprend en regardant —
+quelqu'un, pas un rôle : c'est l'adulte dont il est le plus proche qui
+lui transmet, en quatre journées, et si cet adulte meurt avant le terme
+l'apprentissage s'arrête là. À quatorze ans, il ne prend plus « le
+métier qui manque » : il prend le métier qui manque **parmi ceux qu'il
+reste quelqu'un pour savoir**. On n'improvise pas boulanger parce que la
+place est libre. Le travail de la terre, lui, ne se perd jamais : tout le
+monde a vu faire.
+
+**Les maisons.** Une maison dont la lignée s'est éteinte ne se reloue
+pas — personne n'arrive jamais ici pour s'installer, et c'est
+exactement pour ça que le vide se voit. Elle se tait d'abord (pas de
+fumée, pas de lumière : le rendu n'allume une fenêtre que si quelqu'un
+est rentré), puis, six journées plus tard, le toit cède. Il en reste
+trois pans inégaux et les poutres couchées dedans, à la même place et au
+même angle. Son ombre portée rétrécit avec elle.
+
+Ça a coûté de sortir les sept chaumières de la géométrie fondue : on ne
+défait pas un maillage fondu. Sept objets de plus, c'est le prix de la
+seule chose de ce village qui ne se répare pas.
+
+### La mémoire qui décide
+
+La chronique n'était qu'un fil qui défilait : deux cents lignes gardées,
+quatorze affichées, puis l'oubli. Or c'est elle qui doit décider — la
+phrase de Pierre était *« on n'accuse pas celle qui a soigné votre
+mère »*.
+
+**La dette.** Ce n'est pas de l'affection : on peut devoir beaucoup à
+quelqu'un qu'on n'aime pas, et c'est justement ce cas-là qui est
+intéressant. Elle naît de deux gestes concrets — la guérisseuse qui
+relève quelqu'un de très bas, et le repêchage dans le ruisseau. Elle se
+transmet à moitié aux proches : celui dont on a soigné la mère doit lui
+aussi, sans l'avoir demandé. Et elle divise le soupçon, exactement comme
+l'affection le faisait déjà.
+
+**La parole qui sauve.** La foule est devant la porte. S'il y a là
+quelqu'un qui doit vraiment quelque chose à l'accusé, il le dit, et on
+se tait. Première version fausse et instructive : on cherchait celui qui
+parle *parmi les accusateurs* — or la dette empêche précisément
+d'accuser, donc le débiteur n'est jamais dans la foule. Il fallait le
+chercher parmi ceux qui sont là et qui se taisent. Corrigé, ça se
+produit 1,25 fois par village sur six années.
+
+Et parler pour l'accusé coûte : les autres le regardent de travers
+ensuite. Il devient un peu suspect à son tour.
+
+**Le panneau.** Un bouton « mémoire » ouvre la chronique entière — datée,
+classée par genre (morts, naissances, bienfaits, légendes, pertes), avec
+un filtre par mot. En tête, toujours : *ce qui ne reviendra pas*, la
+seule liste de ce village qui ne fait que s'allonger. Chaque ligne
+nommant quelqu'un reste cliquable.
+
+La fiche gagne trois choses : le nom de maison, l'âge en années, ce que
+la personne sait faire en plus de son métier, et à qui elle doit.
+
+### Mesuré, 16 villages × 6 années
+
+- lignées éteintes **0,38** par village
+- métiers perdus **0,44**
+- maisons tombées **0,38**
+- soit **1,19 perte définitive** par village sur six années
+- foules arrêtées d'un mot **1,25**
+- repêchés du ruisseau **0,25**
+
+Deux cibles de non-régression ajoutées, parce que ce qu'on ne mesure pas
+on le perd sans s'en apercevoir : `pertes définitives` entre 0,4 et 4
+(une borne basse à zéro ne dirait rien — c'est justement le risque qu'il
+ne se passe jamais rien d'irréversible ; une borne haute non plus : un
+village qui perd trois métiers en six ans ne se raconte pas, il
+s'effondre), et `foules arrêtées d'un mot` au moins une fois sur deux
+villages, sans quoi la dette n'est qu'un nombre rangé dans un coin.
+
+Les quatorze cibles tiennent, et les deux propriétés de détermination
+avec.
+
+### Reste à faire
+
+- Le nom de maison n'apparaît pas dans les noms affichés (« Aliénor de
+  Beaufort ») : il ne devient lisible que le jour où plus personne ne le
+  porte. À trancher avec Pierre — c'est peut-être exactement bien ainsi.
+- Le colporteur et l'étranger pourraient rapporter un métier perdu. Non
+  fait volontairement : ce serait le faire revenir.
+
+---
+
 ## 📜 Historique
 
 - **2026-09-10 (après-midi, suite)** — Lumière des torches calculée par
