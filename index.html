@@ -113,6 +113,16 @@
     padding: 7px 10px; cursor: pointer;
     letter-spacing: 0.05em; white-space: nowrap; text-decoration: none;
   }
+  #regle {
+    font: inherit; color: var(--ph-text); background: var(--ph-panel);
+    border: 1px solid var(--ph-dim); padding: 7px 10px; width: min(240px, 44vw);
+  }
+  #regle::placeholder { color: rgba(70,255,160,0.35); }
+  #regle:focus { outline: none; border-color: var(--ph-line); }
+  #regle.refus { border-color: #ff6b6b; color: #ff9d9d; }
+  #menu .regle { color: var(--ph-text); margin-bottom: 4px; }
+  #menu .regle button { padding: 1px 7px; margin-right: 8px; line-height: 1.1; }
+  #menu .regle .pq { color: var(--ph-dim); }
   button:active, button[aria-pressed="true"] {
     color: #04120c; background: var(--ph-line); border-color: var(--ph-line);
   }
@@ -155,7 +165,7 @@
   <span class="title">DWELVE HOLLOW</span>
 </div>
 
-<button id="version">v0.11</button>
+<button id="version">v0.13</button>
 
 <div id="saison">jour <b id="s-jour">1</b> · <b id="s-phase">aube</b> · pain <b id="s-pain">0</b> · peur <b id="s-peur">0 %</b></div>
 
@@ -182,6 +192,7 @@
   <button id="btn-pause" aria-pressed="false">pause</button>
   <button id="btn-chronique" aria-pressed="true">chronique</button>
   <button id="btn-spin" aria-pressed="true">⟳</button>
+  <input id="regle" placeholder="Jehan aime Perrine" autocomplete="off" spellcheck="false">
   <a class="lien" href="test-3d.html">banc d'essai</a>
 </div>
 
@@ -199,6 +210,14 @@
     </div>
     <p class="note">La musique est celle de Pierre, en boucle. Les bruitages ne sont pas
     encore branchés — le curseur est en place et son réglage est conservé.</p>
+
+    <h2 style="margin-top:26px">RÈGLES</h2>
+    <div id="liste-regles"></div>
+    <p class="note">Écris une règle en bas de l'écran, sous la forme
+    <b>qui · fait quoi · à qui</b> — « Jehan aime Perrine », « le forgeron suit
+    le seigneur », « tous craignent la cabane ». Verbes : aime, déteste, suit,
+    évite, craint. Une règle n'est pas un scénario : elle entre dans le tirage
+    de la personne, au même titre que sa faim, et le reste suit.</p>
 
     <h2 style="margin-top:26px">LE VILLAGE</h2>
     <table id="tableau-roles"></table>
@@ -276,6 +295,7 @@ import { OrbitControls } from './vendor/three/OrbitControls.js';
 import { LineSegments2 } from './vendor/three/LineSegments2.js';
 import { LineSegmentsGeometry } from './vendor/three/LineSegmentsGeometry.js';
 import { LineMaterial } from './vendor/three/LineMaterial.js';
+import { AVION_SOMMETS, AVION_TRIANGLES } from './models/avion.js';
 
 /* ================================================================
    1. HASARD REPRODUCTIBLE
@@ -455,21 +475,28 @@ function silhouette(role) {
   return o;
 }
 
-const DRAGON = bloc((S, T) => {
-  const c = [[0,0,-5.5],[1.1,0.6,-1.5],[1.4,0.3,2],[0.6,0.2,5],[0,0.1,9]];
-  for (let i = 0; i < c.length - 1; i++) {
-    for (const sg of [-1, 1]) trait(S, sg*c[i][0], c[i][1], c[i][2], sg*c[i+1][0], c[i+1][1], c[i+1][2]);
-    trait(S, -c[i][0], c[i][1], c[i][2], c[i][0], c[i][1], c[i][2]);
-    quad(T, [-c[i][0],c[i][1],c[i][2]], [c[i][0],c[i][1],c[i][2]],
-            [c[i+1][0],c[i+1][1],c[i+1][2]], [-c[i+1][0],c[i+1][1],c[i+1][2]]);
+// LE DRAGON, c'est-à-dire l'avion de Fly or Die. Anachronique et assumé.
+// Le modèle arrive en sommets indexés ; on en tire d'un côté la soupe de
+// triangles qui cache l'arrière, de l'autre les arêtes vives au seuil de
+// 20° — le même seuil que dans Fly or Die, où ce modèle se lit déjà bien.
+const DRAGON = (() => {
+  const ECHELLE = 2.6;                       // envergure 7,2 → ~19, l'échelle du village
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(AVION_SOMMETS, 3));
+  g.setIndex(AVION_TRIANGLES);
+  g.scale(ECHELLE, ECHELLE, ECHELLE);
+
+  const f = [];
+  const pos = g.attributes.position, idx = g.index;
+  for (let k = 0; k < idx.count; k++) {
+    const v = idx.getX(k);
+    f.push(pos.getX(v), pos.getY(v), pos.getZ(v));
   }
-  for (const sg of [-1, 1]) {
-    trait(S, sg*1.2, 0.5, -0.5, sg*9, 3.2, 1.5);
-    trait(S, sg*9, 3.2, 1.5, sg*1.2, 0.3, 4);
-    trait(S, sg*9, 3.2, 1.5, sg*4.5, 1.2, 2);
-    tri(T, [sg*1.2,0.5,-0.5], [sg*9,3.2,1.5], [sg*1.2,0.3,4]);
-  }
-});
+  const ar = new THREE.EdgesGeometry(g, 20).attributes.position;
+  const a = [];
+  for (let k = 0; k < ar.count; k++) a.push(ar.getX(k), ar.getY(k), ar.getZ(k));
+  return { a, f };
+})();
 
 /* ================================================================
    3. LE TERRAIN, LE RUISSEAU, LA ROUTE, PUIS LE VILLAGE
@@ -757,7 +784,36 @@ function prenomPour(role) {
 const e = (h) => (h.feminin ? 'e' : '');   // l'accord, une bonne fois
 
 const habitants = [];
-const nommer = (h) => `${h.prenom}, ${NOM_ROLE[h.role]}`;
+
+// LES NOMS. Un prénom seul ne suffit pas dans un village : deux Jehan et
+// on ne sait plus de qui on parle. On désambiguïse alors par le métier
+// (« Jehan le forgeron ») ou par un repère près de chez soi (« Aude du
+// pont »). Et au fil du temps, certains gagnent un surnom qui vient de
+// leur histoire, pas de leur métier — c'est celui-là qui reste.
+function homonymes(h) {
+  return habitants.filter(a => a !== h && a.vivant && a.prenom === h.prenom).length > 0;
+}
+function attacheDe(h) {
+  // le repère le plus proche de son logis, quand le métier ne suffit pas
+  let best = null, bd = Infinity;
+  for (const l of LIEUX) {
+    if (l === h.logis || l.type === 'place' || l.type === 'chaumiere') continue;
+    const d = Math.hypot(l.x - h.logis.x, l.z - h.logis.z);
+    if (d < bd) { bd = d; best = l; }
+  }
+  if (!best) return null;
+  const n = best.nom.replace(/^(le |la |les |l')/, '');
+  return (best.nom.startsWith('les ') ? 'des ' : "du ") + n;
+}
+function nomComplet(h) {
+  if (h.surnom) return `${h.prenom} dit${h.feminin ? 'e' : ''} ${h.surnom}`;
+  if (!homonymes(h)) return h.prenom;
+  if (!h.attache) h.attache = attacheDe(h);
+  const metier = NOM_ROLE[h.role] || '';
+  return `${h.prenom} ${metier.replace(/^(le |la |l')/, h.feminin ? 'la ' : 'le ')}`.trim();
+}
+const nommer = (h) => h.surnom ? `${h.prenom} dit${h.feminin ? 'e' : ''} ${h.surnom}`
+                               : `${h.prenom}, ${NOM_ROLE[h.role]}`;
 function creerHabitant(role, logis) {
   return {
     role, logis, ...prenomPour(role),
@@ -773,6 +829,11 @@ function creerHabitant(role, logis) {
     faim: entre(0, 0.4), fatigue: entre(0, 0.3), foi: entre(0, 0.5), peur: 0,
     soupcon: entre(0, 0.15), rancune: 0, chagrin: 0,
     secret: null, secretForce: 0,   // celle dont il n'a jamais rien dit
+    courtise: null, deteste: null, suit: null, evite: null, craint: null,  // posé par les règles écrites
+    prochainFlirt: 0, rembarrades: 0, aDitPas: false,
+    surnom: null, attache: null,          // voir surnommer() et nomComplet()
+    compte: { reparations: 0, vols: 0, prieres: 0, rembarrades: 0, accusations: 0,
+              moissons: 0, foires: 0, deuils: 0 },
     memoire: [],            // ce qu'il a fait, et ce qu'on lui a fait
     liens: new Map(),       // affinité avec chaque autre, 0 à 1
     aime: null,
@@ -875,14 +936,28 @@ function poidsDes(h) {
     // toute seule de ceux qui connaissent la victime, sans qu'aucune
     // règle ne dise « épargner ses amis »
     const proche = Math.max(lien(h, cible), h.secret === cible ? h.secretForce : 0);
-    p.push(['accuser', h.soupcon * poussee * (0.25 + h.peur) * 3.5 * (1 - proche),
+    const rancoeur = h.deteste === cible ? 2.5 : 1;   // une règle « déteste » pèse ici
+    p.push(['accuser', h.soupcon * poussee * (0.25 + h.peur) * 3.5 * (1 - proche) * rancoeur,
             `soupçon ${n2(h.soupcon)} × superstition ${n2(h.superstition)}` +
             (village.autorite > 0.4 ? ` · le prêtre est écouté` : '') +
-            (proche > 0.2 ? ` · mais il tient à ${cible.prenom}` : '')]);
+            (proche > 0.2 ? ` · mais il tient à ${cible.prenom}` : '') +
+            (rancoeur > 1 ? ` · une règle : il la déteste` : '')]);
   }
   // la rancune, elle, ne cherche pas un coupable faible : elle monte au manoir
   p.push(['se révolter', h.rancune * h.rancune * h.courage * 3,
           `rancune ${n2(h.rancune)} × courage ${n2(h.courage)}`]);
+
+  // ce que les règles écrites ajoutent au tirage — ni plus ni moins
+  // prioritaire que la faim ou la fatigue
+  if (h.courtise && h.courtise.vivant) {
+    const lasse = Math.max(0, 1 - h.rembarrades * 0.28);   // on n'insiste pas indéfiniment
+    p.push(['courtiser', 2.2 * lasse * (1 - h.peur) * (nuit ? 0.25 : 1),
+            `une règle : il tient à ${h.courtise.prenom}` +
+            (h.rembarrades ? ` · rembarré ${h.rembarrades} fois` : '')]);
+  }
+  if (h.suit && h.suit.vivant !== false) {
+    p.push(['suivre', 1.6 * (1 - h.peur), `une règle : il suit ${h.suit.prenom || h.suit.nom}`]);
+  }
   // Voler n'est pas reserve au voleur : n'importe quel cupide s'y met la
   // nuit si la huche est pleine. C'est ce qui fait que le village ne peut
   // JAMAIS savoir qui l'a fait, et qu'il accuse a cote.
@@ -935,6 +1010,8 @@ function lieuDe(h, occ) {
       return village.sorciereChassee ? (village.accuse ? village.accuse.logis : PLACE) : CABANE;
     }
     case 'se révolter': return village.fouleRevolte ? MANOIR : PLACE;
+    case 'courtiser': return h.courtise;      // une personne a x et z, comme un lieu
+    case 'suivre': return h.suit;
     case 'moissonner': return parmi(CHAMPS);
     case 'cuire': return FOUR;
     case 'forger': return parmi(ATELIERS);
@@ -988,6 +1065,12 @@ function simuler(dt) {
     // la faim qui dure cherche un coupable — c'est ce lien qui fait
     // qu'un dragon qui ne tue personne finit quand même en bûcher
     if (h.faim > 0.85) h.soupcon = Math.min(1, h.soupcon + dt * 0.02 * h.superstition);
+    // une règle « craint » ne fait rien d'autre que monter la peur à
+    // l'approche — tout le reste en découle par les règles existantes
+    if (h.craint) {
+      const d = Math.hypot(h.craint.x - h.x, h.craint.z - h.z);
+      if (d < 22) h.peur = Math.min(1, h.peur + dt * 0.06 * (1 - d / 22));
+    }
     peurTotale += h.peur;
 
     if (village.temps > h.prochainChoix) {
@@ -1014,10 +1097,86 @@ function avancer(h, dt) {
   const v = h.vitesse * (h.occupation === 'fuir' ? 2 : 1) * (1 - h.fatigue * 0.4);
   h.x += (dx / d) * v * dt;
   h.z += (dz / d) * v * dt;
+  // « évite » : on se détourne sans cesser d'aller où l'on allait
+  if (h.evite) {
+    const ex = h.x - h.evite.x, ez = h.z - h.evite.z;
+    const de = Math.hypot(ex, ez);
+    if (de < 12 && de > 0.01) {
+      h.x += (ex / de) * v * dt * 1.4;
+      h.z += (ez / de) * v * dt * 1.4;
+    }
+  }
 }
 const arrive = (h) => h.cible && Math.hypot(h.cible.x - h.x, h.cible.z - h.z) < PROCHE;
 
+// Le flirt : on s'approche, on tente, et ça marche ou pas. Le refus n'est
+// pas une punition du joueur — c'est juste l'autre qui a sa propre vie,
+// ses propres liens, et parfois déjà quelqu'un.
+function tenterFlirt(h) {
+  const c = h.courtise;
+  if (!c || !c.vivant || village.temps < h.prochainFlirt) return;
+  h.prochainFlirt = village.temps + 26;
+
+  // 1. elle en aime un autre. On peut insister une fois, pas trois.
+  if (c.aime && c.aime !== h) {
+    h.rembarrades++;
+    h.chagrin = Math.min(1, h.chagrin + 0.16);
+    if (h.rembarrades === 1) {
+      noter(`${c.prenom} en aime un autre. ${h.prenom} l'a bien compris.`, false, h);
+      souvenir(h, `a compris que ${c.prenom} en aimait un autre`);
+      h.prochainFlirt = village.temps + 120;
+    } else {
+      renoncer(h, c);
+    }
+    return;
+  }
+
+  // 2. déjà ensemble : plus rien à tenter
+  if (c.aime === h) { h.courtise = null; return; }
+
+  const chance = lien(c, h) * 0.7 + c.sociabilite * 0.25 - 0.12;
+  if (alea() < chance) {
+    h.rembarrades = 0;
+    rapprocher(h, c, 0.2);
+    // une seule ligne pour dire que ça avance — pas une à chaque pas
+    if (!h.aDitPas) {
+      h.aDitPas = true;
+      noter(`${h.prenom} et ${c.prenom} ont fait quelques pas ensemble.`, false, h);
+      souvenir(h, `a marché avec ${c.prenom}`);
+      souvenir(c, `a marché avec ${h.prenom}`);
+    }
+    // et ça peut aboutir : courtiser quelqu'un rapproche plus vite que
+    // simplement le croiser, donc l'engagement arrive pour de bon
+    if (lien(h, c) > 0.72 && lien(c, h) > 0.72 && !c.aime && !h.aime) {
+      h.aime = c; c.aime = h; h.courtise = null;
+      noter(`${h.prenom} et ${c.prenom} se sont promis l'un à l'autre.`, true, h);
+      souvenir(h, `s'est promis${e(h)} à ${c.prenom}`);
+      souvenir(c, `s'est promis${e(c)} à ${h.prenom}`);
+    }
+  } else {
+    h.rembarrades++;
+    h.chagrin = Math.min(1, h.chagrin + 0.1);
+    noter(`${h.prenom} s'est fait rembarrer par ${c.prenom}.`, false, h);
+    souvenir(h, `s'est fait rembarrer par ${c.prenom}`);
+    h.compte.rembarrades++;
+    if (h.rembarrades >= 4) renoncer(h, c);
+    else h.prochainFlirt = village.temps + 60;
+  }
+}
+
+// On n'insiste pas indéfiniment. Renoncer est une fin d'histoire, pas un
+// échec du joueur : la règle écrite reste, mais cette personne-là a cessé
+// d'espérer, et ça se voit sur sa fiche.
+function renoncer(h, c) {
+  h.courtise = null;
+  h.chagrin = Math.min(1, h.chagrin + 0.25);
+  h.prochainFlirt = village.temps + 400;
+  noter(`${h.prenom} a cessé d'espérer.`, false, h);
+  souvenir(h, `a cessé d'espérer pour ${c.prenom}`);
+}
+
 function agir(h, dt) {
+  if (h.occupation === 'courtiser' && arrive(h)) { tenterFlirt(h); return; }
   if (!arrive(h)) return;
   switch (h.occupation) {
     case 'dormir': h.fatigue = Math.max(0, h.fatigue - dt * 0.09); break;
@@ -1032,12 +1191,14 @@ function agir(h, dt) {
       // on ne prie jamais autant que quand on a peur, et c'est le prêtre
       // qui encaisse le crédit : son autorité se nourrit de nos frayeurs
       if (h.peur > 0.35) village.autorite = Math.min(1, village.autorite + dt * 0.03);
+      h.compte.prieres += dt;
       // le prêtre apaise tout le monde autour de lui, pas seulement lui
       if (h.role === 'pretre') for (const a of habitants) {
         if (a.vivant && Math.hypot(a.x - h.x, a.z - h.z) < 14) a.peur = Math.max(0, a.peur - dt * 0.05);
       }
       break;
     case 'moissonner':
+      h.compte.moissons += dt;
       // avec de bons outils on moissonne bien mieux ; les outils s'usent
       if (village.ble < PLAFOND_BLE) {
         village.ble += dt * (village.outils > 0 ? 0.8 : 0.45);
@@ -1058,6 +1219,7 @@ function agir(h, dt) {
       village.pain = Math.max(0, village.pain - dt * 0.35);
       village.farine = Math.max(0, village.farine - dt * 0.3);
       village.volsCetteNuit += dt * 0.35;
+      h.compte.vols += dt * 0.35;
       break;
     }
     case 'colporter': {
@@ -1078,6 +1240,7 @@ function agir(h, dt) {
     case 'réparer':
       if (h.cible && h.cible.etat !== undefined) {
         h.cible.etat = Math.min(1, h.cible.etat + dt * 0.07);
+        h.compte.reparations += dt * 0.07;
         if (h.cible.reparationSignalee && h.cible.etat > 0.9) {
           h.cible.reparationSignalee = false;
           noter(`${nommer(h)} a remis ${h.cible.nom} en marche.`, false, h);
@@ -1138,8 +1301,13 @@ function voisinage(dt) {
       if (!b.vivant) continue;
       if (Math.hypot(a.x - b.x, a.z - b.z) > 5) continue;
 
-      // se voir souvent, ça rapproche — pondéré par la sociabilité des deux
-      rapprocher(a, b, dt * 0.012 * (0.3 + a.sociabilite) * (0.3 + b.sociabilite));
+      // se voir souvent, ça rapproche — sauf si une règle dit le contraire
+      if (a.deteste === b || b.deteste === a) {
+        a.liens.set(b, Math.max(0, lien(a, b) - dt * 0.03));
+        b.liens.set(a, Math.max(0, lien(b, a) - dt * 0.03));
+      } else {
+        rapprocher(a, b, dt * 0.012 * (0.3 + a.sociabilite) * (0.3 + b.sociabilite));
+      }
 
       // deux voisins rapprochent aussi leurs soupçons ; le plus convaincu
       // tire l'autre à lui, jamais l'inverse en entier
@@ -1205,6 +1373,7 @@ function majRassemblements() {
       for (const h of surLaPlace) {
         h.cible = visee.logis; h.prochainChoix += 30;
         souvenir(h, `est allé chercher du bois pour ${visee.prenom}`);
+        h.compte.accusations++;
       }
     }
     if (village.foule) {
@@ -1273,6 +1442,7 @@ function finirAccusation(v, jusquauBout) {
     h.rancune = Math.min(1, h.rancune + l * 0.45);
     h.soupcon = 0;
     souvenir(h, tenait >= l ? `l'a pleurée sans rien dire` : `a perdu ${v.prenom}`);
+    h.compte.deuils++;
     if (tenait > 0.5) { h.secret = null; h.secretForce = 0; }
   }
   if (v.aime && v.aime.vivant) {
@@ -1342,7 +1512,61 @@ function majColporteur() {
   souvenir(venu, 'est arrivé par la route du nord');
 }
 
+// Les surnoms ne se distribuent pas : ils se gagnent. Chacun vient d'un
+// compteur ou d'un trait poussé loin, et le village met un moment à s'y
+// mettre — d'où le seuil, et la ligne dans la chronique le jour où le nom
+// prend.
+// Un surnom marque celui qui SE DÉTACHE, pas celui qui a duré. Premier
+// essai avec des seuils absolus : au bout de cinquante jours, six
+// villageois sur neuf s'appelaient « le dévot », parce que le compteur de
+// prières monte pour tout le monde. Les scores sont donc relatifs à la
+// moyenne du village — il faut faire nettement plus que les autres.
+function moyenneDe(champ) {
+  let t = 0, n = 0;
+  for (const h of habitants) { if (!h.vivant) continue; t += h.compte[champ]; n++; }
+  return n ? t / n : 0;
+}
+// combien de fois au-dessus de la moyenne, moins le seuil de 2 : à 3× la
+// moyenne le score vaut 1, ce qui commence à être remarquable
+const saillant = (v, moy, seuil = 2) => (moy < 0.5 ? -9 : v / moy - seuil);
+
+const SURNOMS = [
+  { f: 'la hargneuse',   m: 'le hargneux',    score: (h) => (h.rancune - 0.82) * 8 },
+  { f: "l'éconduite",    m: "l'éconduit",     score: (h, mo) => saillant(h.compte.rembarrades, Math.max(0.6, mo.rembarrades), 2.5) },
+  { f: 'la main leste',  m: 'la main leste',  score: (h, mo) => saillant(h.compte.vols, mo.vols, 3) },
+  { f: "aux mains d'or", m: "aux mains d'or", score: (h, mo) => saillant(h.compte.reparations, mo.reparations, 3) },
+  { f: 'la dévote',      m: 'le dévot',       score: (h, mo) => saillant(h.compte.prieres, mo.prieres, 2.4) + (h.piete > 0.75 ? 0.4 : -1.5) },
+  { f: 'la taciturne',   m: 'le taciturne',   score: (h) => (0.12 - h.sociabilite) * 9 - h.liens.size * 0.15 },
+  { f: "l'avare",        m: "l'avare",        score: (h, mo) => (h.cupidite - 0.9) * 5 + saillant(h.compte.vols, mo.vols, 2) },
+  { f: 'la corbeille',   m: 'outre à vin',    score: (h, mo) => saillant(h.compte.foires, mo.foires, 1.6) + (h.piete < 0.25 ? 0.4 : -3) },
+  { f: 'la douloureuse', m: 'le douloureux',  score: (h, mo) => saillant(h.compte.deuils, Math.max(0.4, mo.deuils), 2.5) },
+  { f: 'la brûlante',    m: 'le brûlant',     score: (h, mo) => saillant(h.compte.accusations, Math.max(0.8, mo.accusations), 2.5) },
+];
+
+// et le village n'en trouve pas un par jour : on ne nomme que le cas le
+// plus marquant, et seulement s'il dépasse vraiment
+function surnommer() {
+  const mo = {};
+  for (const c of ['rembarrades', 'vols', 'reparations', 'prieres', 'foires', 'deuils', 'accusations']) {
+    mo[c] = moyenneDe(c);
+  }
+  let meilleur = null, meilleurScore = 1;
+  for (const h of habitants) {
+    if (!h.vivant || h.surnom) continue;
+    for (const su of SURNOMS) {
+      const sc = su.score(h, mo);
+      if (sc > meilleurScore) { meilleurScore = sc; meilleur = { h, su }; }
+    }
+  }
+  if (!meilleur) return;
+  const { h, su } = meilleur;
+  h.surnom = h.feminin ? su.f : su.m;
+  noter(`On a commencé à l'appeler ${h.surnom}. C'était ${h.prenom}.`, false, h);
+  souvenir(h, `a gagné son surnom : ${h.surnom}`);
+}
+
 function finDeJournee() {
+  surnommer();
   if (village.pain < 1) noter('Il ne reste plus de pain au village.');
 
   if (village.volsCetteNuit > 1.2) {
@@ -1360,7 +1584,7 @@ function finDeJournee() {
     village.jourDime = village.jour;
     const part = Math.round(village.pain * 0.22);
     village.pain -= part;
-    noter(`La dîme est levée : ${part} pains partent à l'église.`, false, pretre);
+    noter(`La dîme est levée : ${part} pain${part > 1 ? 's' : ''} part${part > 1 ? 'ent' : ''} à l'église.`, false, pretre);
     souvenir(pretre, `a levé la dîme : ${part} pains`);
     for (const h of habitants) if (h.vivant) h.rancune = Math.min(1, h.rancune + 0.09 * (1 - h.piete));
   }
@@ -1375,7 +1599,7 @@ function finDeJournee() {
     const surBle = Math.round(village.ble * taux), surFarine = Math.round(village.farine * taux);
     const part = surBle + surFarine;
     village.ble -= surBle; village.farine -= surFarine; village.impot += part;
-    noter(`Le manoir a levé l'impôt : ${part} mesures de grain.`, false, sgr);
+    noter(`Le manoir a levé l'impôt : ${part} mesure${part > 1 ? 's' : ''} de grain.`, false, sgr);
     for (const h of habitants) if (h.vivant && h !== sgr) h.rancune = Math.min(1, h.rancune + 0.10 * h.courage);
     souvenir(sgr, `a levé l'impôt : ${part} mesures`);
   }
@@ -1437,7 +1661,12 @@ function lancerFoire() {
   }
   village.ble += 10;
   noter('Foire aux bestiaux. Les étals se dressent sur la place.', true);
-  for (const h of habitants) { if (h.vivant) { h.prochainChoix = 0; h.sociabilite = Math.min(1, h.sociabilite + 0.05); } }
+  for (const h of habitants) {
+    if (!h.vivant) continue;
+    h.prochainChoix = 0;
+    h.sociabilite = Math.min(1, h.sociabilite + 0.05);
+    h.compte.foires++;
+  }
 }
 
 function lancerDragon() {
@@ -1794,13 +2023,116 @@ function majTableau() {
   t.innerHTML = '';
   for (const h of habitants) {
     const tr = document.createElement('tr');
-    tr.innerHTML = `<td>${NOM_ROLE[h.role]}</td><td class="v">${h.vivant ? h.occupation : 'parti'}</td>`;
+    tr.innerHTML = `<td>${h.vivant ? nomComplet(h) : h.prenom}, ${NOM_ROLE[h.role]}</td>` +
+                   `<td class="v">${h.vivant ? h.occupation : 'parti'}</td>`;
     t.appendChild(tr);
   }
 }
 $('h-pop').textContent = habitants.length;
 $('h-graine').textContent = GRAINE;
 $('h-seg').textContent = (SEG_DECOR.length / 6) + habitants.reduce((n, h) => n + silhouette(h.role).length / 6, 0);
+
+/* ================================================================
+   LES RÈGLES ÉCRITES
+   Une phrase de trois morceaux — QUI · FAIT QUOI · À QUI — et le village
+   l'applique. Ce n'est pas un scénario : c'est une règle de plus dans le
+   tirage de quelqu'un, au même titre que sa faim. On l'écrit, puis on
+   regarde ce que ça donne, y compris quand ça tourne mal.
+   ================================================================ */
+const regles = [];
+const sansAccent = (t) => t.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+const sansArticle = (t) => t.replace(/^(le |la |les |l'|un |une |des )/, '').trim();
+
+const VERBES = {
+  aime: 'aime', aimer: 'aime', aiment: 'aime',
+  deteste: 'deteste', detester: 'deteste', detestent: 'deteste', hait: 'deteste',
+  suit: 'suit', suivre: 'suit', suivent: 'suit',
+  evite: 'evite', eviter: 'evite', evitent: 'evite', fuit: 'evite',
+  craint: 'craint', craindre: 'craint', craignent: 'craint',
+};
+
+// un morceau de phrase peut désigner une personne, un métier, un lieu, ou tout le monde
+function resoudre(mot) {
+  const m = sansArticle(sansAccent(mot));
+  if (!m) return [];
+  if (m === 'tous' || m === 'toutes' || m === 'tout le monde' || m === 'village') {
+    return habitants.filter(h => h.vivant);
+  }
+  const parPrenom = habitants.filter(h => h.vivant && sansAccent(h.prenom) === m);
+  if (parPrenom.length) return parPrenom;
+  const parRole = habitants.filter(h => h.vivant &&
+    (sansAccent(h.role) === m || sansArticle(sansAccent(NOM_ROLE[h.role] || '')) === m));
+  if (parRole.length) return parRole;
+  return LIEUX.filter(l => sansArticle(sansAccent(l.nom)) === m);
+}
+
+function analyser(phrase) {
+  const brut = phrase.replace(/>/g, ' ').replace(/\s+/g, ' ').trim();
+  if (!brut) return null;
+  const norm = sansAccent(brut);
+  let trouve = null;
+  for (const v of Object.keys(VERBES).sort((a, b) => b.length - a.length)) {
+    const i = norm.indexOf(' ' + v + ' ');
+    if (i >= 0) { trouve = { v, i }; break; }
+  }
+  if (!trouve) return { erreur: 'verbe inconnu — aime, déteste, suit, évite, craint' };
+  const gauche = brut.slice(0, trouve.i).trim();
+  const droite = brut.slice(trouve.i + trouve.v.length + 2).trim();
+  const sujets = resoudre(gauche), objets = resoudre(droite);
+  if (!sujets.length) return { erreur: `qui, « ${gauche} » ?` };
+  if (!objets.length) return { erreur: `qui ou quoi, « ${droite} » ?` };
+  return { texte: brut, verbe: VERBES[trouve.v], sujets, objet: objets[0] };
+}
+
+function appliquerRegles() {
+  for (const h of habitants) { h.courtise = null; h.deteste = null; h.suit = null; h.evite = null; h.craint = null; }
+  for (const r of regles) {
+    for (const h of r.sujets) {
+      if (!h.vivant || h === r.objet) continue;
+      const estPersonne = !!r.objet.role;
+      if (r.verbe === 'aime' && estPersonne) { h.courtise = r.objet; h.prochainFlirt = 0; h.rembarrades = 0; h.aDitPas = false; }
+      else if (r.verbe === 'deteste' && estPersonne) h.deteste = r.objet;
+      else if (r.verbe === 'suit') h.suit = r.objet;
+      else if (r.verbe === 'evite') h.evite = r.objet;
+      else if (r.verbe === 'craint') h.craint = r.objet;
+    }
+  }
+  majListeRegles();
+}
+
+function majListeRegles() {
+  const l = $('liste-regles');
+  if (!l) return;
+  l.innerHTML = regles.length ? '' : '<div class="regle"><span class="pq">aucune</span></div>';
+  regles.forEach((r, i) => {
+    const d = document.createElement('div');
+    d.className = 'regle';
+    const b = document.createElement('button');
+    b.textContent = '×';
+    b.addEventListener('click', () => { regles.splice(i, 1); appliquerRegles(); });
+    d.appendChild(b);
+    d.appendChild(document.createTextNode(r.texte));
+    l.appendChild(d);
+  });
+}
+
+$('regle').addEventListener('keydown', (ev) => {
+  if (ev.key !== 'Enter') return;
+  const champ = ev.target;
+  const r = analyser(champ.value);
+  if (!r || r.erreur) {
+    champ.classList.add('refus');
+    champ.value = '';
+    champ.placeholder = (r && r.erreur) || 'écris : qui · fait quoi · à qui';
+    setTimeout(() => { champ.classList.remove('refus'); champ.placeholder = 'Jehan aime Perrine'; }, 2800);
+    return;
+  }
+  regles.push(r);
+  appliquerRegles();
+  noter(`Une règle est entrée dans le village : ${r.texte}.`, true, r.sujets[0]);
+  champ.value = '';
+});
+majListeRegles();
 
 /* ================================================================
    LA FICHE — on clique sur quelqu'un et on voit ce qu'il fait ET
@@ -1856,7 +2188,9 @@ function majFiche() {
   const h = selection;
   if (!h || !h.vivant) { selectionner(null); return; }
 
-  $('f-nom').textContent = `${h.prenom}, ${NOM_ROLE[h.role]}`;
+  $('f-nom').textContent = h.surnom
+    ? `${h.prenom} dit${h.feminin ? 'e' : ''} ${h.surnom}`
+    : `${nomComplet(h)}, ${NOM_ROLE[h.role]}`;
   $('f-occ').textContent = h.occupation + (h.cible ? ` → ${h.cible.nom}` : '');
 
   const p = poidsDes(h).filter(x => x[1] > 0.001).sort((a, b) => b[1] - a[1]).slice(0, 4);
@@ -1873,14 +2207,24 @@ function majFiche() {
     .sort((a, b) => b[1] - a[1]).slice(0, 3);
   // l'attachement tu qui n'est visible que d'ici : le village l'ignore,
   // l'intéressée aussi, et c'est bien ça qui serre le cœur
+  const regleDe = [
+    h.courtise && `aime ${h.courtise.prenom}`,
+    h.deteste && `déteste ${h.deteste.prenom}`,
+    h.suit && `suit ${h.suit.prenom || h.suit.nom}`,
+    h.evite && `évite ${h.evite.prenom || h.evite.nom}`,
+    h.craint && `craint ${h.craint.prenom || h.craint.nom}`,
+  ].filter(Boolean);
+  const ditesRegles = regleDe.length
+    ? `<div class="ligne premier">${regleDe.join(' · ')}<br><span class="pq">une règle que tu as écrite</span></div>` : '';
+
   const tu = (h.secret && h.secret.vivant && h.secretForce > 0.12)
     ? `<div class="ligne premier">tient à ${h.secret.prenom}` +
       `<br><span class="pq">n'en a jamais rien dit · ${h.secretForce.toFixed(2)}</span></div>` : '';
-  $('f-liens').innerHTML =
+  $('f-liens').innerHTML = ditesRegles +
     (h.aime && h.aime.vivant ? `<div class="ligne premier">promis${e(h)} à ${h.aime.prenom}</div>` : '') + tu +
     (proches.length ? proches.map(([a, v]) =>
       `<div class="ligne"><span class="pq">${v.toFixed(2)}</span> ${a.prenom}, ${NOM_ROLE[a.role]}</div>`).join('')
-      : (tu ? '' : '<div class="ligne"><span class="pq">personne, pour l\'instant</span></div>'));
+      : (tu || ditesRegles ? '' : '<div class="ligne"><span class="pq">personne, pour l\'instant</span></div>'));
 
   $('f-memoire').innerHTML = h.memoire.length
     ? h.memoire.slice(-6).reverse().map(t => `<div class="souvenir">${t}</div>`).join('')
@@ -1904,7 +2248,8 @@ majBoutonChronique();
 addEventListener('resize', majCadrage);
 window.DH = { scene, camera, controls, renderer, village, habitants, chronique, LIEUX,
               MOULINS, hauteur, lancerDragon, lancerFoire, tenterMusique,
-              selectionner, poidsDes, ecranDe, distRoute, distRuisseau,
+              selectionner, poidsDes, ecranDe, distRoute, distRuisseau, analyser, regles,
+              appliquerRegles, nomComplet, surnommer,
               get selection() { return selection; },
               etatAudio: () => ({ ctx: ctxAudio && ctxAudio.state, bornes,
                                   duree: tamponMusique && tamponMusique.duration,
@@ -1944,7 +2289,7 @@ renderer.setAnimationLoop((maintenant) => {
     const pos = ecranDe(selection);
     const et = $('etiquette');
     et.hidden = !pos.devant;
-    et.textContent = selection.prenom;
+    et.textContent = nomComplet(selection);
     et.style.left = pos.x + 'px';
     et.style.top = (pos.y - 6) + 'px';
   }

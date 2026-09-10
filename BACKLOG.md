@@ -825,8 +825,135 @@ colporteur, dîme, dragon) à ×100.
 
 ---
 
+## v0.11 → v0.13 — la lisibilité, les liens, les règles écrites
+
+Répond à la question « comment donner envie de regarder ». Le diagnostic
+posé avant de coder : un jeu contemplatif tient à trois choses —
+**comprendre** ce qu'on voit, **anticiper** ce qui vient, **s'attacher** à
+quelqu'un. Le village n'avait que la troisième, et par accident.
+
+### La fiche (le plus gros manque)
+
+On clique sur un habitant, un panneau le suit : nom, métier, occupation,
+besoins en barres, liens, souvenirs — et surtout **les quatre poids les
+plus forts de son tirage avec leur raison en clair** (« prier 2.84 ·
+piété 0.74 × (foi 0.31 + peur 0.81) »). Chaque poids porte désormais son
+explication ; c'est ce qui fait passer d'un aquarium à une machine dont
+on lit les rouages. Cliquer une ligne de la chronique désigne la personne
+concernée : le texte et l'image se répondent.
+
+### Mémoire, liens, chagrin
+
+Chaque habitant garde ce qu'il a fait et ce qu'on lui a fait. Deux
+personnes qui se croisent souvent se rapprochent ; certaines se
+promettent l'une à l'autre. **On n'accuse pas quelqu'un qu'on aime** — la
+foule s'exclut d'elle-même de ceux qui tiennent à la victime, sans
+qu'aucune règle ne dise « épargner ses amis ». Et chasser quelqu'un coûte
+enfin : ceux qui l'aimaient encaissent chagrin et rancune, ce qui fabrique
+les colères de la semaine suivante.
+
+**L'amour qu'on ne dit pas** (idée de Pierre) : à force d'être soigné par
+la sorcière quand personne d'autre ne vous parle, on s'attache. Ça ne se
+déclare jamais — seule la fiche le révèle, le village l'ignore et elle
+aussi. Le jour où on vient la chercher, ceux-là pleurent sans pouvoir
+dire pourquoi. Cette règle répare au passage un constat mesuré : personne
+ne pleurait jamais la sorcière, parce qu'elle vit trop loin pour qu'on
+s'attache par simple voisinage.
+
+### Le metteur en scène
+
+Le dragon ne tombe plus sur un dé chaque jour. Une **tension** est
+calculée (peur, faim, rancune, moulins cassés, disette, foule en cours)
+et pilotée : au-dessus de 0,6 on laisse respirer, en dessous la
+probabilité monte avec la durée du calme. Le modèle est celui déjà cité
+dans ce carnet — l'AI Director de Left 4 Dead : un pic ne se ressent
+comme un pic que s'il y a eu un vrai répit avant.
+
+### Les règles écrites (demandé par Pierre)
+
+Une boîte de saisie en bas de l'écran. On écrit **qui · fait quoi · à
+qui** — « Jehan aime Perrine », « le forgeron suit le seigneur », « tous
+craignent la cabane », ou la forme fléchée « Jehan > deteste > Perrine ».
+Verbes : aime, déteste, suit, évite, craint. Les sujets et objets se
+résolvent en prénom, métier, lieu, ou « tous ».
+
+**Une règle n'est pas un scénario** : elle entre dans le tirage de la
+personne au même titre que sa faim, et le reste suit. « Aime » ouvre une
+occupation *courtiser* avec son arc complet — on s'approche, on tente, et
+ça aboutit à des fiançailles ou ça s'éteint : quelques pas ensemble, une
+rebuffade, l'autre en aime déjà un autre, et au bout de quelques échecs
+la personne cesse d'espérer. « Déteste » défait le lien et pèse sur
+l'accusation. Les règles actives sont listées dans le menu, retirables.
+
+### Les noms (demandé par Pierre)
+
+Prénom accordé au genre, désambiguïsation par le métier en cas
+d'homonymie, et surtout des **surnoms gagnés** : la hargneuse,
+l'éconduit, la main leste, aux mains d'or, le dévot, le taciturne,
+l'avare, outre à vin, le douloureux, le brûlant. Le village met un moment
+à s'y mettre, et la chronique le note : « On a commencé à l'appeler outre
+à vin. C'était Guillaume. »
+
+### Le dragon est l'avion de Fly or Die
+
+Modèle repris tel quel de `PierreMillon/fly-or-die` (374 sommets, 764
+triangles), arêtes vives extraites au même seuil de 20°, mis à l'échelle
+du village. Anachronique et assumé : c'est une ombre qui passe sur les
+toits, le village n'a pas de mot pour ça, et la seule chose qui compte
+mécaniquement est la peur qu'elle laisse derrière.
+
+### Autres demandes de la même nuit
+
+- **Journal plein écran**, par-dessus le village, avec un bouton pour le
+  couper — on lit l'histoire pendant qu'on regarde la ville.
+- **Boutons foire et dragon retirés** : ce n'est pas au joueur de décider
+  quand ça arrive.
+- **Vitesses ×1 / ×10 / ×100**, avec l'horloge des décisions passée en
+  temps simulé et le pas découpé en tranches fixes.
+
+### Défauts trouvés en mesurant
+
+1. **Des maisons dans le ruisseau et sur le chemin.** La recherche
+   d'emplacement abandonnait après 300 essais et posait le bâtiment au
+   point de départ **sans le vérifier**. Élargissement progressif puis
+   repoussée par gradient. Vérifié : 20 bâtiments, aucun hors règles.
+2. **`dt is not defined`** : un compteur inséré au mauvais endroit — la
+   première occurrence de `case 'moissonner'` est dans `lieuDe()`, qui
+   n'a pas de `dt`, pas dans `agir()`.
+3. **Le flirt était incohérent** : il alternait « en aime un autre » et
+   « ont fait quelques pas », trois fois par jour, sans jamais aboutir.
+   Réécrit avec un arc qui se termine.
+4. **Les surnoms tombaient sur tout le monde** : treize sur dix-sept en
+   trente-quatre jours, dont six « le dévot », parce que les seuils
+   étaient absolus et que le compteur de prières monte pour tous. Les
+   scores sont devenus **relatifs à la moyenne du village** — il faut
+   faire nettement plus que les autres — et un seul surnom est attribué
+   par jour, au cas le plus marquant.
+
+### Ce qui reste faux, et ce qui n'est pas fait
+
+- **Le pain est toujours trop rare.** « Il ne reste plus de pain » revient
+  presque chaque jour au-delà du jour 40. Le boulanger reste un point de
+  rupture unique. C'est le problème que le simulateur sans rendu doit
+  régler.
+- **Les surnoms se regroupent encore** sur « l'avare » (4 cas sur 5 dans
+  la dernière mesure). Le score relatif a beaucoup amélioré la chose sans
+  la résoudre.
+- **Pas fait** de ma propre liste de recommandations : les états visibles
+  dans le monde (fumée à la cheminée quand le four est allumé, torches la
+  nuit, pluie, brouillard sur le ruisseau), les bruitages synthétisés, et
+  le simulateur sans rendu. Le simulateur reste le prochain chantier —
+  sans lui, chaque nouvelle mécanique rend l'équilibre plus fragile, et
+  cette nuit l'a montré quatre fois.
+
+---
+
 ## 📜 Historique
 
+- **2026-09-10 (fin de nuit)** — Fiche d'habitant avec le « pourquoi »,
+  mémoire, liens et chagrin, amour tu, metteur en scène, règles écrites
+  avec arc de flirt, noms et surnoms gagnés, dragon repris de Fly or Die,
+  journal plein écran, placement corrigé. v0.11 → v0.13.
 - **2026-09-10 (nuit)** — Occlusion réparée (sens des triangles), colporteur
   indépendant et protégé, boucle musicale à l'échantillon près, vitesses
   ×1/×10/×100 avec horloge de décision en temps simulé. v0.10.
