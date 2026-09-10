@@ -39,19 +39,59 @@
   }
 
   /* la chronique : dans un jeu où l'on regarde, le texte EST le jeu */
+  /* l'histoire s'écrit par-dessus le village, sur toute la surface :
+     on lit et on regarde en même temps, le fond reste transparent */
   #chronique {
-    position: fixed; right: 0; top: 44px; bottom: 60px; z-index: 1;
-    width: min(340px, 46vw);
-    padding: 0 14px 0 10px;
-    padding-right: max(14px, env(safe-area-inset-right));
+    position: fixed; inset: 0; z-index: 1;
+    padding: 62px max(16px, env(safe-area-inset-right)) 74px max(16px, env(safe-area-inset-left));
     display: flex; flex-direction: column; justify-content: flex-end;
-    gap: 3px; pointer-events: none; overflow: hidden;
-    mask-image: linear-gradient(to bottom, transparent, #000 22%);
-    -webkit-mask-image: linear-gradient(to bottom, transparent, #000 22%);
+    gap: 4px; pointer-events: none; overflow: hidden;
+    mask-image: linear-gradient(to bottom, transparent, #000 34%);
+    -webkit-mask-image: linear-gradient(to bottom, transparent, #000 34%);
   }
-  #chronique div { color: var(--ph-dim); text-align: right; }
+  #chronique[hidden] { display: none; }
+  #chronique div {
+    color: var(--ph-dim); text-align: left;
+    text-shadow: 0 0 10px rgba(0,0,0,0.85), 0 0 3px rgba(0,0,0,0.9);
+  }
   #chronique div:last-child { color: var(--ph-text); }
   #chronique div.fort:last-child { color: var(--ph-line); }
+
+  #fiche {
+    position: fixed; left: 0; top: 66px; z-index: 3;
+    width: min(300px, 68vw); max-height: calc(100% - 150px);
+    margin-left: max(12px, env(safe-area-inset-left));
+    background: rgba(4, 12, 8, 0.92);
+    border: 1px solid var(--ph-dim);
+    padding: 10px 12px; overflow-y: auto;
+  }
+  #fiche[hidden] { display: none; }
+  #fiche .nom { color: var(--ph-line); letter-spacing: 0.08em; padding-right: 18px; }
+  #fiche .occ { color: var(--ph-text); margin-bottom: 8px; }
+  #fiche .section {
+    color: var(--ph-line); opacity: 0.55; letter-spacing: 0.14em;
+    margin: 12px 0 5px; font-size: 10px;
+  }
+  #fiche .ligne { color: var(--ph-text); margin-bottom: 3px; }
+  #fiche .ligne .pq { color: var(--ph-dim); }
+  #fiche .ligne.premier { color: var(--ph-line); }
+  #fiche .barre { display: flex; align-items: center; gap: 6px; color: var(--ph-dim); }
+  #fiche .barre span.n { width: 64px; }
+  #fiche .barre span.j { flex: 1; height: 4px; background: rgba(70,255,160,0.15); position: relative; }
+  #fiche .barre span.j i { position: absolute; inset: 0 auto 0 0; background: var(--ph-line); }
+  #fiche .souvenir { color: var(--ph-dim); }
+  #fiche-fermer { position: absolute; top: 6px; right: 6px; padding: 2px 7px; line-height: 1.1; }
+
+  #etiquette {
+    position: fixed; z-index: 3; pointer-events: none;
+    color: var(--ph-line); text-shadow: 0 0 8px rgba(0,0,0,0.9);
+    transform: translate(-50%, -100%); white-space: nowrap;
+  }
+  #etiquette[hidden] { display: none; }
+
+  #chronique { pointer-events: none; }
+  #chronique div.cliquable { cursor: pointer; pointer-events: auto; }
+  #chronique div.cliquable:hover { color: var(--ph-line); }
 
   #saison {
     position: fixed; left: 0; z-index: 2;
@@ -115,17 +155,32 @@
   <span class="title">DWELVE HOLLOW</span>
 </div>
 
-<button id="version">v0.10</button>
+<button id="version">v0.11</button>
 
 <div id="saison">jour <b id="s-jour">1</b> · <b id="s-phase">aube</b> · pain <b id="s-pain">0</b> · peur <b id="s-peur">0 %</b></div>
 
 <div id="chronique"></div>
 
+<div id="fiche" hidden>
+  <button id="fiche-fermer">×</button>
+  <div class="nom" id="f-nom">—</div>
+  <div class="occ" id="f-occ">—</div>
+  <div class="section">POURQUOI</div>
+  <div id="f-pourquoi"></div>
+  <div class="section">BESOINS</div>
+  <div id="f-besoins"></div>
+  <div class="section">LIENS</div>
+  <div id="f-liens"></div>
+  <div class="section">SOUVENIRS</div>
+  <div id="f-memoire"></div>
+</div>
+
+<div id="etiquette" hidden></div>
+
 <div id="controls">
   <button id="btn-vitesse">×1</button>
   <button id="btn-pause" aria-pressed="false">pause</button>
-  <button id="btn-foire">foire</button>
-  <button id="btn-dragon">dragon</button>
+  <button id="btn-chronique" aria-pressed="true">chronique</button>
   <button id="btn-spin" aria-pressed="true">⟳</button>
   <a class="lien" href="test-3d.html">banc d'essai</a>
 </div>
@@ -541,27 +596,68 @@ function lieu(nom, type, x, z, angle = 0, forme = null) {
   if (forme) { poser(SEG_DECOR, forme.a, x, y, z, angle); poser(FACE_DECOR, forme.f, x, y, z, angle); }
   return l;
 }
-// on ne bâtit ni sur la route, ni dans l'eau, ni sur un voisin
+// On ne bâtit ni sur la route, ni dans l'eau, ni sur un voisin — et
+// surtout, on ne renonce jamais en posant quand même. La première version
+// abandonnait après 300 essais et retombait sur le point de départ SANS
+// LE VÉRIFIER : d'où des maisons dans le ruisseau et sur le chemin.
 const BATIS = [];
+const MARGE_ROUTE = 7, MARGE_EAU = 4;
+
 function placeLibre(x, z, rayon = 7) {
-  if (distRoute(x, z) < 6.5 + rayon * 0.35) return false;
-  if (distRuisseau(x, z) < LARGEUR_EAU + 3) return false;
+  if (distRoute(x, z) < MARGE_ROUTE + rayon * 0.4) return false;
+  if (distRuisseau(x, z) < LARGEUR_EAU + MARGE_EAU + rayon * 0.3) return false;
+  if (hauteur(x, z) < -0.05) return false;              // jamais dans le lit creusé
   for (const b of BATIS) if (Math.hypot(b.x - x, b.z - z) < rayon + b.r) return false;
   return true;
 }
-function chercherPlace(cx, cz, etendue, rayon) {
-  for (let essai = 0; essai < 300; essai++) {
-    const a = alea() * Math.PI * 2, r = Math.sqrt(alea()) * etendue;
-    const x = cx + Math.cos(a) * r, z = cz + Math.sin(a) * r;
-    if (placeLibre(x, z, rayon)) { BATIS.push({ x, z, r: rayon }); return { x, z }; }
+
+// pousse un point hors de la route et de l'eau en descendant leur
+// gradient — le filet de sécurité quand le tirage au sort ne trouve rien
+function repousser(x, z, rayon) {
+  for (let pas = 0; pas < 90; pas++) {
+    if (placeLibre(x, z, rayon)) return { x, z };
+    let dx = 0, dz = 0;
+    const E = 1.5;
+    const gr = (f) => [(f(x + E, z) - f(x - E, z)) / (2 * E), (f(x, z + E) - f(x, z - E)) / (2 * E)];
+    if (distRoute(x, z) < MARGE_ROUTE + rayon * 0.4) { const [a, b] = gr(distRoute); dx += a; dz += b; }
+    if (distRuisseau(x, z) < LARGEUR_EAU + MARGE_EAU + rayon * 0.3) { const [a, b] = gr(distRuisseau); dx += a; dz += b; }
+    for (const b of BATIS) {
+      const d = Math.hypot(b.x - x, b.z - z);
+      if (d < rayon + b.r && d > 0.01) { dx += (x - b.x) / d; dz += (z - b.z) / d; }
+    }
+    const n = Math.hypot(dx, dz);
+    if (n < 1e-4) { x += entre(-4, 4); z += entre(-4, 4); continue; }
+    x += (dx / n) * 3; z += (dz / n) * 3;
   }
-  return { x: cx, z: cz };   // faute de mieux, mais ça n'arrive pas avec ces marges
+  return null;
+}
+
+function chercherPlace(cx, cz, etendue, rayon) {
+  // le tirage au sort d'abord, en élargissant si ça coince
+  for (let tour = 0; tour < 6; tour++) {
+    const port = etendue * (1 + tour * 0.6);
+    for (let essai = 0; essai < 250; essai++) {
+      const a = alea() * Math.PI * 2, r = Math.sqrt(alea()) * port;
+      const x = cx + Math.cos(a) * r, z = cz + Math.sin(a) * r;
+      if (placeLibre(x, z, rayon)) { BATIS.push({ x, z, r: rayon }); return { x, z }; }
+    }
+  }
+  // puis le filet : on repousse jusqu'à ce que ce soit valide
+  const q = repousser(cx, cz, rayon);
+  if (q) { BATIS.push({ x: q.x, z: q.z, r: rayon }); return q; }
+  // et si même ça échoue, on le dit plutôt que de bâtir dans l'eau
+  console.warn('aucun emplacement trouvé autour de', cx, cz);
+  BATIS.push({ x: cx, z: cz, r: rayon });
+  return { x: cx, z: cz };
 }
 
 const PLACE = { nom: 'la place', type: 'place', x: 0, z: 0, y: hauteur(0, 0) };
 LIEUX.push(PLACE);
 BATIS.push({ x: 0, z: 0, r: 11 });
-lieu('le puits', 'puits', 3.6, 2.4, 0, FORMES.puits());
+{
+  const q = chercherPlace(6, 4, 5, 3);
+  lieu('le puits', 'puits', q.x, q.z, 0, FORMES.puits());
+}
 
 const pEglise = chercherPlace(-14, -30, 8, 12);
 const EGLISE = lieu("l'église", 'eglise', pEglise.x, pEglise.z, 0.15, FORMES.eglise());
@@ -609,7 +705,8 @@ function poserMoulin(nom, type, x, z, angle, forme, mobile, axe) {
   const nx = -(bz - rz), nz = (bx - rx), l = Math.hypot(nx, nz);
   MOULIN_EAU = poserMoulin('le moulin à eau', 'moulin', rx + nx/l * 4.6, rz + nz/l * 4.6,
                            ang, FORMES.moulinEau(), FORMES.roue(), 'roue');
-  MOULIN_VENT = poserMoulin('le moulin à vent', 'moulin', BUTTE.x, BUTTE.z,
+  const qv = chercherPlace(BUTTE.x, BUTTE.z, 7, 8);
+  MOULIN_VENT = poserMoulin('le moulin à vent', 'moulin', qv.x, qv.z,
                             0.6, FORMES.moulinVent(), FORMES.ailes(), 'ailes');
 }
 
@@ -654,15 +751,16 @@ const PRENOMS_F = ['Aliénor','Perrine','Mahaut','Blanche','Aude','Isabeau','Erm
 const FEMININ = { dame: 1, sorciere: 1 };
 let iH = 0, iF = 0;
 function prenomPour(role) {
-  const f = FEMININ[role] || (role === 'paysan' && alea() < 0.45);
-  return f ? PRENOMS_F[iF++ % PRENOMS_F.length] : PRENOMS_H[iH++ % PRENOMS_H.length];
+  const f = !!(FEMININ[role] || (role === 'paysan' && alea() < 0.45));
+  return { prenom: f ? PRENOMS_F[iF++ % PRENOMS_F.length] : PRENOMS_H[iH++ % PRENOMS_H.length], feminin: f };
 }
+const e = (h) => (h.feminin ? 'e' : '');   // l'accord, une bonne fois
 
 const habitants = [];
 const nommer = (h) => `${h.prenom}, ${NOM_ROLE[h.role]}`;
 function creerHabitant(role, logis) {
   return {
-    role, logis, prenom: prenomPour(role),
+    role, logis, ...prenomPour(role),
     x: logis.x + entre(-2, 2), z: logis.z + entre(-2, 2), cible: null,
     vitesse: entre(2.4, 3.4),
     // caractère : cinq nombres, jamais une branche de code
@@ -673,7 +771,11 @@ function creerHabitant(role, logis) {
     superstition: role === 'pretre' ? entre(0.5, 1) : entre(0, 1),
     // besoins : ils montent seuls, ce sont eux le moteur
     faim: entre(0, 0.4), fatigue: entre(0, 0.3), foi: entre(0, 0.5), peur: 0,
-    soupcon: entre(0, 0.15), rancune: 0,
+    soupcon: entre(0, 0.15), rancune: 0, chagrin: 0,
+    secret: null, secretForce: 0,   // celle dont il n'a jamais rien dit
+    memoire: [],            // ce qu'il a fait, et ce qu'on lui a fait
+    liens: new Map(),       // affinité avec chaque autre, 0 à 1
+    aime: null,
     occupation: 'flâner', prochainChoix: 0, vivant: true,
   };
 }
@@ -699,6 +801,7 @@ const village = {
   ble: 12, farine: 5, pain: 8, outils: 6, meubles: 0, chantier: 0,
   volsCetteNuit: 0,
   temps: 0,                      // secondes SIMULÉES écoulées — voir la boucle
+  tension: 0, calmeDepuis: 0,    // voir metteurEnScene()
   colporteur: null, joursColporteur: 0,
   jourSansSorciere: 0, bucher: null,
   foire: 0,                      // durée restante, en journées
@@ -717,10 +820,22 @@ const village = {
   jourDime: 0, jourImpot: 0,
 };
 const chronique = [];
-function noter(txt, fort = false) {
-  chronique.push({ txt: `jour ${village.jour} — ${txt}`, fort });
+function noter(txt, fort = false, qui = null) {
+  chronique.push({ txt: `jour ${village.jour} — ${txt}`, fort, qui });
   if (chronique.length > 60) chronique.shift();
   majChronique();
+}
+
+// Un habitant qui accumule un passé devient quelqu'un. Sans ça, il n'y a
+// que des bâtonnets qui bougent.
+function souvenir(h, txt) {
+  h.memoire.push(`jour ${village.jour} — ${txt}`);
+  if (h.memoire.length > 14) h.memoire.shift();
+}
+const lien = (a, b) => a.liens.get(b) || 0;
+function rapprocher(a, b, k) {
+  a.liens.set(b, Math.min(1, lien(a, b) + k));
+  b.liens.set(a, Math.min(1, lien(b, a) + k));
 }
 
 const estNuit = () => village.heure < 0.22 || village.heure > 0.86;
@@ -734,14 +849,21 @@ const lumiere = () => {                 // 0 la nuit, 1 en plein jour
 };
 
 /* ---- le choix d'occupation : le cœur du système ---- */
+// Chaque poids porte sa raison en clair : c'est ce que la fiche affiche,
+// et c'est ce qui transforme un aquarium en machine dont on lit les
+// rouages. Sans le « pourquoi », un villageois n'est qu'un bâtonnet.
+const n2 = (x) => x.toFixed(2);
 function poidsDes(h) {
   const p = [];
   const nuit = estNuit(), jour = estJour();
-  p.push(['dormir', h.fatigue * h.fatigue * (nuit ? 6 : 0.3)]);
-  p.push(['manger', h.faim * h.faim * 3 * (village.pain >= 1 ? 1 : 0.04)]);
-  p.push(['prier', (h.foi * h.piete * 1.6 + h.peur * h.piete * 4) * (nuit ? 0.3 : 1)]);
-  p.push(['flâner', h.sociabilite * 0.5 * (jour ? 1 : 0.2) * (village.foire > 0 ? 4 : 1)]);
-  p.push(['fuir', h.peur * h.peur * (1 - h.courage) * 7]);
+  p.push(['dormir', h.fatigue * h.fatigue * (nuit ? 6 : 0.3), `fatigue ${n2(h.fatigue)}${nuit ? ' · il fait nuit' : ''}`]);
+  p.push(['manger', h.faim * h.faim * 3 * (village.pain >= 1 ? 1 : 0.04),
+          `faim ${n2(h.faim)}${village.pain >= 1 ? '' : ' · plus de pain'}`]);
+  p.push(['prier', (h.foi * h.piete * 1.6 + h.peur * h.piete * 4) * (nuit ? 0.3 : 1),
+          `piété ${n2(h.piete)} × (foi ${n2(h.foi)} + peur ${n2(h.peur)})`]);
+  p.push(['flâner', h.sociabilite * 0.5 * (jour ? 1 : 0.2) * (village.foire > 0 ? 4 : 1),
+          `sociabilité ${n2(h.sociabilite)}${village.foire > 0 ? ' · jour de foire' : ''}`]);
+  p.push(['fuir', h.peur * h.peur * (1 - h.courage) * 7, `peur ${n2(h.peur)} × peu de courage`]);
   // l'accusation ne demande pas un scénario : il suffit que la peur, la
   // superstition et le soupçon soient hauts en même temps
   const cible = village.sorciereChassee ? village.accuse : habitants.find(a => a.role === 'sorciere' && a.vivant);
@@ -749,36 +871,47 @@ function poidsDes(h) {
     // le prêtre écouté rend l'accusation plus facile : son autorité vient
     // s'ajouter à la superstition de chacun
     const poussee = h.superstition + village.autorite * 0.8;
-    p.push(['accuser', h.soupcon * poussee * (0.25 + h.peur) * 3.5]);
+    // on n'accuse pas quelqu'un qu'on aime bien : la foule s'exclut
+    // toute seule de ceux qui connaissent la victime, sans qu'aucune
+    // règle ne dise « épargner ses amis »
+    const proche = Math.max(lien(h, cible), h.secret === cible ? h.secretForce : 0);
+    p.push(['accuser', h.soupcon * poussee * (0.25 + h.peur) * 3.5 * (1 - proche),
+            `soupçon ${n2(h.soupcon)} × superstition ${n2(h.superstition)}` +
+            (village.autorite > 0.4 ? ` · le prêtre est écouté` : '') +
+            (proche > 0.2 ? ` · mais il tient à ${cible.prenom}` : '')]);
   }
   // la rancune, elle, ne cherche pas un coupable faible : elle monte au manoir
-  p.push(['se révolter', h.rancune * h.rancune * h.courage * 3]);
+  p.push(['se révolter', h.rancune * h.rancune * h.courage * 3,
+          `rancune ${n2(h.rancune)} × courage ${n2(h.courage)}`]);
   // Voler n'est pas reserve au voleur : n'importe quel cupide s'y met la
   // nuit si la huche est pleine. C'est ce qui fait que le village ne peut
   // JAMAIS savoir qui l'a fait, et qu'il accuse a cote.
   if (h.cupidite > 0.72 && nuit && (village.pain > 3 || village.farine > 6)) {
-    p.push(['voler', (h.cupidite - 0.6) * (1 - h.piete) * 4]);
+    p.push(['voler', (h.cupidite - 0.6) * (1 - h.piete) * 4,
+            `cupidité ${n2(h.cupidite)} · la nuit · la huche est pleine`]);
   }
   if (jour) {
     const travail = 1.1 * (1 - h.fatigue) * (1 - h.peur * 0.9);
-    if (h.role === 'paysan') p.push(['moissonner', travail * (village.ble < PLAFOND_BLE ? 1 : 0.08)]);
+    const pourquoiTravail = `son métier${h.peur > 0.3 ? ` · mais peur ${n2(h.peur)}` : ''}` +
+                            (h.fatigue > 0.5 ? ` · fatigue ${n2(h.fatigue)}` : '');
+    if (h.role === 'paysan') p.push(['moissonner', travail * (village.ble < PLAFOND_BLE ? 1 : 0.08), pourquoiTravail]);
     if (h.role === 'boulanger') {
       // il voit bien que la huche est vide, et plus elle l'est, plus il s'y met
       const urgence = village.pain < 1 ? 5 : (village.pain < 4 ? 3.2 : 1);
-      p.push(['cuire', travail * (village.farine > 0 ? 1.6 : 0.2) * urgence]);
+      p.push(['cuire', travail * (village.farine > 0 ? 1.6 : 0.2) * urgence, pourquoiTravail + (village.pain < 1 ? ' · la huche est vide' : '')]);
     }
     // réparer passe avant tout dès qu'un moulin faiblit : sans moulin, pas
     // de farine, et sans farine le four ne sert plus à rien
     const casse = MOULINS.reduce((m, x) => Math.min(m, x.etat), 1);
-    if (h.role === 'charpentier') { p.push(['réparer', travail * (1 - casse) * 8]); p.push(['menuiser', travail * 0.7]); }
-    if (h.role === 'forgeron')    { p.push(['forger', travail * 1.2]); p.push(['réparer', travail * (1 - casse) * 4]); }
-    if (h.role === 'ebeniste')    p.push(['menuiser', travail * 1.2]);
-    if (h.role === 'tailleur')    p.push(['tailler', travail * 1.2]);
-    if (h.role === 'colporteur')  p.push(['colporter', travail * 2]);
-    if (h.role === 'pretre') p.push(['officier', travail * 1.4]);
-    if (h.role === 'sorciere') p.push(['herboriser', travail]);
-    if (h.role === 'seigneur') p.push(['inspecter', travail * (0.6 + h.cupidite)]);
-    if (h.role === 'dame') p.push(['visiter', travail * h.sociabilite]);
+    if (h.role === 'charpentier') { p.push(['réparer', travail * (1 - casse) * 8, `un moulin est à ${n2(casse)}`]); p.push(['menuiser', travail * 0.7, pourquoiTravail]); }
+    if (h.role === 'forgeron')    { p.push(['forger', travail * 1.2, pourquoiTravail]); p.push(['réparer', travail * (1 - casse) * 4, `un moulin est à ${n2(casse)}`]); }
+    if (h.role === 'ebeniste')    p.push(['menuiser', travail * 1.2, pourquoiTravail]);
+    if (h.role === 'tailleur')    p.push(['tailler', travail * 1.2, pourquoiTravail]);
+    if (h.role === 'colporteur')  p.push(['colporter', travail * 2, 'il déballe son ballot']);
+    if (h.role === 'pretre') p.push(['officier', travail * 1.4, pourquoiTravail]);
+    if (h.role === 'sorciere') p.push(['herboriser', travail, pourquoiTravail]);
+    if (h.role === 'seigneur') p.push(['inspecter', travail * (0.6 + h.cupidite), `cupidité ${n2(h.cupidite)}`]);
+    if (h.role === 'dame') p.push(['visiter', travail * h.sociabilite, `sociabilité ${n2(h.sociabilite)}`]);
   }
   return p;
 }
@@ -848,6 +981,7 @@ function simuler(dt) {
     h.peur = Math.max(0, h.peur - dt * 0.022);
     h.soupcon = Math.max(0, h.soupcon - dt * 0.006);
     h.rancune = Math.max(0, h.rancune - dt * 0.013);
+    h.chagrin = Math.max(0, h.chagrin - dt * 0.004);   // il faut du temps
     // avoir faim pendant que le grenier du manoir est plein, ça ne se
     // pardonne pas : c'est le seul endroit où la faim se change en colère
     if (h.faim > 0.8 && village.impot > 10) h.rancune = Math.min(1, h.rancune + dt * 0.02);
@@ -867,7 +1001,7 @@ function simuler(dt) {
   village.peur = vivants ? peurTotale / vivants : 0;
 
   majMoulins(dt);
-  rumeur(dt);
+  voisinage(dt);
   majRassemblements();
   majAffichage();
 }
@@ -946,14 +1080,25 @@ function agir(h, dt) {
         h.cible.etat = Math.min(1, h.cible.etat + dt * 0.07);
         if (h.cible.reparationSignalee && h.cible.etat > 0.9) {
           h.cible.reparationSignalee = false;
-          noter(`${nommer(h)} a remis ${h.cible.nom} en marche.`);
+          noter(`${nommer(h)} a remis ${h.cible.nom} en marche.`, false, h);
+          souvenir(h, `a remis ${h.cible.nom} en marche`);
         }
       }
       break;
     case 'herboriser':
       // la sorcière soigne : elle enlève de la fatigue à qui passe la voir
       for (const a of habitants) {
-        if (a.vivant && a !== h && Math.hypot(a.x - h.x, a.z - h.z) < 8) a.fatigue = Math.max(0, a.fatigue - dt * 0.05);
+        if (!a.vivant || a === h) continue;
+        if (Math.hypot(a.x - h.x, a.z - h.z) >= 8) continue;
+        a.fatigue = Math.max(0, a.fatigue - dt * 0.05);
+        // Et il arrive qu'on s'attache à celle qui vous soigne quand
+        // personne d'autre ne vous parle. Ça ne se déclare jamais — elle
+        // ne le saura pas, le village non plus. Mais le jour où on vient
+        // la chercher, ceux-là pleurent sans pouvoir dire pourquoi.
+        if (!a.aime && (!a.secret || a.secret === h) && a.sociabilite < 0.55) {
+          a.secret = h;
+          a.secretForce = Math.min(1, a.secretForce + dt * 0.02 * (1 - a.sociabilite));
+        }
       }
       break;
     case 'flâner':
@@ -982,22 +1127,36 @@ function majMoulins(dt) {
   }
 }
 
-/* ---- la rumeur : elle ne se décrète pas, elle se contamine ---- */
-function rumeur(dt) {
-  if (village.sorciereChassee) return;
+/* ---- le voisinage : la rumeur ET l'affection passent par le même
+       endroit, à savoir deux personnes qui se croisent souvent ---- */
+function voisinage(dt) {
   for (let i = 0; i < habitants.length; i++) {
     const a = habitants[i];
-    if (!a.vivant || a.role === 'sorciere') continue;
+    if (!a.vivant) continue;
     for (let j = i + 1; j < habitants.length; j++) {
       const b = habitants[j];
-      if (!b.vivant || b.role === 'sorciere') continue;
+      if (!b.vivant) continue;
       if (Math.hypot(a.x - b.x, a.z - b.z) > 5) continue;
-      // deux voisins qui se croisent rapprochent leurs soupçons — le plus
-      // convaincu tire l'autre à lui, jamais l'inverse en entier
-      const m = (a.soupcon + b.soupcon) / 2;
-      const k = dt * 0.35;
-      a.soupcon += (m - a.soupcon) * k * (0.4 + b.sociabilite);
-      b.soupcon += (m - b.soupcon) * k * (0.4 + a.sociabilite);
+
+      // se voir souvent, ça rapproche — pondéré par la sociabilité des deux
+      rapprocher(a, b, dt * 0.012 * (0.3 + a.sociabilite) * (0.3 + b.sociabilite));
+
+      // deux voisins rapprochent aussi leurs soupçons ; le plus convaincu
+      // tire l'autre à lui, jamais l'inverse en entier
+      if (a.role !== 'sorciere' && b.role !== 'sorciere' && !village.sorciereChassee) {
+        const m = (a.soupcon + b.soupcon) / 2;
+        const k = dt * 0.35;
+        a.soupcon += (m - a.soupcon) * k * (0.4 + b.sociabilite);
+        b.soupcon += (m - b.soupcon) * k * (0.4 + a.sociabilite);
+      }
+
+      // et quand deux personnes ne se quittent plus, ça finit par se dire
+      if (!a.aime && !b.aime && lien(a, b) > 0.86 && a.role !== 'colporteur' && b.role !== 'colporteur') {
+        a.aime = b; b.aime = a;
+        noter(`${a.prenom} et ${b.prenom} se sont promis l'un à l'autre.`, true, a);
+        souvenir(a, `s'est promis${e(a)} à ${b.prenom}`);
+        souvenir(b, `s'est promis${e(b)} à ${a.prenom}`);
+      }
     }
   }
 }
@@ -1042,8 +1201,11 @@ function majRassemblements() {
     if (!village.foule && village.jour >= village.repitFoule && surLaPlace.length >= SEUIL_FOULE) {
       village.foule = true;
       village.bucher = { x: PLACE.x - 5, z: PLACE.z - 5 };
-      noter(`${surLaPlace.length} villageois se rassemblent. Ils vont chercher du bois.`, true);
-      for (const h of surLaPlace) { h.cible = visee.logis; h.prochainChoix += 30; }
+      noter(`${surLaPlace.length} villageois se rassemblent. Ils vont chercher du bois.`, true, visee);
+      for (const h of surLaPlace) {
+        h.cible = visee.logis; h.prochainChoix += 30;
+        souvenir(h, `est allé chercher du bois pour ${visee.prenom}`);
+      }
     }
     if (village.foule) {
       const arrives = chauds.filter(h => h !== visee &&
@@ -1100,6 +1262,23 @@ function majRassemblements() {
 
 function finirAccusation(v, jusquauBout) {
   v.vivant = false;
+  // Ceux qui l'aimaient encaissent. C'est ce qui rend le bûcher coûteux :
+  // la foule crée les rancunes de demain sans le savoir.
+  for (const h of habitants) {
+    if (!h.vivant || h === v) continue;
+    const tenait = h.secret === v ? h.secretForce : 0;
+    const l = Math.max(lien(h, v), tenait);
+    if (l < 0.3) continue;
+    h.chagrin = Math.min(1, h.chagrin + l);
+    h.rancune = Math.min(1, h.rancune + l * 0.45);
+    h.soupcon = 0;
+    souvenir(h, tenait >= l ? `l'a pleurée sans rien dire` : `a perdu ${v.prenom}`);
+    if (tenait > 0.5) { h.secret = null; h.secretForce = 0; }
+  }
+  if (v.aime && v.aime.vivant) {
+    souvenir(v.aime, `est resté${e(v.aime)} seul${e(v.aime)}`);
+    v.aime.aime = null;
+  }
   if (v.role === 'sorciere') { village.sorciereChassee = true; village.jourSansSorciere = 0; }
   if (village.accuse === v) village.accuse = null;
   if (jusquauBout) noter(`Le bûcher a brûlé sur la place. ${nommer(v)} n'est plus.`, true);
@@ -1114,6 +1293,7 @@ function finirAccusation(v, jusquauBout) {
   if (manque) noter(manque);
   village.autorite = Math.min(1, village.autorite + 0.1);   // le prêtre avait « raison »
   for (const h of habitants) { h.soupcon *= 0.2; h.prochainChoix = 0; }
+  souvenir(v, jusquauBout ? `a été brûlé${e(v)} sur la place` : 'a dû quitter le village');
 }
 
 // LA SUCCESSION. Une place vide à l'écart ne le reste jamais longtemps :
@@ -1129,7 +1309,9 @@ function succession() {
   ajouterObjet(nouvelle);
   village.sorciereChassee = false;
   village.jourSansSorciere = 0;
-  noter(`${nouvelle.prenom}, que son homme a laissée, s'est installée dans la cabane.`, true);
+  noter(`${nouvelle.prenom}, que son homme a laissée, s'est installée dans la cabane.`, true, nouvelle);
+  souvenir(nouvelle, "s'est installée dans la cabane");
+  nouvelle.feminin = true;
 }
 
 // LE COLPORTEUR. Il n'appartient pas à la foire : il arrive quand il veut
@@ -1156,7 +1338,8 @@ function majColporteur() {
   ajouterObjet(venu);
   village.colporteur = venu;
   village.joursColporteur = Math.round(entre(2, 6));
-  noter(`${venu.prenom}, colporteur, est entré par la route du nord. Il logera à la cabane.`, true);
+  noter(`${venu.prenom}, colporteur, est entré par la route du nord. Il logera à la cabane.`, true, venu);
+  souvenir(venu, 'est arrivé par la route du nord');
 }
 
 function finDeJournee() {
@@ -1177,7 +1360,8 @@ function finDeJournee() {
     village.jourDime = village.jour;
     const part = Math.round(village.pain * 0.22);
     village.pain -= part;
-    noter(`La dîme est levée : ${part} pains partent à l'église.`);
+    noter(`La dîme est levée : ${part} pains partent à l'église.`, false, pretre);
+    souvenir(pretre, `a levé la dîme : ${part} pains`);
     for (const h of habitants) if (h.vivant) h.rancune = Math.min(1, h.rancune + 0.09 * (1 - h.piete));
   }
 
@@ -1191,21 +1375,56 @@ function finDeJournee() {
     const surBle = Math.round(village.ble * taux), surFarine = Math.round(village.farine * taux);
     const part = surBle + surFarine;
     village.ble -= surBle; village.farine -= surFarine; village.impot += part;
-    noter(`Le manoir a levé l'impôt : ${part} mesures de grain.`);
+    noter(`Le manoir a levé l'impôt : ${part} mesures de grain.`, false, sgr);
     for (const h of habitants) if (h.vivant && h !== sgr) h.rancune = Math.min(1, h.rancune + 0.10 * h.courage);
+    souvenir(sgr, `a levé l'impôt : ${part} mesures`);
   }
 
   village.autorite = Math.max(0, village.autorite - 0.02);   // elle retombe si rien n'effraie
   if (village.sorciereChassee) succession();
   majColporteur();
 
-  if (village.jour % 6 === 0) lancerFoire();
-  else if (village.jour > 3 && alea() < 0.14) lancerDragon();
+  if (village.jour % 6 === 0) lancerFoire();      // la foire est au calendrier, pas au hasard
+  else if (village.jour > 3) metteurEnScene();
 
   const guerisseuse = habitants.find(h => h.role === 'sorciere' && h.vivant);
   if (!guerisseuse && village.jour % 4 === 0) {
     for (const h of habitants) if (h.vivant) h.fatigue = Math.min(1, h.fatigue + 0.18);
     noter('Les fièvres traînent. Plus personne ne sait quoi faire des simples.');
+  }
+}
+
+// LE METTEUR EN SCÈNE. Jusqu'ici le dragon tombait sur un tirage
+// aléatoire chaque jour : soit rien pendant huit jours, soit deux
+// catastrophes d'affilée. Le modèle retenu (AI Director de Left 4 Dead,
+// déjà cité dans ce carnet) dit l'inverse : on suit une TENSION et on la
+// pilote. Un pic ne se ressent comme un pic que s'il y a eu un vrai répit
+// avant — et il se passe toujours quelque chose *bientôt*.
+function tensionActuelle() {
+  let peur = 0, faim = 0, rancune = 0, n = 0;
+  for (const h of habitants) {
+    if (!h.vivant) continue;
+    peur += h.peur; faim += h.faim; rancune += h.rancune; n++;
+  }
+  if (!n) return 0;
+  const casse = MOULINS.reduce((m, x) => Math.min(m, x.etat), 1);
+  const disette = village.pain < 2 ? 0.25 : 0;
+  return Math.min(1, (peur/n) * 0.45 + (faim/n) * 0.3 + (rancune/n) * 0.3
+                     + (1 - casse) * 0.2 + disette + (village.foule ? 0.3 : 0));
+}
+
+function metteurEnScene() {
+  village.tension = tensionActuelle();
+  if (village.tension > 0.6) {           // il se passe déjà bien assez
+    village.calmeDepuis = 0;
+    return;
+  }
+  village.calmeDepuis++;
+  // plus le calme dure, plus il devient probable que quelque chose arrive
+  const chance = Math.max(0, (village.calmeDepuis - 2) * 0.22);
+  if (alea() < chance) {
+    village.calmeDepuis = 0;
+    lancerDragon();
   }
 }
 
@@ -1437,10 +1656,13 @@ const PHASES = [[0.22, 'nuit'], [0.3, 'aube'], [0.75, 'jour'], [0.86, 'soir'], [
 function majChronique() {
   const c = $('chronique');
   c.innerHTML = '';
-  for (const e of chronique.slice(-8)) {
+  for (const ev of chronique.slice(-14)) {
     const d = document.createElement('div');
-    d.textContent = e.txt;
-    if (e.fort) d.className = 'fort';
+    d.textContent = ev.txt;
+    d.className = ev.fort ? 'fort' : '';
+    // cliquer une ligne désigne la personne : le texte et l'image se
+    // répondent, au lieu de vivre chacun de leur côté
+    if (ev.qui) { d.classList.add('cliquable'); d.addEventListener('click', () => selectionner(ev.qui)); }
     c.appendChild(d);
   }
 }
@@ -1462,8 +1684,6 @@ $('btn-pause').addEventListener('click', (e) => {
   e.target.setAttribute('aria-pressed', String(enPause));
   e.target.textContent = enPause ? 'reprendre' : 'pause';
 });
-$('btn-foire').addEventListener('click', lancerFoire);
-$('btn-dragon').addEventListener('click', lancerDragon);
 $('btn-spin').addEventListener('click', (e) => {
   controls.autoRotate = !controls.autoRotate;
   e.target.setAttribute('aria-pressed', String(controls.autoRotate));
@@ -1582,9 +1802,110 @@ $('h-pop').textContent = habitants.length;
 $('h-graine').textContent = GRAINE;
 $('h-seg').textContent = (SEG_DECOR.length / 6) + habitants.reduce((n, h) => n + silhouette(h.role).length / 6, 0);
 
+/* ================================================================
+   LA FICHE — on clique sur quelqu'un et on voit ce qu'il fait ET
+   POURQUOI. C'est ce qui sépare un aquarium d'une machine dont on lit
+   les rouages : sans le pourquoi, dix-sept bâtonnets se ressemblent.
+   ================================================================ */
+let selection = null;
+const vecEcran = new THREE.Vector3();
+
+function ecranDe(h) {
+  vecEcran.set(h.x, hauteur(h.x, h.z) + 1.9, h.z).project(camera);
+  return { x: (vecEcran.x * 0.5 + 0.5) * innerWidth,
+           y: (-vecEcran.y * 0.5 + 0.5) * innerHeight,
+           devant: vecEcran.z < 1 };
+}
+function selectionner(h) {
+  selection = (h && h.vivant) ? h : null;
+  $('fiche').hidden = !selection;
+  $('etiquette').hidden = !selection;
+  if (selection) majFiche();
+}
+function choisirAuPoint(px, py) {
+  let meilleur = null, meilleureD = 44;
+  for (const h of habitants) {
+    if (!h.vivant) continue;
+    const p = ecranDe(h);
+    if (!p.devant) continue;
+    const d = Math.hypot(p.x - px, p.y - py);
+    if (d < meilleureD) { meilleureD = d; meilleur = h; }
+  }
+  selectionner(meilleur);
+}
+
+// distinguer un clic d'une rotation de caméra : sans ça, chaque
+// glissement désélectionnerait
+let appui = null;
+renderer.domElement.addEventListener('pointerdown', (ev) => {
+  appui = { x: ev.clientX, y: ev.clientY, t: performance.now() };
+});
+renderer.domElement.addEventListener('pointerup', (ev) => {
+  if (!appui) return;
+  const bouge = Math.hypot(ev.clientX - appui.x, ev.clientY - appui.y);
+  if (bouge < 7 && performance.now() - appui.t < 500) choisirAuPoint(ev.clientX, ev.clientY);
+  appui = null;
+});
+$('fiche-fermer').addEventListener('click', () => selectionner(null));
+
+function barre(nom, v) {
+  return `<div class="barre"><span class="n">${nom}</span>` +
+         `<span class="j"><i style="width:${Math.round(Math.max(0, Math.min(1, v)) * 100)}%"></i></span></div>`;
+}
+function majFiche() {
+  const h = selection;
+  if (!h || !h.vivant) { selectionner(null); return; }
+
+  $('f-nom').textContent = `${h.prenom}, ${NOM_ROLE[h.role]}`;
+  $('f-occ').textContent = h.occupation + (h.cible ? ` → ${h.cible.nom}` : '');
+
+  const p = poidsDes(h).filter(x => x[1] > 0.001).sort((a, b) => b[1] - a[1]).slice(0, 4);
+  $('f-pourquoi').innerHTML = p.map(([nom, w, pq], i) =>
+    `<div class="ligne${i ? '' : ' premier'}">${nom} ${w.toFixed(2)}` +
+    (pq ? `<br><span class="pq">${pq}</span>` : '') + '</div>').join('')
+    || '<div class="ligne">—</div>';
+
+  $('f-besoins').innerHTML = barre('faim', h.faim) + barre('fatigue', h.fatigue) +
+    barre('peur', h.peur) + barre('foi', h.foi) + barre('soupçon', h.soupcon) +
+    barre('rancune', h.rancune) + (h.chagrin > 0.02 ? barre('chagrin', h.chagrin) : '');
+
+  const proches = [...h.liens.entries()].filter(([a]) => a.vivant)
+    .sort((a, b) => b[1] - a[1]).slice(0, 3);
+  // l'attachement tu qui n'est visible que d'ici : le village l'ignore,
+  // l'intéressée aussi, et c'est bien ça qui serre le cœur
+  const tu = (h.secret && h.secret.vivant && h.secretForce > 0.12)
+    ? `<div class="ligne premier">tient à ${h.secret.prenom}` +
+      `<br><span class="pq">n'en a jamais rien dit · ${h.secretForce.toFixed(2)}</span></div>` : '';
+  $('f-liens').innerHTML =
+    (h.aime && h.aime.vivant ? `<div class="ligne premier">promis${e(h)} à ${h.aime.prenom}</div>` : '') + tu +
+    (proches.length ? proches.map(([a, v]) =>
+      `<div class="ligne"><span class="pq">${v.toFixed(2)}</span> ${a.prenom}, ${NOM_ROLE[a.role]}</div>`).join('')
+      : (tu ? '' : '<div class="ligne"><span class="pq">personne, pour l\'instant</span></div>'));
+
+  $('f-memoire').innerHTML = h.memoire.length
+    ? h.memoire.slice(-6).reverse().map(t => `<div class="souvenir">${t}</div>`).join('')
+    : '<div class="souvenir">rien encore</div>';
+}
+
+// ---- le bouton de la chronique ----
+let chroniqueVisible = true;
+try { chroniqueVisible = localStorage.getItem('dh_chronique') !== 'off'; } catch (err) { /* ignore */ }
+function majBoutonChronique() {
+  $('chronique').hidden = !chroniqueVisible;
+  $('btn-chronique').setAttribute('aria-pressed', String(chroniqueVisible));
+}
+$('btn-chronique').addEventListener('click', () => {
+  chroniqueVisible = !chroniqueVisible;
+  majBoutonChronique();
+  try { localStorage.setItem('dh_chronique', chroniqueVisible ? 'on' : 'off'); } catch (err) { /* ignore */ }
+});
+majBoutonChronique();
+
 addEventListener('resize', majCadrage);
 window.DH = { scene, camera, controls, renderer, village, habitants, chronique, LIEUX,
               MOULINS, hauteur, lancerDragon, lancerFoire, tenterMusique,
+              selectionner, poidsDes, ecranDe, distRoute, distRuisseau,
+              get selection() { return selection; },
               etatAudio: () => ({ ctx: ctxAudio && ctxAudio.state, bornes,
                                   duree: tamponMusique && tamponMusique.duration,
                                   joue: !!sourceMusique }),
@@ -1596,7 +1917,7 @@ majAffichage(); majTableau();
 /* ================================================================
    9. BOUCLE
    ================================================================ */
-let precedent = performance.now(), images = 0, dernierCompte = precedent, dernierTableau = 0;
+let precedent = performance.now(), images = 0, dernierCompte = precedent, dernierTableau = 0, derniereFiche = 0;
 renderer.setAnimationLoop((maintenant) => {
   let dt = (maintenant - precedent) / 1000;
   precedent = maintenant;
@@ -1619,12 +1940,22 @@ renderer.setAnimationLoop((maintenant) => {
   controls.update();
   renderer.render(scene, camera);
 
+  if (selection && selection.vivant) {
+    const pos = ecranDe(selection);
+    const et = $('etiquette');
+    et.hidden = !pos.devant;
+    et.textContent = selection.prenom;
+    et.style.left = pos.x + 'px';
+    et.style.top = (pos.y - 6) + 'px';
+  }
+
   images++;
   if (maintenant - dernierCompte >= 1000) {
     $('h-fps').textContent = Math.round(images * 1000 / (maintenant - dernierCompte));
     images = 0; dernierCompte = maintenant;
   }
   if (maintenant - dernierTableau > 700) { majTableau(); dernierTableau = maintenant; }
+  if (selection && maintenant - derniereFiche > 250) { majFiche(); derniereFiche = maintenant; }
 });
 </script>
 </body>
