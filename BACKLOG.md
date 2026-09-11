@@ -2242,6 +2242,66 @@ une arête de maison et une ligne de sol.
 
 ---
 
+## Le viseur, le bandeau et l'installation (v0.27)
+
+Trois demandes de Pierre dans la même passe.
+
+### Cliquer sur quelqu'un et le suivre
+
+Tranché&nbsp;: **la caméra ne bouge pas**. Une pointe désigne la personne,
+et dès qu'elle sort du cadre — on a zoomé, ou elle est partie au bout des
+champs — la pointe se colle au bord le plus proche et pivote vers elle,
+son nom avec. On ne perd jamais celui qu'on suit, et pourtant on garde le
+village entier sous les yeux. C'est le village qui fait l'histoire, pas le
+gros plan.
+
+On décroche en cliquant dans le vide ou en fermant la fiche&nbsp;: le suivi
+est lié à la sélection, rien de nouveau à apprendre. Quand la personne
+meurt, la caméra reste où elle est — elle n'avait pas bougé.
+
+Un défaut vu au premier essai&nbsp;: collé au bord droit, le repère est
+centré sur son point, donc la moitié du nom sortait de l'écran
+(« Guillaume de Beau… »). On le mesure et on le ramène dedans — il faut
+bien pouvoir lire le nom de celui qu'on cherche.
+
+### L'histoire se lisait mal
+
+Le texte flottait sur toute la hauteur de l'écran&nbsp;: les lignes
+passaient devant les toits, et le vert du texte se confondait avec le vert
+du dessin. Pierre a choisi les deux corrections à la fois — **un bandeau à
+lui** et **un voile sombre**. L'histoire descend donc dans une bande basse
+de 148&nbsp;px posée sur un dégradé noir&nbsp;: on lit d'un côté, on
+regarde de l'autre, et le village reste visible à travers. Huit lignes
+gardées, six ou sept visibles, les plus anciennes s'effacent vers le haut.
+
+### Le village s'installe
+
+Le jeu tient dans une page, un simulateur, une bibliothèque et un morceau
+de musique&nbsp;: rien ne l'oblige à vivre dans un onglet.
+
+- `manifest.webmanifest`, affichage `standalone`, fond et barre en noir.
+- Des icônes dessinées **avec la géométrie du jeu** — une chaumière en
+  isométrique vraie, faces noires et arêtes vertes, la même règle de
+  masquage que le rendu. Premier essai sans les faces&nbsp;: les douze
+  arêtes se superposaient et la maison devenait un treillis illisible.
+- `sw.js`&nbsp;: la coque en cache à l'installation, puis cache d'abord.
+  La page elle-même passe par le réseau quand il y en a, sans quoi une
+  nouvelle version ne se verrait qu'au deuxième lancement. **Le nom du
+  cache porte le numéro de version et doit monter à chaque sortie.**
+- Un bouton dans le menu. Chrome et Edge annoncent l'installation par un
+  événement qu'on met de côté pour le redéclencher au bon moment&nbsp;;
+  Safari n'a rien de tel, et personne ne devine qu'il faut passer par
+  Partager. Le jeu explique donc en trois pas, selon l'appareil — iPadOS
+  se faisant passer pour un Mac depuis 2019, on le reconnaît au tactile.
+
+### Reste à faire
+
+Toujours l'entrée « Dwelve Hollow » au menu du site personnel, en attente
+de l'URL. Elle a maintenant un argument de plus&nbsp;: le lien mènera à
+quelque chose qui s'installe.
+
+---
+
 ## 📜 Historique
 
 - **2026-09-10 (après-midi, suite)** — Lumière des torches calculée par

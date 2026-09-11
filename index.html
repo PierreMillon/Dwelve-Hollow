@@ -4,6 +4,12 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Dwelve Hollow</title>
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#000000">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Dwelve">
+<link rel="apple-touch-icon" href="icones/dwelve-180.png">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' fill='%23000'/%3E%3Cpath d='M3 12V6l5-3 5 3v6' fill='none' stroke='%2346ffa0' stroke-width='1.2'/%3E%3C/svg%3E">
 <style>
   :root {
@@ -41,18 +47,27 @@
   /* la chronique : dans un jeu où l'on regarde, le texte EST le jeu */
   /* l'histoire s'écrit par-dessus le village, sur toute la surface :
      on lit et on regarde en même temps, le fond reste transparent */
+  /* LE BANDEAU DE L'HISTOIRE. Le texte flottait sur toute la hauteur du
+     village : les lignes passaient devant les toits et le vert du texte se
+     confondait avec le vert du dessin. Il descend maintenant dans une
+     bande à lui, posée sur un voile sombre — on lit d'un côté, on regarde
+     de l'autre, et le village reste visible à travers. */
   #chronique {
-    position: fixed; inset: 0; z-index: 1;
-    padding: 62px max(16px, env(safe-area-inset-right)) 74px max(16px, env(safe-area-inset-left));
+    position: fixed; left: 0; right: 0; z-index: 1;
+    bottom: calc(52px + max(10px, env(safe-area-inset-bottom)));
+    height: 148px;
+    padding: 16px max(16px, env(safe-area-inset-right)) 10px max(16px, env(safe-area-inset-left));
     display: flex; flex-direction: column; justify-content: flex-end;
     gap: 4px; pointer-events: none; overflow: hidden;
-    mask-image: linear-gradient(to bottom, transparent, #000 34%);
-    -webkit-mask-image: linear-gradient(to bottom, transparent, #000 34%);
+    background: linear-gradient(to top,
+      rgba(2, 8, 5, 0.93) 0%, rgba(2, 8, 5, 0.88) 46%, rgba(2, 8, 5, 0) 100%);
+    mask-image: linear-gradient(to bottom, transparent, #000 30%);
+    -webkit-mask-image: linear-gradient(to bottom, transparent, #000 30%);
   }
   #chronique[hidden] { display: none; }
   #chronique div {
     color: var(--ph-dim); text-align: left;
-    text-shadow: 0 0 10px rgba(0,0,0,0.85), 0 0 3px rgba(0,0,0,0.9);
+    text-shadow: 0 1px 2px rgba(0,0,0,0.9);
   }
   #chronique div:last-child { color: var(--ph-text); }
   #chronique div.fort:last-child { color: var(--ph-line); }
@@ -113,12 +128,27 @@
   #m-lignes div.cliquable:hover { color: var(--ph-line); }
   #memoire-fermer { position: absolute; top: 6px; right: 6px; padding: 2px 7px; line-height: 1.1; }
 
+  /* LE VISEUR. La caméra ne bouge pas quand on désigne quelqu'un — c'est
+     le village qui fait l'histoire, pas le gros plan. Mais on ne doit
+     jamais le perdre : tant qu'il est à l'écran, une pointe le désigne ;
+     dès qu'il en sort, la pointe se colle au bord et montre la direction. */
   #etiquette {
     position: fixed; z-index: 3; pointer-events: none;
-    color: var(--ph-line); text-shadow: 0 0 8px rgba(0,0,0,0.9);
+    color: var(--ph-line); text-shadow: 0 1px 3px rgba(0,0,0,0.95);
     transform: translate(-50%, -100%); white-space: nowrap;
+    display: flex; flex-direction: column; align-items: center; gap: 3px;
   }
   #etiquette[hidden] { display: none; }
+  #etiquette .nom { padding: 1px 6px; background: rgba(2, 8, 5, 0.72); }
+  #etiquette .pointe {
+    width: 13px; height: 9px; background: var(--ph-line);
+    clip-path: polygon(50% 100%, 0 0, 100% 0);
+    animation: respire 1.9s ease-in-out infinite;
+  }
+  #etiquette.dehors { transform: translate(-50%, -50%); }
+  #etiquette.dehors .nom { order: 2; }
+  @keyframes respire { 0%, 100% { opacity: 1 } 50% { opacity: 0.35 } }
+  @media (prefers-reduced-motion: reduce) { #etiquette .pointe { animation: none } }
 
   #chronique { pointer-events: none; }
   #chronique div.cliquable { cursor: pointer; pointer-events: auto; }
@@ -151,6 +181,36 @@
   #regle::placeholder { color: rgba(70,255,160,0.35); }
   #regle:focus { outline: none; border-color: var(--ph-line); }
   #regle.refus { border-color: #ff6b6b; color: #ff9d9d; }
+  /* L'INSTALLATION. Le jeu tient tout entier dans une page : rien ne
+     l'empêche de vivre sur l'écran d'accueil, sans barre d'adresse et
+     sans réseau. Encore faut-il le dire — personne ne devine qu'une page
+     web s'installe. */
+  #pose {
+    position: fixed; z-index: 12; left: 50%; top: 50%; transform: translate(-50%, -50%);
+    width: min(420px, calc(100vw - 28px)); max-height: calc(100% - 48px); overflow-y: auto;
+    background: rgba(4, 12, 8, 0.97); border: 1px solid var(--ph-dim); padding: 20px 22px 18px;
+  }
+  #pose[hidden] { display: none; }
+  #pose h3 {
+    margin: 0 0 4px; color: var(--ph-line); font-size: 13px;
+    letter-spacing: 0.12em; text-transform: uppercase; font-weight: normal;
+  }
+  #pose .quoi { color: var(--ph-dim); margin: 0 0 16px; }
+  #pose ol { margin: 0; padding: 0; list-style: none; counter-reset: pas; }
+  #pose li {
+    counter-increment: pas; display: grid; grid-template-columns: 22px 1fr;
+    gap: 10px; margin-bottom: 11px; color: var(--ph-text); align-items: start;
+  }
+  #pose li::before {
+    content: counter(pas); color: var(--ph-line); border: 1px solid var(--ph-dim);
+    width: 22px; height: 22px; display: grid; place-items: center; font-size: 11px;
+  }
+  #pose .apres { color: var(--ph-dim); margin: 14px 0 0; }
+  #pose .actions { display: flex; gap: 8px; margin-top: 16px; }
+  #pose .actions button { flex: 1; justify-content: center; text-align: center; }
+  #menu .installer { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  #menu .installer .pq { color: var(--ph-dim); }
+
   /* LES TROIS MOLETTES. Le champ libre demandait de deviner ce qu'on a le
      droit d'écrire ; ici on ne peut choisir que des phrases que le village
      sait appliquer. On fait tourner, on lit, on pose. */
@@ -273,7 +333,7 @@
   <span class="title">DWELVE HOLLOW</span>
 </div>
 
-<button id="version">v0.26</button>
+<button id="version">v0.27</button>
 
 <div id="saison">an <b id="s-an">1</b> · <b id="s-saison">printemps</b> · jour <b id="s-jour">1</b> · <b id="s-phase">aube</b> · <b id="s-lune">lune</b> · pain <b id="s-pain">0</b> · peur <b id="s-peur">0 %</b></div>
 
@@ -309,7 +369,7 @@
   <div id="m-lignes"></div>
 </div>
 
-<div id="etiquette" hidden></div>
+<div id="etiquette" hidden><span class="pointe"></span><span class="nom"></span></div>
 
 <button id="btn-ame" hidden>donner une âme ?</button>
 <div id="ame">
@@ -339,6 +399,18 @@
   <button id="btn-spin" aria-pressed="true">⟳</button>
   <input id="regle" placeholder="écrire une règle…" autocomplete="off" spellcheck="false" readonly>
   <a class="lien" href="test-3d.html">banc d'essai</a>
+</div>
+
+<div id="pose" hidden role="dialog" aria-modal="true" aria-labelledby="pose-titre">
+  <h3 id="pose-titre">installer le village</h3>
+  <p class="quoi">Il se posera sur ton écran d'accueil comme une application&nbsp;:
+    plein écran, sans barre d'adresse, et il tourne sans réseau.</p>
+  <ol id="pose-pas"></ol>
+  <p class="apres">Le village continue de vivre là où tu l'as laissé&nbsp;: la graine est dans
+    l'adresse, pas dans une sauvegarde.</p>
+  <div class="actions">
+    <button id="pose-compris">compris</button>
+  </div>
 </div>
 
 <div id="molettes" hidden>
@@ -390,6 +462,12 @@
     <div class="diag">ips <span class="val" id="h-fps">—</span></div>
     <div class="diag">graine <span class="val" id="h-graine">—</span></div>
 
+    <h2>le village chez toi</h2>
+    <div class="installer">
+      <button id="btn-installer">installer le jeu</button>
+      <span class="pq" id="installer-etat"></span>
+    </div>
+
     <button class="fermer" id="btn-menu-fermer">fermer</button>
   </div>
 </div>
@@ -398,7 +476,19 @@
   <div class="contenu">
     <h2>DWELVE HOLLOW — HISTORIQUE</h2>
 
-    <div class="v courante"><b>v0.26</b> — <b>le trait au plus fin que l'écran permette.</b>
+    <div class="v courante"><b>v0.27</b> — <b>on ne perd plus personne, on lit l'histoire, et
+      le village s'installe.</b> Désigner quelqu'un ne déplace plus la caméra — c'est le village qui
+      fait l'histoire, pas le gros plan — mais une pointe le suit désormais, et dès qu'il sort du
+      cadre elle se colle au bord et montre la direction, son nom avec. On décroche en cliquant dans
+      le vide ou en fermant la fiche. L'histoire, elle, descend dans un bandeau à elle, posé sur un
+      voile sombre&nbsp;: les lignes ne passent plus derrière les toits et le vert du texte ne se
+      confond plus avec le vert du dessin. Enfin, le jeu s'installe&nbsp;: un bouton dans le menu, et
+      il se pose sur l'écran d'accueil comme une application — plein écran, sans barre d'adresse, et
+      il tourne <b>sans réseau</b>, dans le train ou en forêt. Chrome le fait en un clic&nbsp;; sur
+      iPhone il faut passer par le bouton Partager, et comme personne ne le devine, le jeu l'explique
+      en trois pas.</div>
+
+    <div class="v"><b>v0.26</b> — <b>le trait au plus fin que l'écran permette.</b>
       Six rendus du même coin de village ont montré que le plancher n'est pas un facteur
       d'amincissement mais le <b>pixel physique</b>&nbsp;: sous un pixel réel, un trait ne devient pas
       plus fin, il devient intermittent — et c'est le sol qui lâche en premier, parce que c'est déjà
@@ -1781,7 +1871,7 @@ function majMaisons() {
 function majChronique() {
   const c = $('chronique');
   c.innerHTML = '';
-  for (const ev of chronique.slice(-14)) {
+  for (const ev of chronique.slice(-8)) {
     const d = document.createElement('div');
     d.textContent = ev.txt;
     d.className = ev.fort ? 'fort' : '';
@@ -2312,6 +2402,92 @@ addEventListener('keydown', (ev) => { if (ev.key === 'Escape') fermerMolettes();
 majListeRegles();
 
 /* ================================================================
+   INSTALLER LE VILLAGE
+   Le jeu tient tout entier dans une page, un simulateur, une
+   bibliothèque et un morceau de musique. Rien ne l'oblige à vivre dans
+   un onglet : posé sur l'écran d'accueil, il s'ouvre en plein écran,
+   sans barre d'adresse, et il tourne sans réseau — ce qui compte pour
+   quelqu'un qui emmène ses projets en forêt.
+
+   Deux chemins, et c'est là que ça se complique. Chrome et Edge
+   proposent l'installation d'eux-mêmes, par un événement qu'on peut
+   attraper et redéclencher au bon moment. Safari, sur iPhone et iPad,
+   n'a rien de tel : il faut passer par le bouton Partager, et personne
+   ne le devine. On explique donc, pas à pas, selon l'appareil.
+   ================================================================ */
+let posePrete = null;                 // la proposition de Chrome, mise de côté
+
+addEventListener('beforeinstallprompt', (ev) => {
+  ev.preventDefault();                // sinon le navigateur choisit son moment
+  posePrete = ev;
+  majEtatInstall();
+});
+addEventListener('appinstalled', () => { posePrete = null; majEtatInstall(); });
+
+const dejaPose = () =>
+  matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+
+function quelAppareil() {
+  const ua = navigator.userAgent;
+  // iPadOS se fait passer pour un Mac depuis 2019 : on le reconnaît au tactile
+  const pomme = /iPhone|iPad|iPod/.test(ua) ||
+                (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1);
+  if (pomme) return 'ios';
+  if (/Android/.test(ua)) return 'android';
+  return 'bureau';
+}
+
+const PAS = {
+  ios: ["Touche le bouton Partager, en bas de Safari — le carré avec une flèche qui sort.",
+        "Fais défiler, puis choisis « Sur l'écran d'accueil ».",
+        "Touche « Ajouter », en haut à droite."],
+  android: ["Ouvre le menu du navigateur, les trois points en haut à droite.",
+            "Choisis « Installer l'application », ou « Ajouter à l'écran d'accueil ».",
+            "Confirme. Le village se pose à côté de tes autres applications."],
+  bureau: ["Regarde la barre d'adresse : une petite icône d'installation apparaît à droite.",
+           "Clique dessus, ou passe par le menu du navigateur puis « Installer ».",
+           "Le village s'ouvrira désormais dans sa propre fenêtre."],
+};
+
+function majEtatInstall() {
+  const b = $('btn-installer'), e = $('installer-etat');
+  if (!b) return;
+  if (dejaPose()) {
+    b.hidden = true;
+    e.textContent = 'déjà installé — tu y es.';
+    return;
+  }
+  b.hidden = false;
+  e.textContent = posePrete ? 'en un clic.' : 'il faut passer par le navigateur.';
+}
+
+$('btn-installer').addEventListener('click', async () => {
+  if (posePrete) {
+    // le chemin court : le navigateur sait faire, on lui rend la main
+    posePrete.prompt();
+    const { outcome } = await posePrete.userChoice;
+    posePrete = null;
+    majEtatInstall();
+    if (outcome === 'accepted') return;
+  }
+  // le chemin long : on explique, parce que rien ne l'indique à l'écran
+  $('pose-pas').innerHTML = PAS[quelAppareil()].map(t => `<li><span>${t}</span></li>`).join('');
+  $('pose').hidden = false;
+  $('pose-compris').focus();
+});
+$('pose-compris').addEventListener('click', () => { $('pose').hidden = true; });
+addEventListener('keydown', (ev) => { if (ev.key === 'Escape') $('pose').hidden = true; });
+majEtatInstall();
+
+// Le cache hors ligne n'existe que sur un vrai site : en fichier local il
+// ne s'enregistre pas, et le jeu marche quand même.
+if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
+  addEventListener('load', () => {
+    navigator.serviceWorker.register('sw.js').catch(() => {});
+  });
+}
+
+/* ================================================================
    LA FICHE — on clique sur quelqu'un et on voit ce qu'il fait ET
    POURQUOI. C'est ce qui sépare un aquarium d'une machine dont on lit
    les rouages : sans le pourquoi, dix-sept bâtonnets se ressemblent.
@@ -2325,6 +2501,45 @@ function ecranDe(h) {
            y: (-vecEcran.y * 0.5 + 0.5) * innerHeight,
            devant: vecEcran.z < 1 };
 }
+// Tant qu'il est dans le cadre, la pointe est au-dessus de lui. Dès qu'il
+// en sort — on a zoomé, ou il est parti au bout des champs — elle se colle
+// au bord le plus proche et pivote vers lui. On ne perd jamais celui qu'on
+// suit, et pourtant la caméra n'a pas bougé d'un pouce.
+const MARGE_VISEUR = 46;
+function placerViseur() {
+  const et = $('etiquette');
+  const p = ecranDe(selection);
+  et.hidden = false;
+  et.querySelector('.nom').textContent = nomComplet(selection);
+  const cx = innerWidth / 2, cy = innerHeight / 2;
+  // derrière la caméra, la projection se retourne : on remet la direction d'endroit
+  let x = p.devant ? p.x : cx - (p.x - cx), y = p.devant ? p.y : cy - (p.y - cy);
+  const haut = 96, bas = innerHeight - 210;   // on évite le bandeau de l'histoire
+  const dedans = p.devant && x > MARGE_VISEUR && x < innerWidth - MARGE_VISEUR && y > haut && y < bas;
+  if (dedans) {
+    et.classList.remove('dehors');
+    et.style.left = x + 'px';
+    et.style.top = (y - 6) + 'px';
+    et.querySelector('.pointe').style.transform = '';
+    return;
+  }
+  et.classList.add('dehors');
+  const cxy = { x: cx, y: (haut + bas) / 2 };
+  const dx = x - cxy.x, dy = y - cxy.y;
+  const k = Math.min((innerWidth / 2 - MARGE_VISEUR) / (Math.abs(dx) || 1e-6),
+                     ((bas - haut) / 2 - MARGE_VISEUR) / (Math.abs(dy) || 1e-6));
+  // Le repère est centré sur le point : collé au bord, la moitié du nom
+  // sortait de l'écran (« Guillaume de Beau… »). On le ramène dedans après
+  // l'avoir mesuré — il faut bien lire le nom de celui qu'on cherche.
+  const demi = et.offsetWidth / 2 || 60, hDemi = et.offsetHeight / 2 || 14;
+  const px = Math.min(Math.max(cxy.x + dx * k, demi + 8), innerWidth - demi - 8);
+  const py = Math.min(Math.max(cxy.y + dy * k, hDemi + 8), innerHeight - hDemi - 8);
+  et.style.left = px + 'px';
+  et.style.top = py + 'px';
+  // la pointe monte par défaut : on la fait tourner vers la personne
+  et.querySelector('.pointe').style.transform = `rotate(${Math.atan2(dy, dx) * 180 / Math.PI - 90}deg)`;
+}
+
 function selectionner(h) {
   selection = (h && h.vivant) ? h : null;
   $('fiche').hidden = !selection;
@@ -2591,14 +2806,7 @@ renderer.setAnimationLoop((maintenant) => {
   controls.update();
   renderer.render(scene, camera);
 
-  if (selection && selection.vivant) {
-    const pos = ecranDe(selection);
-    const et = $('etiquette');
-    et.hidden = !pos.devant;
-    et.textContent = nomComplet(selection);
-    et.style.left = pos.x + 'px';
-    et.style.top = (pos.y - 6) + 'px';
-  }
+  if (selection && selection.vivant) placerViseur();
 
   images++;
   if (maintenant - dernierCompte >= 1000) {
