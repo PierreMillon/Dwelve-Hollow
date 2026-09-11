@@ -151,6 +151,50 @@
   #regle::placeholder { color: rgba(70,255,160,0.35); }
   #regle:focus { outline: none; border-color: var(--ph-line); }
   #regle.refus { border-color: #ff6b6b; color: #ff9d9d; }
+  /* LES TROIS MOLETTES. Le champ libre demandait de deviner ce qu'on a le
+     droit d'écrire ; ici on ne peut choisir que des phrases que le village
+     sait appliquer. On fait tourner, on lit, on pose. */
+  #molettes {
+    position: fixed; z-index: 6; left: 50%; transform: translateX(-50%);
+    bottom: calc(58px + env(safe-area-inset-bottom));
+    width: min(620px, calc(100vw - 24px));
+    background: rgba(4, 12, 8, 0.96);
+    border: 1px solid var(--ph-dim);
+    padding: 12px 14px 14px;
+  }
+  #molettes[hidden] { display: none; }
+  .mol-tete {
+    color: var(--ph-line); opacity: 0.55; letter-spacing: 0.14em;
+    font-size: 10px; text-transform: uppercase; margin-bottom: 8px;
+  }
+  .mol-rangee { position: relative; display: grid; grid-template-columns: 1.2fr 0.8fr 1.2fr; gap: 8px; }
+  .mol {
+    position: relative; z-index: 1;
+    height: 132px; overflow-y: auto; overscroll-behavior: contain;
+    scroll-snap-type: y mandatory; scrollbar-width: none;
+    -webkit-mask-image: linear-gradient(to bottom, transparent, #000 26%, #000 74%, transparent);
+    mask-image: linear-gradient(to bottom, transparent, #000 26%, #000 74%, transparent);
+  }
+  .mol::-webkit-scrollbar { display: none; }
+  .mol:focus { outline: none; }
+  .mol:focus-visible { outline: 1px solid var(--ph-line); outline-offset: 2px; }
+  .mol .cran {
+    height: 33px; line-height: 33px; scroll-snap-align: center;
+    color: var(--ph-dim); text-align: center; cursor: pointer;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding: 0 4px;
+  }
+  .mol .cran.pris { color: var(--ph-line); }
+  /* la bande de sélection : elle ne bouge pas, ce sont les mots qui défilent */
+  .mol-bande {
+    position: absolute; left: 0; right: 0; top: 49px; height: 34px;
+    border-top: 1px solid var(--ph-dim); border-bottom: 1px solid var(--ph-dim);
+    pointer-events: none; z-index: 2;
+  }
+  .mol-phrase {
+    margin: 10px 0 0; color: var(--ph-line); text-align: center;
+    min-height: 1.4em; letter-spacing: 0.03em;
+  }
+  .mol-actions { display: flex; gap: 8px; justify-content: center; margin-top: 10px; }
   #menu .regle { color: var(--ph-text); margin-bottom: 4px; }
   #menu .regle button { padding: 1px 7px; margin-right: 8px; line-height: 1.1; }
   #menu .regle .pq { color: var(--ph-dim); }
@@ -229,7 +273,7 @@
   <span class="title">DWELVE HOLLOW</span>
 </div>
 
-<button id="version">v0.24</button>
+<button id="version">v0.25</button>
 
 <div id="saison">an <b id="s-an">1</b> · <b id="s-saison">printemps</b> · jour <b id="s-jour">1</b> · <b id="s-phase">aube</b> · <b id="s-lune">lune</b> · pain <b id="s-pain">0</b> · peur <b id="s-peur">0 %</b></div>
 
@@ -293,8 +337,23 @@
   <button id="btn-chronique" aria-pressed="true">chronique</button>
   <button id="btn-memoire" aria-pressed="false">mémoire</button>
   <button id="btn-spin" aria-pressed="true">⟳</button>
-  <input id="regle" placeholder="Jehan aime Perrine" autocomplete="off" spellcheck="false">
+  <input id="regle" placeholder="écrire une règle…" autocomplete="off" spellcheck="false" readonly>
   <a class="lien" href="test-3d.html">banc d'essai</a>
+</div>
+
+<div id="molettes" hidden>
+  <div class="mol-tete">une règle pour le village</div>
+  <div class="mol-rangee">
+    <div class="mol" id="mol-sujet" tabindex="0" role="listbox" aria-label="qui"></div>
+    <div class="mol" id="mol-verbe" tabindex="0" role="listbox" aria-label="fait quoi"></div>
+    <div class="mol" id="mol-objet" tabindex="0" role="listbox" aria-label="à qui, ou à quoi"></div>
+    <div class="mol-bande"></div>
+  </div>
+  <div class="mol-phrase" id="mol-phrase">—</div>
+  <div class="mol-actions">
+    <button id="mol-poser">poser la règle</button>
+    <button id="mol-annuler">annuler</button>
+  </div>
 </div>
 
 <div id="menu">
@@ -339,7 +398,20 @@
   <div class="contenu">
     <h2>DWELVE HOLLOW — HISTORIQUE</h2>
 
-    <div class="v courante"><b>v0.24</b> — <b>ce qui ne revient pas, et la mémoire qui
+    <div class="v courante"><b>v0.25</b> — <b>trois molettes au lieu d'un curseur qui
+      clignote.</b> Le champ des règles avait un défaut qu'une phrase suffit à dire&nbsp;: on ne
+      sait pas quoi écrire. Le village n'accepte que cinq verbes, et seulement certains sujets pour
+      certains objets — rien de tout ça ne se devine devant un champ vide. On clique maintenant, et
+      trois molettes montent&nbsp;: à gauche qui, au milieu quoi, à droite à qui. La molette de
+      droite change de contenu selon le verbe — on peut craindre la forêt, on ne peut pas l'aimer —
+      si bien qu'une phrase que le village ne saurait pas appliquer n'est plus composable. Le verbe
+      s'accorde&nbsp;: « les paysans craignent la forêt », mais « tout le monde craint la forêt ».
+      Le village s'arrête pendant qu'on choisit, sans quoi la personne visée peut mourir sous les
+      doigts. Et les règles ne passent plus par l'interprète de texte&nbsp;: elles sont construites
+      avec les vraies personnes, ce qui supprime l'ambiguïté des homonymes — deux Aliénor vivantes,
+      et la règle s'appliquait aux deux.</div>
+
+    <div class="v"><b>v0.24</b> — <b>ce qui ne revient pas, et la mémoire qui
       décide.</b> Tout, jusqu'ici, revenait : la faim passait, la peur retombait, le
       moulin se remontait, un enfant reprenait le métier du mort. Trois choses ne
       reviennent plus. Chaque maison porte un nom — Beaufort, Roquemaure, Aiguebelle —
@@ -2013,23 +2085,193 @@ function majListeRegles() {
   });
 }
 
-$('regle').addEventListener('keydown', (ev) => {
-  if (ev.key !== 'Enter') return;
-  const champ = ev.target;
-  const r = analyser(champ.value);
-  if (!r || r.erreur) {
-    champ.classList.add('refus');
-    champ.value = '';
-    champ.placeholder = (r && r.erreur) || 'écris : qui · fait quoi · à qui';
-    setTimeout(() => { champ.classList.remove('refus'); champ.placeholder = 'Jehan aime Perrine'; }, 2800);
-    return;
+/* ---- LES TROIS MOLETTES ----
+   Le champ libre avait un défaut que Pierre a nommé d'une phrase : on ne
+   sait pas quoi écrire. Le village n'accepte que cinq verbes, et seulement
+   certains sujets pour certains objets — rien de tout ça ne se devine
+   devant un curseur qui clignote. Trois molettes, comme les réglages d'un
+   téléphone : à gauche qui, au milieu quoi, à droite à qui. On ne peut
+   plus composer une phrase que le village ne saurait pas appliquer.
+
+   Elles ne passent pas par l'interprète de texte : elles construisent la
+   règle directement, avec les vraies personnes. Ça supprime au passage
+   l'ambiguïté des homonymes — deux Aliénor vivantes, et « Aliénor aime
+   Jehan » s'appliquait aux deux. */
+
+const CRAN = 33;                      // hauteur d'un cran, en pixels (doit suivre le style)
+
+// « le tailleur de pierre » au pluriel, ce n'est pas « le tailleur de pierres »
+function auPluriel(nomRole) {
+  const nu = (nomRole || '').replace(/^(le |la |l')/, '');
+  const [tete, ...reste] = nu.split(' de ');
+  const t = /[sx]$/.test(tete) ? tete : tete + 's';
+  return 'les ' + [t, ...reste].join(' de ');
+}
+
+// cinq verbes, et rien d'autre : ce sont exactement ceux que le village
+// sait appliquer. Chacun porte son accord, parce que le sujet peut être
+// une personne ou tout un métier.
+const VERBES_MOL = [
+  { cle: 'aime',    un: 'aime',   pluriel: 'aiment',    lieux: false },
+  { cle: 'deteste', un: 'déteste', pluriel: 'détestent', lieux: false },
+  { cle: 'suit',    un: 'suit',   pluriel: 'suivent',   lieux: true },
+  { cle: 'evite',   un: 'évite',  pluriel: 'évitent',   lieux: true },
+  { cle: 'craint',  un: 'craint', pluriel: 'craignent', lieux: true },
+];
+
+let molSujets = [], molObjets = [], molReprend = false;
+const molIndex = { sujet: 0, verbe: 0, objet: 0 };
+
+function gensVivants() {
+  return habitants.filter(h => h.vivant);
+}
+
+function listeSujets() {
+  const vivants = gensVivants();
+  const l = [{ texte: 'tout le monde', pluriel: false, gens: () => gensVivants() }];
+  // les métiers réellement présents, dès qu'ils sont au moins deux
+  const parRole = new Map();
+  for (const h of vivants) {
+    if (h.role === 'enfant') continue;
+    parRole.set(h.role, (parRole.get(h.role) || 0) + 1);
   }
+  for (const [role, n] of parRole) {
+    if (n < 2) continue;
+    l.push({ texte: auPluriel(NOM_ROLE[role]), pluriel: true,
+             gens: () => gensVivants().filter(h => h.role === role) });
+  }
+  for (const h of vivants) l.push({ texte: nomComplet(h), pluriel: false, gens: () => [h] });
+  return l;
+}
+
+function listeObjets(verbe) {
+  // À droite, jamais un métier : l'objet doit désigner UNE personne ou UN
+  // lieu, sans quoi « aime les paysans » voudrait dire cinq choses à la
+  // fois. Et les lieux ne s'offrent qu'aux verbes qui savent en faire
+  // quelque chose — on n'aime pas une grange.
+  const l = gensVivants().map(h => ({ texte: nomComplet(h), quoi: h }));
+  if (verbe.lieux) {
+    for (const x of LIEUX) {
+      if (x.type === 'chaumiere' || x.type === 'place') continue;
+      l.push({ texte: x.nom, quoi: x });
+    }
+  }
+  return l;
+}
+
+function remplirMolette(id, items, choisi) {
+  const m = $(id);
+  m.innerHTML = '';
+  const marge = Math.round((m.clientHeight - CRAN) / 2);
+  const creux = () => { const d = document.createElement('div');
+    d.style.height = marge + 'px'; d.setAttribute('aria-hidden', 'true'); return d; };
+  m.appendChild(creux());
+  items.forEach((it, i) => {
+    const d = document.createElement('div');
+    d.className = 'cran';
+    d.textContent = it.texte;
+    d.setAttribute('role', 'option');
+    d.addEventListener('click', () => m.scrollTo({ top: i * CRAN, behavior: 'smooth' }));
+    m.appendChild(d);
+  });
+  m.appendChild(creux());
+  m.scrollTop = Math.min(choisi, items.length - 1) * CRAN;
+}
+
+function cranDe(id) {
+  const m = $(id);
+  return Math.max(0, Math.round(m.scrollTop / CRAN));
+}
+
+function marquerPris(id, i) {
+  const crans = $(id).querySelectorAll('.cran');
+  crans.forEach((c, k) => c.classList.toggle('pris', k === i));
+}
+
+function majPhrase() {
+  const s = molSujets[Math.min(molIndex.sujet, molSujets.length - 1)];
+  const v = VERBES_MOL[Math.min(molIndex.verbe, VERBES_MOL.length - 1)];
+  const o = molObjets[Math.min(molIndex.objet, molObjets.length - 1)];
+  marquerPris('mol-sujet', molSujets.indexOf(s));
+  marquerPris('mol-verbe', VERBES_MOL.indexOf(v));
+  marquerPris('mol-objet', molObjets.indexOf(o));
+  if (!s || !v || !o) { $('mol-phrase').textContent = '—'; return null; }
+  const texte = `${s.texte} ${s.pluriel ? v.pluriel : v.un} ${o.texte}`;
+  $('mol-phrase').textContent = texte;
+  return { texte, verbe: v.cle, sujets: s.gens().filter(h => h !== o.quoi), objet: o.quoi };
+}
+
+// changer de verbe change ce que la molette de droite a le droit d'offrir
+function majObjets(garderPlace = true) {
+  const v = VERBES_MOL[Math.min(molIndex.verbe, VERBES_MOL.length - 1)];
+  const avant = molObjets[molIndex.objet];
+  molObjets = listeObjets(v);
+  let i = 0;
+  if (garderPlace && avant) {
+    const k = molObjets.findIndex(o => o.quoi === avant.quoi);
+    if (k >= 0) i = k;
+  }
+  molIndex.objet = i;
+  remplirMolette('mol-objet', molObjets, i);
+}
+
+function ouvrirMolettes() {
+  if (!$('molettes').hidden) return;
+  // on arrête le village le temps de choisir : sinon la personne qu'on
+  // vise meurt pendant qu'on fait tourner la molette. Le créateur d'âme a
+  // appris ça à ses dépens.
+  molReprend = !enPause;
+  if (molReprend) $('btn-pause').click();
+  $('molettes').hidden = false;
+  molSujets = listeSujets();
+  molIndex.sujet = 0; molIndex.verbe = 0;
+  remplirMolette('mol-sujet', molSujets, 0);
+  remplirMolette('mol-verbe', VERBES_MOL.map(v => ({ texte: v.un })), 0);
+  majObjets(false);
+  majPhrase();
+}
+
+function fermerMolettes() {
+  if ($('molettes').hidden) return;
+  $('molettes').hidden = true;
+  $('regle').blur();
+  if (molReprend) { $('btn-pause').click(); molReprend = false; }
+}
+
+for (const id of ['mol-sujet', 'mol-verbe', 'mol-objet']) {
+  const m = $(id);
+  const quoi = id.slice(4);
+  let attente = null;
+  m.addEventListener('scroll', () => {
+    clearTimeout(attente);
+    attente = setTimeout(() => {
+      molIndex[quoi] = cranDe(id);
+      if (quoi === 'verbe') majObjets();
+      majPhrase();
+    }, 90);
+  });
+  m.addEventListener('keydown', (ev) => {
+    const d = ev.key === 'ArrowDown' ? 1 : ev.key === 'ArrowUp' ? -1 : 0;
+    if (!d) return;
+    ev.preventDefault();
+    m.scrollTo({ top: Math.max(0, cranDe(id) + d) * CRAN, behavior: 'smooth' });
+  });
+}
+
+$('regle').addEventListener('focus', ouvrirMolettes);
+$('regle').addEventListener('click', ouvrirMolettes);
+$('mol-annuler').addEventListener('click', fermerMolettes);
+$('mol-poser').addEventListener('click', () => {
+  const r = majPhrase();
+  if (!r || !r.sujets.length) return;
   regles.push(r);
   appliquerRegles();
   majListeRegles();
   noter(`Une règle est entrée dans le village : ${r.texte}.`, true, r.sujets[0]);
-  champ.value = '';
+  fermerMolettes();
 });
+addEventListener('keydown', (ev) => { if (ev.key === 'Escape') fermerMolettes(); });
+
 majListeRegles();
 
 /* ================================================================

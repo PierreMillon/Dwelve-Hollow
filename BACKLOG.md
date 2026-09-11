@@ -2166,6 +2166,82 @@ que rien ne soit perdu. Il n'y a plus qu'un seul endroit qui nomme.
 
 ---
 
+## Trois molettes au lieu d'un curseur qui clignote (v0.25)
+
+Pierre, en une phrase&nbsp;: *« pour l'instant on peut marquer quelque chose
+comme Jehan aime Perrine, le problème de ça c'est qu'on sait pas quoi
+marquer »*. Il a raison, et le défaut est plus profond qu'un manque
+d'exemples&nbsp;: le village n'accepte que **cinq verbes**, et seulement
+certains sujets pour certains objets. Rien de tout ça ne se devine devant
+un champ vide.
+
+### Ce que ça fait
+
+On clique dans le champ, et trois molettes montent — comme les réglages
+d'un téléphone. À gauche **qui**, au milieu **quoi**, à droite **à qui**.
+Une bande fixe marque le choix, ce sont les mots qui défilent dessous.
+
+- **Gauche** : « tout le monde », puis les métiers présents dès qu'ils sont
+  au moins deux (« les paysans », « les tailleurs de pierre » — le pluriel
+  se fait sur la tête du groupe, pas sur le complément), puis chaque
+  vivant par son nom complet.
+- **Milieu** : aime · déteste · suit · évite · craint. Les cinq, et rien
+  d'autre, parce que ce sont exactement ceux que le village applique.
+- **Droite** : chaque vivant — et les lieux, mais **seulement pour suit,
+  évite et craint**. On peut craindre la forêt, on ne peut pas l'aimer.
+  Jamais un métier à droite : « aime les paysans » voudrait dire cinq
+  choses à la fois.
+
+Changer de verbe recompose la molette de droite en gardant la place quand
+c'est possible. Une phrase que le village ne saurait pas appliquer n'est
+donc plus composable — c'était tout l'objet.
+
+### Deux choses gagnées au passage
+
+**L'accord.** « les paysans craignent la forêt », mais « tout le monde
+craint la forêt » — « tout le monde » désigne plusieurs personnes et
+s'accorde au singulier. Le premier essai disait « tout le monde aiment ».
+
+**Les homonymes.** Les molettes ne passent plus par l'interprète de
+texte&nbsp;: elles construisent la règle directement, avec les vraies
+personnes. `resoudre()` appariait par prénom — deux Aliénor vivantes, et
+« Aliénor aime Jehan » s'appliquait aux deux sans le dire. Ce trou est
+fermé pour les règles posées à la molette.
+
+**La pause.** Le village s'arrête pendant qu'on choisit. Le créateur d'âme
+avait appris ça à ses dépens&nbsp;: à ×100, la personne visée meurt sous
+les doigts.
+
+### Mesuré au navigateur
+
+19 sujets, 5 verbes, 17 objets sans les lieux et 32 avec. « les paysans
+craignent la forêt » posée&nbsp;: 5 habitants ont `craint` renseigné, le
+panneau se ferme, le village repart. Aucune erreur console.
+
+---
+
+## La finesse du trait — planche de mesure
+
+Six rendus du même coin de village, toutes largeurs multipliées par un
+facteur décroissant, sur écran simple et sur écran double. Planche remise
+à Pierre&nbsp;; **décision en attente**.
+
+Le résultat&nbsp;: le plancher n'est pas un facteur, c'est le **pixel
+physique**. `linewidth` se compte en pixels CSS et le rendu tourne à
+`min(devicePixelRatio, 2)`, donc la largeur réelle vaut
+`linewidth × densité`. Sous un pixel réel, un trait ne s'affine pas, il
+devient intermittent — et c'est le sol qui lâche en premier, parce que
+c'est déjà le trait le plus fin du jeu (1,10 contre 1,70 pour les arêtes).
+
+Proposition en attente&nbsp;: écrire les largeurs en pixels *physiques* et
+laisser la page diviser par la densité,
+`const fin = (physiques) => Math.max(physiques, 1) / DENSITE`. Le trait
+devient alors aussi fin que l'écran le permet sans jamais casser, et la
+hiérarchie survit — tout mettre à un pixel effacerait la différence entre
+une arête de maison et une ligne de sol.
+
+---
+
 ## 📜 Historique
 
 - **2026-09-10 (après-midi, suite)** — Lumière des torches calculée par
