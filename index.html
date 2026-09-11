@@ -273,7 +273,7 @@
   <span class="title">DWELVE HOLLOW</span>
 </div>
 
-<button id="version">v0.25</button>
+<button id="version">v0.26</button>
 
 <div id="saison">an <b id="s-an">1</b> · <b id="s-saison">printemps</b> · jour <b id="s-jour">1</b> · <b id="s-phase">aube</b> · <b id="s-lune">lune</b> · pain <b id="s-pain">0</b> · peur <b id="s-peur">0 %</b></div>
 
@@ -398,7 +398,18 @@
   <div class="contenu">
     <h2>DWELVE HOLLOW — HISTORIQUE</h2>
 
-    <div class="v courante"><b>v0.25</b> — <b>trois molettes au lieu d'un curseur qui
+    <div class="v courante"><b>v0.26</b> — <b>le trait au plus fin que l'écran permette.</b>
+      Six rendus du même coin de village ont montré que le plancher n'est pas un facteur
+      d'amincissement mais le <b>pixel physique</b>&nbsp;: sous un pixel réel, un trait ne devient pas
+      plus fin, il devient intermittent — et c'est le sol qui lâche en premier, parce que c'est déjà
+      le plus fin de tous. Les largeurs s'écrivent donc maintenant en pixels physiques et la page
+      divise par la densité de l'écran. Sur un écran à double densité, l'arête d'une maison mesure
+      0,65&nbsp;px CSS au lieu de 1,70, et le dessin respire. La hiérarchie survit&nbsp;: arêtes 1,3,
+      sol 1,0, fenêtres 1,4, flammes 2,0 — tout mettre à un pixel effacerait la différence entre le
+      bord d'un toit et une ligne de terrain. Le calcul se refait si l'on déplace la fenêtre sur un
+      autre écran.</div>
+
+    <div class="v"><b>v0.25</b> — <b>trois molettes au lieu d'un curseur qui
       clignote.</b> Le champ des règles avait un défaut qu'une phrase suffit à dire&nbsp;: on ne
       sait pas quoi écrire. Le village n'accepte que cinq verbes, et seulement certains sujets pour
       certains objets — rien de tout ça ne se devine devant un champ vide. On clique maintenant, et
@@ -970,15 +981,36 @@ controls.minZoom = 0.45; controls.maxZoom = 8;
 controls.target.set(0, 4, 4);
 
 const LINE = 0x46ffa0;
+
+/* ---- LA FINESSE DU TRAIT ----
+   Mesuré sur six rendus du même coin de village, en 1× et en 2× : le
+   plancher n'est pas un facteur d'amincissement, c'est le PIXEL PHYSIQUE.
+   `linewidth` se compte en pixels CSS et le rendu tourne à
+   min(devicePixelRatio, 2) ; la largeur réelle vaut donc linewidth ×
+   densité. Sous un pixel réel, un trait ne devient pas plus fin — il
+   devient intermittent, et c'est le sol qui lâche en premier parce que
+   c'est déjà le plus fin de tous.
+
+   On écrit donc les largeurs en pixels PHYSIQUES et la page divise. Le
+   trait est alors aussi fin que l'écran le permet, sans jamais casser, et
+   la hiérarchie survit : tout mettre à un pixel effacerait la différence
+   entre une arête de maison et une ligne de sol. */
+const densite = () => Math.min(devicePixelRatio || 1, 2);
+function finesse(m, physiques) {
+  m.finesse = physiques;                       // retenu : la densité peut changer en cours de route
+  m.linewidth = Math.max(physiques, 1) / densite();
+  return m;
+}
+
 function materiau(op = 1) {
   // transparence classique, jamais alphaToCoverage : ce dernier requantifie
   // le fondu du nuanceur en 4 paliers et l'escalier revient (mesuré en v0.7)
-  return new LineMaterial({ color: LINE, linewidth: 1.7, transparent: true, opacity: op, alphaToCoverage: false });
+  return finesse(new LineMaterial({ color: LINE, transparent: true, opacity: op, alphaToCoverage: false }), 1.3);
 }
 const matDecor = materiau(), matGens = materiau(), matDragon = materiau(), matEtal = materiau();
 const matSol = materiau(0.16), matTrace = materiau(0.45);
-matSol.linewidth = 1.1; matTrace.linewidth = 1.3;
-const matHalo = materiau(0.2); matHalo.linewidth = 1.1;
+finesse(matSol, 1.0); finesse(matTrace, 1.0);
+const matHalo = finesse(materiau(0.2), 1.0);
 const TOUS_MAT = [matDecor, matGens, matDragon, matEtal, matSol, matTrace, matHalo];
 
 /* ---- LA LUMIÈRE DES FEUX ----
@@ -1158,7 +1190,7 @@ const FLAMME = bloc((S) => {
   trait(S, -0.22, 0.3, 0, 0.22, 0.3, 0);
   trait(S, 0, 0.3, -0.22, 0, 0.3, 0.22);
 });
-const matFlamme = materiau(1); matFlamme.linewidth = 2.6;
+const matFlamme = finesse(materiau(1), 2.0);
 patcherLumiere(matFlamme); TOUS_MAT.push(matFlamme);
 
 // Le halo de la solution A, gardé pour la flamme seule : la lumière
@@ -1248,7 +1280,7 @@ function silhouetteBete(type) {
     trait(S, -L / 2, H, 0, -L / 2 - P * 0.3, H * 1.1, 0);      // la queue
   });
 }
-const matBete = materiau(0.75); matBete.linewidth = 1.3;
+const matBete = finesse(materiau(0.75), 1.1);
 patcherLumiere(matBete); TOUS_MAT.push(matBete);
 for (const b of village.betes) {
   b.objet = ligneDe(silhouetteBete(b.type).a, matBete);
@@ -1304,7 +1336,7 @@ for (const dz of [-3.6, 0, 3.6]) for (const sg of [-1, 1])
 poserFenetre(FOUR, 0, 1.3, 3.3, 0.8, 0.7, false);
 
 const matFenetre = materiau(1);
-matFenetre.linewidth = 1.9;
+finesse(matFenetre, 1.4);
 matFenetre.vertexColors = true;
 patcherLumiere(matFenetre); TOUS_MAT.push(matFenetre);
 const gFen = new LineSegmentsGeometry();
@@ -1358,7 +1390,7 @@ for (let i = 0; i < 40; i++) {
   const a = i / 40 * Math.PI * 2, b = (i + 1) / 40 * Math.PI * 2;
   trait(CERCLE_LUNE, Math.cos(a) * 3.4, Math.sin(a) * 3.4, 0, Math.cos(b) * 3.4, Math.sin(b) * 3.4, 0);
 }
-const matLune = materiau(0.8); matLune.linewidth = 1.6;
+const matLune = finesse(materiau(0.8), 1.2);
 const objLune = new THREE.Group();
 objLune.add(ligneDe(CERCLE_LUNE, matLune));
 const arcLune = ligneDe(CERCLE_LUNE, matLune);        // le même cercle, aplati pour dire la phase
@@ -1431,7 +1463,7 @@ for (let i = 0; i < RUISSEAU.length - 1; i++) {
     trait(SEG_BRUME, 0, 0, 0, l, 0, 0);
   }
 }
-const matBrume = materiau(0); matBrume.linewidth = 1.4;
+const matBrume = finesse(materiau(0), 1.0);
 patcherLumiere(matBrume); TOUS_MAT.push(matBrume);
 const objBrume = ligneDe(SEG_BRUME, matBrume);
 objBrume.visible = false;
@@ -1450,7 +1482,7 @@ for (let i = 0; i < PLUIE_N; i++) {
   gouttes.push({ x, y, z, v: 26 + Math.random()*14 });
   trait(SEG_PLUIE, x, y, z, x, y - 1.1, z);
 }
-const matPluie = materiau(0.3); matPluie.linewidth = 1.1;
+const matPluie = finesse(materiau(0.3), 1.0);
 const objPluie = ligneDe(SEG_PLUIE, matPluie);
 objPluie.visible = false;
 scene.add(objPluie);
@@ -1714,7 +1746,12 @@ function majCadrage() {
   camera.updateProjectionMatrix();
   renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
   renderer.setSize(innerWidth, innerHeight);
-  for (const m of TOUS_MAT) m.resolution.set(innerWidth, innerHeight);
+  for (const m of TOUS_MAT) {
+    m.resolution.set(innerWidth, innerHeight);
+    // la densité change quand on déplace la fenêtre d'un écran à l'autre,
+    // ou qu'on zoome le navigateur : le trait doit se recalculer
+    if (m.finesse) m.linewidth = Math.max(m.finesse, 1) / densite();
+  }
 }
 {
   const dist = 300, sinP = Math.sin(ISO_POLAIRE);
