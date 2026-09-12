@@ -2302,6 +2302,24 @@ quelque chose qui s'installe.
 
 ---
 
+## Un chiffre faux répété pendant trois jours
+
+Le runner annonçait « 63 années de village par seconde ». Il comptait des
+**journées**, et une année de village en vaut trente-deux. Le vrai chiffre
+est **2,1 années par seconde**, soit trente-deux fois moins. Ce nombre a
+été recopié tel quel dans plusieurs rapports à Pierre depuis la v0.14.
+
+La ligne affiche maintenant les deux&nbsp;: journées et années, calculées
+depuis `REGLAGES.joursParSaison` pour qu'elles suivent si le calendrier
+change.
+
+Ce que ça change vraiment&nbsp;: rien sur l'équilibrage — les cibles
+étaient mesurées en journées simulées et restent exactes. Mais la marge de
+manœuvre pour alourdir la simulation est bien plus étroite que ce que je
+disais.
+
+---
+
 ## 📜 Historique
 
 - **2026-09-10 (après-midi, suite)** — Lumière des torches calculée par

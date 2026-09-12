@@ -14,7 +14,7 @@
 // Règle pour la suite : toute constante qui touche à la nourriture, à la
 // peur, au soupçon ou à l'usure relance --check avant d'être poussée.
 
-import { creerMonde } from './monde.mjs';
+import { creerMonde, REGLAGES } from './monde.mjs';
 
 const arg = (nom, defaut) => {
   const t = process.argv.find(a => a.startsWith(`--${nom}=`));
@@ -209,7 +209,12 @@ const a = agreger(lots);
 a.foires = lots.reduce((t, s) => t + s.foires, 0) / lots.length;
 
 afficher(a, `${runs} villages × ${jours} jours`);
-console.log(`\n  ${(runs * jours / dt).toFixed(0)} années de village par seconde  (${dt.toFixed(1)} s au total)`);
+// Ce compteur disait « années » en comptant des JOURNÉES : une année de
+// village en vaut trente-deux. Le chiffre annoncé était donc trente-deux
+// fois trop flatteur, et il a été répété tel quel dans plusieurs rapports.
+const parAn = 4 * (REGLAGES.joursParSaison || 8);
+console.log(`\n  ${(runs * jours / dt).toFixed(0)} journées de village par seconde` +
+            `  ·  ${(runs * jours / parAn / dt).toFixed(1)} années  (${dt.toFixed(1)} s au total)`);
 
 if (drapeau('detail')) {
   console.log(`\n  ── le journal du premier village (graine ${lots[0].graine}) ──`);
