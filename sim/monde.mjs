@@ -210,11 +210,35 @@ let MOULIN_EAU = null, MOULIN_VENT = null;
 // Un lieu ne connaît plus sa géométrie : il retient le NOM de sa forme,
 // et c'est le rendu qui va la chercher. C'est cette séparation qui permet
 // au simulateur de faire tourner un village sans rien dessiner.
+// LA PORTE. On entrait dans les maisons par les murs. Chaque bâtiment
+// reçoit un point d'entrée sur sa façade — celle qui regarde le centre du
+// village, parce qu'un village se tourne vers sa place — et c'est ce
+// point qu'on vise, pas le milieu du bâtiment. Le détour se voit : les
+// gens contournent la maison avant d'entrer.
+const PROFONDEUR = { chaumiere: 5.6, boulangerie: 6.6, atelier: 5.2, eglise: 13,
+                     manoir: 7.5, cabane: 3.6, grange: 7.4, auberge: 5.4 };
+
+function poserPorte(l) {
+  const p = PROFONDEUR[l.type];
+  if (!p) return l;                       // un champ, une forêt : on y entre par où l'on veut
+  const c = Math.cos(l.angle || 0), sn = Math.sin(l.angle || 0);
+  const d = p / 2 + 0.9;
+  const cotes = [[0, d], [0, -d]].map(([x, z]) =>
+    ({ x: x * c + z * sn + l.x, z: -x * sn + z * c + l.z }));
+  const versLaPlace = (q) => q.x * q.x + q.z * q.z;
+  l.porte = versLaPlace(cotes[0]) <= versLaPlace(cotes[1]) ? cotes[0] : cotes[1];
+  l.porte.y = hauteur(l.porte.x, l.porte.z);
+  // le côté, dans le repère du bâtiment : le rendu en a besoin pour
+  // dessiner la porte au bon endroit
+  l.porteSud = l.porte === cotes[0];
+  return l;
+}
+
 function lieu(nom, type, x, z, angle = 0, forme = null, args = []) {
   const y = hauteur(x, z);
   const l = { nom, type, x, z, y, angle, forme, args };
   LIEUX.push(l);
-  return l;
+  return poserPorte(l);
 }
 // On ne bâtit ni sur la route, ni dans l'eau, ni sur un voisin — et
 // surtout, on ne renonce jamais en posant quand même. La première version
@@ -1427,7 +1451,15 @@ function simuler(dt) {
 
 function avancer(h, dt) {
   if (!h.cible) return;
-  const dx = h.cible.x - h.x, dz = h.cible.z - h.z;
+  // ON VISE LA PORTE, PAS LE MUR. Tant qu'on n'est pas sur le seuil, c'est
+  // lui qu'on cherche ; une fois passé, on peut aller au cœur du lieu.
+  const porte = h.cible.porte;
+  let but = h.cible;
+  if (porte) {
+    const dSeuil = Math.hypot(porte.x - h.x, porte.z - h.z);
+    if (dSeuil > PROCHE * 0.8) but = porte;
+  }
+  const dx = but.x - h.x, dz = but.z - h.z;
   const d = Math.hypot(dx, dz);
   if (d < PROCHE) return;
   const v = h.vitesse * (h.occupation === 'fuir' ? 2 : 1)
