@@ -421,7 +421,11 @@ function nomComplet(h) {
   return `${h.prenom} ${metier.replace(/^(le |la |l')/, h.feminin ? 'la ' : 'le ')}`.trim();
 }
 // le métier s'accorde : « Aliénor, la colportrice » et non « le colporteur »
-const metierDe = (h) => (NOM_ROLE[h.role] || '').replace(/^(le |la |l')/, h.feminin ? 'la ' : 'le ');
+const metierDe = (h) => {
+  const nu = (NOM_ROLE[h.role] || '').replace(/^(le |la |l')/, '');
+  if (/^[aeiouyéèêh]/i.test(nu)) return "l'" + nu;      // l'étranger, l'ébéniste, l'aubergiste
+  return (h.feminin ? 'la ' : 'le ') + nu;
+};
 const nommer = (h) => h.surnom ? `${h.prenom} dit${h.feminin ? 'e' : ''} ${h.surnom}`
                     : h.lignee ? `${h.prenom} ${deLignee(h.lignee)}`
                                : `${h.prenom}, ${metierDe(h)}`;
