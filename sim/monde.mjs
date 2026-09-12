@@ -272,6 +272,10 @@ function chercherPlace(cx, cz, etendue, rayon) {
 }
 
 const PLACE = { nom: 'la place', type: 'place', x: 0, z: 0, y: hauteur(0, 0) };
+// le pont devient un lieu à part entière : c'est là qu'on se noie, et
+// c'est donc là qu'il y a une histoire à lire
+if (POINT_PONT) LIEUX.push({ nom: 'le pont', type: 'pont',
+  x: POINT_PONT.x, z: POINT_PONT.z, y: hauteur(POINT_PONT.x, POINT_PONT.z) });
 LIEUX.push(PLACE);
 BATIS.push({ x: 0, z: 0, r: 11 });
 {
@@ -430,13 +434,26 @@ function nomComplet(h) {
   if (h.lignee) return `${h.prenom} ${deLignee(h.lignee)}`;
   if (!homonymes(h)) return h.prenom;
   if (!h.attache) h.attache = attacheDe(h);
-  const metier = NOM_ROLE[h.role] || '';
-  return `${h.prenom} ${metier.replace(/^(le |la |l')/, h.feminin ? 'la ' : 'le ')}`.trim();
+  return `${h.prenom} ${metierDe(h)}`.trim();
 }
 // le métier s'accorde : « Aliénor, la colportrice » et non « le colporteur »
+// LE MÉTIER SE MET AU FÉMININ. On écrivait « la paysan », « la
+// boulanger ». Un métier n'a pas qu'un article : il a une forme. Celles
+// qui ne changent pas (ébéniste, aubergiste) n'apparaissent pas ici.
+const NOM_ROLE_F = {
+  paysan: 'paysanne', boulanger: 'boulangère', charpentier: 'charpentière',
+  forgeron: 'forgeronne', bucheron: 'bûcheronne', tailleur: 'tailleuse de pierre',
+  voleur: 'voleuse', colporteur: 'colportrice', etranger: 'étrangère',
+  chasseur: 'chasseuse de monstres', pretre: 'prêtresse', seigneur: 'dame',
+};
+// et deux métiers écrits au féminin dans la table, qu'il faut savoir
+// remettre au masculin le jour où un homme les tient
+const NOM_ROLE_M = { sorciere: 'sorcier', dame: 'seigneur' };
 const metierDe = (h) => {
-  const nu = (NOM_ROLE[h.role] || '').replace(/^(le |la |l')/, '');
-  if (/^[aeiouyéèêh]/i.test(nu)) return "l'" + nu;      // l'étranger, l'ébéniste, l'aubergiste
+  const nu = h.feminin
+           ? (NOM_ROLE_F[h.role] || (NOM_ROLE[h.role] || '').replace(/^(le |la |l')/, ''))
+           : (NOM_ROLE_M[h.role] || (NOM_ROLE[h.role] || '').replace(/^(le |la |l')/, ''));
+  if (/^[aeiouyéèê]/i.test(nu)) return "l'" + nu;       // l'étranger, l'ébéniste, l'aubergiste
   return (h.feminin ? 'la ' : 'le ') + nu;
 };
 const nommer = (h) => h.surnom ? `${h.prenom} dit${h.feminin ? 'e' : ''} ${h.surnom}`
@@ -636,10 +653,25 @@ for (const h of habitants) {
 // relire par le bout qu'on veut.
 const GENRES = ['mort', 'naissance', 'bienfait', 'peur', 'perte', 'legende', 'village'];
 const chronique = [];
-function noter(txt, fort = false, qui = null, genre = 'village') {
+// OÙ ÇA S'EST PASSÉ. Une chronique qui défile se perd ; une chronique
+// attachée aux lieux se relit. On clique sur le moulin et on lit tout ce
+// qui est arrivé au moulin. Le lieu se déduit de la position de la
+// personne concernée quand on ne le donne pas — aucun tirage, donc aucun
+// effet sur l'histoire.
+function lieuProche(x, z, portee = 11) {
+  let best = null, bd = portee;
+  for (const l of LIEUX) {
+    const d = Math.hypot(l.x - x, l.z - z);
+    if (d < bd) { bd = d; best = l; }
+  }
+  return best;
+}
+
+function noter(txt, fort = false, qui = null, genre = 'village', ou = null) {
+  if (!ou && qui && qui.x !== undefined) ou = lieuProche(qui.x, qui.z);
   // On stockait « jour 412 — ... » ET le texte nu : deux fois la même
   // phrase en mémoire, pour une chronique qu'on garde désormais entière.
-  chronique.push({ nu: txt, jour: village.jour, fort, qui, genre });
+  chronique.push({ nu: txt, jour: village.jour, fort, qui, genre, ou });
   // On ne jette plus rien. Pierre veut pouvoir emporter TOUTE l'histoire
   // de son village le jour où il s'éteint ; une chronique tronquée n'est
   // pas une histoire, c'est un extrait. Mesuré : cent journées de village
@@ -1501,7 +1533,10 @@ function agir(h, dt) {
       // on ne prie jamais autant que quand on a peur, et c'est le prêtre
       // qui encaisse le crédit : son autorité se nourrit de nos frayeurs
       if (h.peur > 0.35) village.autorite = Math.min(1, village.autorite + dt * 0.03);
-      if (h.role === 'pretre' && aleaDeco() < dt * 0.05) signaler('cloche', h.x, h.z);
+      // LA CLOCHE EST SUPPRIMÉE. Elle sonnait à chaque office, donc sans
+      // arrêt, et sur une session de plusieurs heures en fond d'écran
+      // c'était insupportable. Un village contemplatif ne doit jamais
+      // réclamer l'attention par le son.
       h.compte.prieres += dt;
       // le prêtre apaise tout le monde autour de lui, pas seulement lui
       if (h.role === 'pretre') for (const a of habitants) {

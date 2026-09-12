@@ -13,6 +13,10 @@
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' fill='%23000'/%3E%3Cpath d='M3 12V6l5-3 5 3v6' fill='none' stroke='%2346ffa0' stroke-width='1.2'/%3E%3C/svg%3E">
 <style>
   :root {
+    /* LA BANDE DES BOUTONS. Aucun panneau ne doit mordre dessus : on
+       réserve la hauteur ici, et tous les panneaux s'arrêtent au-dessus. */
+    --bas: calc(54px + max(10px, env(safe-area-inset-bottom)));
+    --haut: 62px;
     --ph-line: #46ffa0;
     --ph-text: #8ffcc4;
     --ph-dim: rgba(70, 255, 160, 0.4);
@@ -54,7 +58,7 @@
      de l'autre, et le village reste visible à travers. */
   #chronique {
     position: fixed; left: 0; right: 0; z-index: 1;
-    bottom: calc(52px + max(10px, env(safe-area-inset-bottom)));
+    bottom: var(--bas);
     height: 148px;
     padding: 16px max(16px, env(safe-area-inset-right)) 10px max(16px, env(safe-area-inset-left));
     display: flex; flex-direction: column; justify-content: flex-end;
@@ -73,8 +77,8 @@
   #chronique div.fort:last-child { color: var(--ph-line); }
 
   #fiche {
-    position: fixed; left: 0; top: 66px; z-index: 3;
-    width: min(300px, 68vw); max-height: calc(100% - 150px);
+    position: fixed; left: 0; top: var(--haut); z-index: 3;
+    width: min(300px, 68vw); max-height: calc(100% - var(--haut) - var(--bas) - 8px);
     margin-left: max(12px, env(safe-area-inset-left));
     background: rgba(4, 12, 8, 0.92);
     border: 1px solid var(--ph-dim);
@@ -91,17 +95,19 @@
   #fiche .ligne .pq { color: var(--ph-dim); }
   #fiche .ligne.premier { color: var(--ph-line); }
   #fiche .barre { display: flex; align-items: center; gap: 6px; color: var(--ph-dim); }
-  #fiche .barre span.n { width: 64px; }
+  #fiche .barre span.n { width: 78px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   #fiche .barre span.j { flex: 1; height: 4px; background: rgba(70,255,160,0.15); position: relative; }
   #fiche .barre span.j i { position: absolute; inset: 0 auto 0 0; background: var(--ph-line); }
   #fiche .souvenir { color: var(--ph-dim); }
+  #fiche .vers { color: var(--ph-line); cursor: pointer; border-bottom: 1px dotted var(--ph-dim); }
+  #fiche .vers:hover { border-bottom-color: var(--ph-line); }
   #fiche-fermer { position: absolute; top: 6px; right: 6px; padding: 2px 7px; line-height: 1.1; }
 
   /* LA MÉMOIRE DU VILLAGE. La chronique passe et s'efface ; ici on la
      relit par le bout qu'on veut. En haut, ce qui ne reviendra pas. */
   #memoire {
-    position: fixed; right: 0; top: 66px; z-index: 3;
-    width: min(340px, 74vw); max-height: calc(100% - 150px);
+    position: fixed; right: 0; top: var(--haut); z-index: 3;
+    width: min(340px, 74vw); max-height: calc(100% - var(--haut) - var(--bas) - 8px);
     margin-right: max(12px, env(safe-area-inset-right));
     background: rgba(4, 12, 8, 0.94);
     border: 1px solid var(--ph-dim);
@@ -181,11 +187,37 @@
   #regle::placeholder { color: rgba(70,255,160,0.35); }
   #regle:focus { outline: none; border-color: var(--ph-line); }
   #regle.refus { border-color: #ff6b6b; color: #ff9d9d; }
+  /* L'HISTOIRE D'UN LIEU. Le banc d'essai n'avait rien à faire dans un
+     jeu contemplatif. À sa place : on clique sur le moulin, la caméra s'y
+     pose, la vie continue autour, et on lit ce qui est arrivé là. */
+  #lieu {
+    position: fixed; right: 0; top: var(--haut); z-index: 3;
+    width: min(330px, 74vw); max-height: calc(100% - var(--haut) - var(--bas) - 8px);
+    margin-right: max(12px, env(safe-area-inset-right));
+    background: rgba(4, 12, 8, 0.94); border: 1px solid var(--ph-dim);
+    padding: 10px 12px; overflow-y: auto;
+  }
+  #lieu[hidden] { display: none; }
+  #lieu .nom { color: var(--ph-line); letter-spacing: 0.08em; padding-right: 18px; }
+  #lieu .quoi { color: var(--ph-dim); margin-bottom: 6px; }
+  #lieu .section {
+    color: var(--ph-line); opacity: 0.55; letter-spacing: 0.14em;
+    margin: 12px 0 5px; font-size: 10px;
+  }
+  #lieu .ligne { color: var(--ph-text); margin-bottom: 3px; }
+  #lieu .ligne .pq { color: var(--ph-dim); }
+  #lieu-lignes div { color: var(--ph-dim); margin-bottom: 3px; }
+  #lieu-lignes div.fort { color: var(--ph-text); }
+  #lieu-lignes div.cliquable { cursor: pointer; }
+  #lieu-lignes div.cliquable:hover { color: var(--ph-line); }
+  #lieu-fermer { position: absolute; top: 6px; right: 6px; padding: 2px 7px; line-height: 1.1; }
+
   /* L'ÉPITAPHE. Le jour où il ne reste personne, le village devient un
      lieu. On ne relance pas, on ne propose rien : on lit, et on emporte
      l'histoire si on veut la garder. */
   #fin {
-    position: fixed; inset: 0; z-index: 14; display: grid; place-items: center;
+    position: fixed; left: 0; right: 0; top: 0; bottom: var(--bas); z-index: 14;
+    display: grid; place-items: center;
     background: rgba(0, 0, 0, 0.88); padding: 24px;
   }
   #fin[hidden] { display: none; }
@@ -208,8 +240,9 @@
      sans réseau. Encore faut-il le dire — personne ne devine qu'une page
      web s'installe. */
   #pose {
-    position: fixed; z-index: 12; left: 50%; top: 50%; transform: translate(-50%, -50%);
-    width: min(420px, calc(100vw - 28px)); max-height: calc(100% - 48px); overflow-y: auto;
+    position: fixed; z-index: 12; left: 50%; transform: translateX(-50%);
+    top: var(--haut); width: min(420px, calc(100vw - 28px));
+    max-height: calc(100% - var(--haut) - var(--bas) - 16px); overflow-y: auto;
     background: rgba(4, 12, 8, 0.97); border: 1px solid var(--ph-dim); padding: 20px 22px 18px;
   }
   #pose[hidden] { display: none; }
@@ -238,7 +271,7 @@
      sait appliquer. On fait tourner, on lit, on pose. */
   #molettes {
     position: fixed; z-index: 6; left: 50%; transform: translateX(-50%);
-    bottom: calc(58px + env(safe-area-inset-bottom));
+    bottom: calc(var(--bas) + 6px);
     width: min(620px, calc(100vw - 24px));
     background: rgba(4, 12, 8, 0.96);
     border: 1px solid var(--ph-dim);
@@ -355,7 +388,7 @@
   <span class="title">DWELVE HOLLOW</span>
 </div>
 
-<button id="version">v0.27</button>
+<button id="version">v0.28</button>
 
 <div id="saison">an <b id="s-an">1</b> · <b id="s-saison">printemps</b> · jour <b id="s-jour">1</b> · <b id="s-phase">aube</b> · <b id="s-lune">lune</b> · pain <b id="s-pain">0</b> · peur <b id="s-peur">0 %</b></div>
 
@@ -378,6 +411,15 @@
   <div id="f-dettes"></div>
   <div class="section">SOUVENIRS</div>
   <div id="f-memoire"></div>
+</div>
+
+<div id="lieu" hidden>
+  <button id="lieu-fermer">×</button>
+  <div class="nom" id="lieu-nom">—</div>
+  <div class="quoi" id="lieu-quoi">—</div>
+  <div id="lieu-etat"></div>
+  <div class="section">ce qui s'y est passé</div>
+  <div id="lieu-lignes"></div>
 </div>
 
 <div id="memoire" hidden>
@@ -420,7 +462,7 @@
   <button id="btn-memoire" aria-pressed="false">mémoire</button>
   <button id="btn-spin" aria-pressed="true">⟳</button>
   <input id="regle" placeholder="écrire une règle…" autocomplete="off" spellcheck="false" readonly>
-  <a class="lien" href="test-3d.html">banc d'essai</a>
+  <button id="btn-lieux" aria-pressed="false">lieux</button>
 </div>
 
 <div id="fin" hidden role="dialog" aria-modal="true" aria-labelledby="fin-titre">
@@ -510,7 +552,19 @@
   <div class="contenu">
     <h2>DWELVE HOLLOW — HISTORIQUE</h2>
 
-    <div class="v courante"><b>v0.27</b> — <b>on ne perd plus personne, on lit l'histoire, et
+    <div class="v courante"><b>v0.28</b> — <b>l'histoire s'attache aux lieux, et le silence
+      revient.</b> Le banc d'essai — une page de développement dans un jeu qui se regarde — laisse la
+      place aux <b>lieux</b>&nbsp;: on clique sur le moulin, la caméra s'y pose doucement, la vie
+      continue autour, et on lit ce qui est arrivé là depuis le premier jour. Chaque ligne de
+      chronique sait désormais de quel lieu elle parle. Dans la fiche, tous les noms deviennent des
+      fils&nbsp;: on clique sur Aliénor dans les liens de Jehan, et c'est elle qu'on suit. Côté
+      silence&nbsp;: la cloche de l'église est supprimée — elle sonnait à chaque office, insupportable
+      sur une session de plusieurs heures — et le vacarme du retour d'onglet aussi, où les sons
+      accumulés pendant l'absence se jouaient tous à la même milliseconde. Le zoom s'arrête avant
+      qu'on ne colle son nez aux fenêtres. Les métiers se mettent au féminin&nbsp;: la paysanne, la
+      boulangère, la tailleuse de pierre. Et plus aucun panneau ne recouvre les boutons.</div>
+
+    <div class="v"><b>v0.27</b> — <b>on ne perd plus personne, on lit l'histoire, et
       le village s'installe.</b> Désigner quelqu'un ne déplace plus la caméra — c'est le village qui
       fait l'histoire, pas le gros plan — mais une pointe le suit désormais, et dès qu'il sort du
       cadre elle se colle au bord et montre la direction, son nom avec. On décroche en cliquant dans
@@ -1101,7 +1155,10 @@ controls.autoRotate = true;
 controls.autoRotateSpeed = 0.35;
 controls.minPolarAngle = ISO_POLAIRE;    // tangage verrouillé : on tourne et on zoome, rien d'autre
 controls.maxPolarAngle = ISO_POLAIRE;
-controls.minZoom = 0.45; controls.maxZoom = 8;
+// On ne colle pas son nez aux fenêtres : au-delà de trois, on ne voit
+// plus un village mais des arêtes, et le dessin ne tient pas cette
+// échelle — il n'a jamais été fait pour.
+controls.minZoom = 0.45; controls.maxZoom = 3;
 controls.target.set(0, 4, 4);
 
 const LINE = 0x46ffa0;
@@ -2141,19 +2198,6 @@ function bruit(quoi) {
   const t = ctxAudio.currentTime, v = volumes.sfx / 100;
   const sortie = (gain) => { gain.connect(ctxAudio.destination); return gain; };
 
-  if (quoi === 'cloche') {
-    // deux partiels et une longue traîne : ça porte loin, on tourne la tête
-    for (const [f, a, d] of [[520, 0.20, 3.4], [781, 0.10, 2.2], [1560, 0.045, 1.4]]) {
-      const o = ctxAudio.createOscillator(), g2 = ctxAudio.createGain();
-      o.frequency.value = f; o.type = 'sine';
-      g2.gain.setValueAtTime(0.0001, t);
-      g2.gain.exponentialRampToValueAtTime(a * v, t + 0.006);
-      g2.gain.exponentialRampToValueAtTime(0.0001, t + d);
-      o.connect(sortie(g2)); o.start(t); o.stop(t + d + 0.05);
-    }
-    return;
-  }
-
   // le reste part d'un souffle filtré : marteau sec, rumeur qui enfle,
   // dragon qui gronde — trois réglages du même bruit
   const N = Math.floor(ctxAudio.sampleRate * (quoi === 'souffle' ? 2.2 : quoi === 'rumeur' ? 1.6 : 0.16));
@@ -2668,8 +2712,104 @@ function choisirAuPoint(px, py) {
     const d = Math.hypot(p.x - px, p.y - py);
     if (d < meilleureD) { meilleureD = d; meilleur = h; }
   }
-  selectionner(meilleur);
+  if (meilleur) { selectionner(meilleur); return; }
+  // personne sous le doigt : on regarde si c'est un lieu qu'on vise
+  let lieu = null, dLieu = 76;
+  for (const l of LIEUX) {
+    if (l.type === 'chaumiere' && l.ruine) { /* une ruine a une histoire, on la garde */ }
+    const p = ecranDe({ x: l.x, z: l.z });
+    if (!p.devant) continue;
+    const d = Math.hypot(p.x - px, p.y - py);
+    if (d < dLieu) { dLieu = d; lieu = l; }
+  }
+  if (lieu) { ouvrirLieu(lieu); return; }
+  selectionner(null);
+  fermerLieu();
 }
+
+/* ---- L'HISTOIRE D'UN LIEU ----
+   Le banc d'essai était une page de développement dans un jeu qui se
+   regarde : il n'avait rien à y faire. À sa place, les lieux deviennent
+   cliquables. La caméra s'y pose doucement, le village continue de
+   vivre autour — on ne met rien en pause, c'est tout l'intérêt — et on
+   lit ce qui est arrivé là depuis le premier jour. */
+let lieuVu = null, vise = null;
+
+function ouvrirLieu(l) {
+  lieuVu = l;
+  selectionner(null);
+  vise = { x: l.x, y: l.y !== undefined ? l.y : hauteur(l.x, l.z), z: l.z,
+           zoom: Math.min(controls.maxZoom, 2.2) };
+  $('lieu').hidden = false;
+  majLieu();
+}
+function fermerLieu() {
+  if (!lieuVu) return;
+  lieuVu = null; vise = null;
+  $('lieu').hidden = true;
+  $('btn-lieux').setAttribute('aria-pressed', 'false');
+}
+
+const QUOI_LIEU = {
+  moulin: 'il change le blé en farine', eglise: 'on y prie, on y est enterré',
+  boulangerie: 'le four du village', manoir: 'le seigneur y lève l\'impôt',
+  cabane: 'à l\'écart, et ça compte', foret: 'on y coupe le bois',
+  auberge: 'le seul toit pour qui passe', grange: 'ce que le village a mis de côté',
+  chaumiere: 'une maison', champ: 'on y sème et on y moissonne',
+  place: 'tout le monde y passe', puits: 'on y prend l\'eau',
+  pont: 'le seul endroit où l\'on traverse à pied sec', atelier: 'on y travaille',
+};
+
+function majLieu() {
+  const l = lieuVu;
+  if (!l) return;
+  $('lieu-nom').textContent = l.ruine ? l.nom + ' — tombée' : l.nom;
+  $('lieu-quoi').textContent = QUOI_LIEU[l.type] || '';
+
+  const dedans = habitants.filter(h => h.vivant &&
+    Math.hypot(h.x - l.x, h.z - l.z) < 7).map(h => nomComplet(h));
+  const habite = habitants.filter(h => h.vivant && h.logis === l).map(h => nomComplet(h));
+  const etat = [];
+  if (l.etat !== undefined) {
+    const pc = Math.round(l.etat * 100);
+    etat.push(`<div class="ligne"><span class="pq">état</span> ${pc} %` +
+              `${l.etat <= 0.12 ? ' — à l\'arrêt' : ''}</div>`);
+  }
+  if (habite.length) etat.push(`<div class="ligne"><span class="pq">y vit</span> ${habite.join(', ')}</div>`);
+  if (dedans.length) etat.push(`<div class="ligne"><span class="pq">à l\'instant</span> ${dedans.join(', ')}</div>`);
+  if (l.vide) etat.push('<div class="ligne"><span class="pq">vide depuis</span> ' + (l.abandon || 0) + ' journées</div>');
+  ecrire('lieu-etat', etat.join(''));
+
+  const sien = chronique.filter(ev => ev.ou === l);
+  const c = $('lieu-lignes');
+  c.innerHTML = '';
+  if (!sien.length) { c.innerHTML = '<div>rien encore.</div>'; return; }
+  for (const ev of sien.slice(-40).reverse()) {
+    const d = document.createElement('div');
+    d.textContent = ligneChronique(ev);
+    if (ev.fort) d.classList.add('fort');
+    if (ev.qui) { d.classList.add('cliquable'); d.addEventListener('click', () => selectionner(ev.qui)); }
+    c.appendChild(d);
+  }
+}
+
+// la caméra glisse vers le lieu au lieu d'y sauter : on garde le fil de
+// ce qu'on regardait
+function majVisee(dt) {
+  if (!vise) return;
+  const k = Math.min(1, dt * 2.6);
+  controls.target.lerp(new THREE.Vector3(vise.x, vise.y, vise.z), k);
+  camera.zoom += (vise.zoom - camera.zoom) * k;
+  camera.updateProjectionMatrix();
+}
+
+$('lieu-fermer').addEventListener('click', fermerLieu);
+$('btn-lieux').addEventListener('click', () => {
+  if (lieuVu) { fermerLieu(); return; }
+  // sans clic sur la carte, on ouvre le cœur du village
+  ouvrirLieu(LIEUX.find(x => x.type === 'place') || LIEUX[0]);
+  $('btn-lieux').setAttribute('aria-pressed', 'true');
+});
 
 // distinguer un clic d'une rotation de caméra : sans ça, chaque
 // glissement désélectionnerait
@@ -2684,6 +2824,36 @@ renderer.domElement.addEventListener('pointerup', (ev) => {
   appui = null;
 });
 $('fiche-fermer').addEventListener('click', () => selectionner(null));
+
+// UN NOM MÈNE À SA FICHE. Toute la toile du village est là — qui aime
+// qui, qui soupçonne qui, qui doit quoi à qui — mais elle était en texte
+// mort. On tire maintenant un fil : on clique sur Aliénor dans les liens
+// de Jehan, et c'est elle qu'on suit.
+const nomCliquable = (h) => `<a class="vers" data-rang="${h.rang}">${nomComplet(h)}</a>`;
+// dans une barre, la colonne du nom est étroite : le prénom suffit
+const prenomCliquable = (h) => `<a class="vers" data-rang="${h.rang}">${h.prenom}</a>`;
+
+// « pointerdown » et non « click » : la fiche se reconstruit quatre fois
+// par seconde, et un clic exige que l'appui ET le relâchement touchent le
+// même élément. Entre les deux, le lien avait disparu — le test l'a
+// attrapé après trente-six tentatives, un doigt humain n'aurait jamais su
+// dire pourquoi ça ne marchait qu'une fois sur trois.
+$('fiche').addEventListener('pointerdown', (ev) => {
+  const a = ev.target.closest('.vers');
+  if (!a) return;
+  const r = Number(a.dataset.rang);
+  const h = habitants.find(x => x.rang === r);
+  if (h && h.vivant) selectionner(h);
+});
+
+// N'ÉCRIRE QUE SI ÇA A CHANGÉ. La fiche se reconstruisait entièrement
+// deux fois par seconde : chaque écriture détache les éléments, donc les
+// noms cliquables disparaissaient sous le doigt et l'ensemble clignotait.
+// Le navigateur ne détache rien si on ne lui écrit rien.
+function ecrire(id, html) {
+  const el = $(id);
+  if (el && el.innerHTML !== html) el.innerHTML = html;
+}
 
 function barre(nom, v) {
   return `<div class="barre"><span class="n">${nom}</span>` +
@@ -2704,31 +2874,31 @@ function majFiche() {
   $('f-t-dettes').textContent = h.feminin ? 'ELLE DOIT' : 'IL DOIT';
 
   const savus = [...h.savoir].filter(r => r !== h.role).map(r => NOM_ROLE[r]);
-  $('f-etat').innerHTML =
+  ecrire('f-etat',
     `<div class="ligne"><span class="pq">métier</span> ${metierDe(h)}</div>` +
     (h.lignee ? `<div class="ligne"><span class="pq">maison</span> ${h.lignee}</div>` : '') +
     `<div class="ligne"><span class="pq">âge</span> ${Math.floor(h.age)} ans</div>` +
-    (savus.length ? `<div class="ligne"><span class="pq">sait aussi</span> ${savus.join(', ')}</div>` : '');
+    (savus.length ? `<div class="ligne"><span class="pq">sait aussi</span> ${savus.join(', ')}</div>` : ''));
 
   const p = poidsDes(h).filter(x => x[1] > 0.001).sort((a, b) => b[1] - a[1]).slice(0, 4);
-  $('f-pourquoi').innerHTML = p.map(([nom, w, pq], i) =>
+  ecrire('f-pourquoi', p.map(([nom, w, pq], i) =>
     `<div class="ligne${i ? '' : ' premier'}">${nom} ${w.toFixed(2)}` +
     (pq ? `<br><span class="pq">${pq}</span>` : '') + '</div>').join('')
-    || '<div class="ligne">—</div>';
+    || '<div class="ligne">—</div>');
 
-  $('f-besoins').innerHTML = barre('faim', h.faim) + barre('fatigue', h.fatigue) +
+  ecrire('f-besoins', barre('faim', h.faim) + barre('fatigue', h.fatigue) +
     barre('peur', h.peur) + barre('foi', h.foi) + barre('soupçon', h.soupcon) +
     barre('rancune', h.rancune) + (h.chagrin > 0.02 ? barre('chagrin', h.chagrin) : '') +
     (h.remords > 0.02 ? barre('remords', h.remords) : '') +
-    (h.honte > 0.02 ? barre('honte', h.honte) : '');
+    (h.honte > 0.02 ? barre('honte', h.honte) : ''));
 
   // Le soupçon a un nom, maintenant : c'est ici qu'on le lit, et c'est
   // ici qu'on voit le village se tromper de coupable.
   const soup = [...h.soupconne.entries()].filter(([a]) => a.vivant)
     .sort((a, b) => b[1] - a[1]).slice(0, 3);
-  $('f-soupcons').innerHTML = soup.length
-    ? soup.map(([a, v]) => barre(a.prenom, v)).join('')
-    : '<div class="ligne pq">personne, pour l\'instant</div>';
+  ecrire('f-soupcons', soup.length
+    ? soup.map(([a, v]) => barre(prenomCliquable(a), v)).join('')
+    : '<div class="ligne pq">personne, pour l\'instant</div>');
 
   const proches = [...h.liens.entries()].filter(([a]) => a.vivant)
     .sort((a, b) => b[1] - a[1]).slice(0, 3);
@@ -2745,26 +2915,26 @@ function majFiche() {
     ? `<div class="ligne premier">${regleDe.join(' · ')}<br><span class="pq">une règle que tu as écrite</span></div>` : '';
 
   const tu = (h.secret && h.secret.vivant && h.secretForce > 0.12)
-    ? `<div class="ligne premier">tient à ${h.secret.prenom}` +
+    ? `<div class="ligne premier">tient à ${nomCliquable(h.secret)}` +
       `<br><span class="pq">n'en a jamais rien dit · ${h.secretForce.toFixed(2)}</span></div>` : '';
-  $('f-liens').innerHTML = ditesRegles +
-    (h.aime && h.aime.vivant ? `<div class="ligne premier">promis${e(h)} à ${h.aime.prenom}</div>` : '') + tu +
+  ecrire('f-liens', ditesRegles +
+    (h.aime && h.aime.vivant ? `<div class="ligne premier">promis${e(h)} à ${nomCliquable(h.aime)}</div>` : '') + tu +
     (proches.length ? proches.map(([a, v]) =>
-      `<div class="ligne"><span class="pq">${v.toFixed(2)}</span> ${nomComplet(a)}</div>`).join('')
-      : (tu || ditesRegles ? '' : '<div class="ligne"><span class="pq">personne, pour l\'instant</span></div>'));
+      `<div class="ligne"><span class="pq">${v.toFixed(2)}</span> ${nomCliquable(a)}</div>`).join('')
+      : (tu || ditesRegles ? '' : '<div class="ligne"><span class="pq">personne, pour l\'instant</span></div>')));
 
   // CE QU'IL DOIT. Ce n'est pas de l'affection : on peut devoir beaucoup
   // à quelqu'un qu'on n'aime pas. C'est ce nombre-là qui l'empêche
   // d'accuser, et qui le fera parler devant la foule.
   const dus = [...h.dette.entries()].filter(([a, v]) => a.vivant && v > 0.08)
     .sort((a, b) => b[1] - a[1]).slice(0, 3);
-  $('f-dettes').innerHTML = dus.length
-    ? dus.map(([a, v]) => barre(a.prenom, v)).join('')
-    : '<div class="ligne"><span class="pq">rien à personne</span></div>';
+  ecrire('f-dettes', dus.length
+    ? dus.map(([a, v]) => barre(prenomCliquable(a), v)).join('')
+    : '<div class="ligne"><span class="pq">rien à personne</span></div>');
 
-  $('f-memoire').innerHTML = h.memoire.length
+  ecrire('f-memoire', h.memoire.length
     ? h.memoire.slice(-6).reverse().map(t => `<div class="souvenir">${t}</div>`).join('')
-    : '<div class="souvenir">rien encore</div>';
+    : '<div class="souvenir">rien encore</div>');
 }
 
 /* ---- LA MÉMOIRE DU VILLAGE ----
@@ -2869,6 +3039,7 @@ window.DH = { scene, camera, controls, renderer, village, habitants, chronique, 
               MOULINS, hauteur, lancerDragon, lancerFoire, tenterMusique, evenements, bruit, majMeteo,
               selectionner, poidsDes, ecranDe, distRoute, distRuisseau, analyser, regles,
               appliquerRegles, nomComplet, surnommer, noter, majMaisons, majMemoire,
+              ouvrirLieu, fermerLieu, LIEUX,
               get selection() { return selection; },
               etatAudio: () => ({ ctx: ctxAudio && ctxAudio.state, bornes,
                                   duree: tamponMusique && tamponMusique.duration,
@@ -2883,6 +3054,7 @@ majAffichage(); majTableau();
    ================================================================ */
 let chroniqueVue = -1, dernierTexte = 0;
 let precedent = performance.now(), images = 0, dernierCompte = precedent, dernierTableau = 0, derniereFiche = 0;
+let dernierSon = performance.now();
 renderer.setAnimationLoop((maintenant) => {
   let dt = (maintenant - precedent) / 1000;
   precedent = maintenant;
@@ -2903,7 +3075,25 @@ renderer.setAnimationLoop((maintenant) => {
   }
   // le monde a pu faire naître ou arriver quelqu'un pendant qu'on avançait
   while (nouveaux.length) ajouterObjet(nouveaux.shift());
-  while (evenements.length) bruit(evenements.shift().quoi);
+  // LE VACARME DU RETOUR. Quand l'onglet passe en arrière-plan, la boucle
+  // d'images s'arrête mais le monde a déjà mis des sons dans sa file ; au
+  // retour on les jouait tous dans la même image, empilés à la même
+  // milliseconde. Trois marteaux et deux rumeurs superposés ne font pas
+  // trois marteaux, ils font un craquement électronique.
+  //
+  // On jette donc ce qui s'est accumulé pendant l'absence — un son qu'on
+  // n'a pas entendu sur le moment n'a plus rien à dire — et on n'en joue
+  // jamais plus de deux par image.
+  if (document.hidden || maintenant - dernierSon > 900) {
+    evenements.length = 0;
+  } else {
+    let joues = 0;
+    while (evenements.length) {
+      const ev = evenements.shift();
+      if (joues++ < 2) bruit(ev.quoi);
+    }
+  }
+  dernierSon = maintenant;
   if (maintenant - dernierTexte > 200) {
     dernierTexte = maintenant;
     if (chronique.length !== chroniqueVue) {
@@ -2917,6 +3107,7 @@ renderer.setAnimationLoop((maintenant) => {
   }
 
   majRendu(dt);
+  majVisee(dt);
   controls.update();
   renderer.render(scene, camera);
 
@@ -2928,7 +3119,10 @@ renderer.setAnimationLoop((maintenant) => {
     images = 0; dernierCompte = maintenant;
   }
   if (maintenant - dernierTableau > 700) { majTableau(); dernierTableau = maintenant; }
-  if (selection && maintenant - derniereFiche > 250) { majFiche(); derniereFiche = maintenant; }
+  // deux fois par seconde suffit à lire des nombres, et ça laisse le
+  // temps de viser un nom
+  if (selection && maintenant - derniereFiche > 500) { majFiche(); derniereFiche = maintenant; }
+  if (lieuVu && maintenant - derniereFiche > 500) { majLieu(); derniereFiche = maintenant; }
 });
 </script>
 </body>

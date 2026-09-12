@@ -12,7 +12,7 @@
 
 // À MONTER À CHAQUE VERSION DU JEU, sans quoi les visiteurs déjà
 // installés garderont l'ancienne page indéfiniment.
-const CACHE = 'dwelve-v0.27';
+const CACHE = 'dwelve-v0.28';
 
 const COQUE = [
   './',
