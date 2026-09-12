@@ -34,7 +34,11 @@ export const REGLAGES = {
   painParRepas: 1.0,        // ce qu'un pain enlève de faim
   faimParSeconde: 0.007,    // à quelle vitesse on a faim
   meuleParSeconde: 0.26,    // blé changé en farine par moulin
-  usureMeule: 0.0005,       // ce que la meule perd en tournant (balayage)
+  // Balayage du 12 septembre, après que la porte des naissances s'est
+  // rouverte : le village est passé de dix-sept âmes à vingt-quatre, il
+  // moud donc bien plus, et l'ancienne usure le laissait sans farine un
+  // jour sur trois. Ce n'est pas le champ le goulot, c'est la meule.
+  usureMeule: 0.00028,      // ce que la meule perd en tournant (balayage)
   moissonAvecOutils: 0.62,  // balayage, après l'arrivée des saisons et des enfants
   moissonSansOutils: 0.45,
   volParSeconde: 0.35,
@@ -43,7 +47,8 @@ export const REGLAGES = {
   // la chaîne du drame en dépend. C'est l'usure qui ralentit et la
   // réparation qui s'améliore. Avant : moulins cassés 41 % du temps,
   // donc pas de farine, donc pas de pain. Après : 25 %.
-  reparationParSeconde: 0.13,   // ce qu'un artisan remet dans une meule
+  reparationParSeconde: 0.22,   // ce qu'un artisan remet dans une meule (balayage)
+  reparationMaladroite: 0.34,   // ce qu'y remet quelqu'un qui n'a jamais appris
   // Sans dé, c'est la lassitude qui fait la variété : ce qu'on vient de
   // faire pèse moins lourd, ce qu'on délaisse remonte doucement.
   lassitude: 0.055,         // par seconde passée sur une occupation
@@ -61,6 +66,14 @@ export const REGLAGES = {
   // On ne peut pas engranger indéfiniment : c'est ce plafond qui fait que
   // l'abondance d'automne ne dure pas jusqu'au printemps.
   plafondBle: 45,      // balayage : à 70, l'automne nourrit tout l'hiver
+  // LE BOUT DE LA CHAÎNE N'AVAIT PAS DE FREIN. Le four cuisait sans
+  // plafond, donc la farine partait, donc les meules broyaient sans fin,
+  // donc le blé restait à zéro en permanence — et la naissance, qui exige
+  // vingt-deux mesures de blé, ne pouvait plus jamais se produire. Mesuré
+  // sur deux mille journées : 6 639 pains en réserve et quatre survivants.
+  // Un village meurt de faim au milieu de ses miches.
+  plafondPain: 85,     // balayage : le four s'arrête au-delà, et le blé peut enfin s'accumuler
+  plafondFarine: 30,   // la farine aussi : au-delà, les meules tournent à vide
   // Il ne doit sortir qu'une pleine lune sur trois : à chaque fois, il
   // cesse d'être un événement. Le seuil a dû monter quand la souvenance
   // a fait grimper les rancunes.
@@ -490,6 +503,7 @@ function creerHabitant(role, logis) {
     courtise: null, deteste: null, suit: null, evite: null, craint: null,  // posé par les règles écrites
     prochainFlirt: 0, rembarrades: 0, aDitPas: false,
     surnom: null, surnomIdx: null, attache: null,
+    jourMetier: 0,          // depuis quand il tient ce métier — voir reprendreUnMetier()
     lignee: null,           // le nom de maison, hérité de la mère — voir majLignees()
     // CE QU'IL SAIT FAIRE. Un rôle est ce qu'on fait aujourd'hui ; le
     // savoir est ce qu'on pourrait encore transmettre demain. Les deux se
@@ -527,6 +541,13 @@ function creerHabitant(role, logis) {
                   : CHAUMIERES[i++ % CHAUMIERES.length];
       const h = creerHabitant(role, logis);
       if (ROLES_UTILES.includes(role)) h.savoir.add(role);
+      // ET CELUI DE SON PÈRE. Un village de dix-sept âmes ne tient pas sur
+      // un unique porteur par métier : mesuré, le charpentier se perdait
+      // au trentième jour, plus personne ne remontait les meules, et le
+      // village mourait de faim en six mois. Chaque fondateur sait donc
+      // aussi le métier d'à côté — ce qui rend la perte d'un métier rare
+      // et grave, au lieu d'un tirage fatal le premier mois.
+      h.savoir.add(ROLES_UTILES[(i + k) % ROLES_UTILES.length]);
       if (!SANS_LIGNEE[role]) {
         if (!logis.lignee) logis.lignee = LIGNEES[iLignee++ % LIGNEES.length];
         h.lignee = logis.lignee;
@@ -555,6 +576,7 @@ const village = {
   lune: 0,                   // 0 nouvelle lune, 1 pleine lune
   sabbat: false,             // les nuits de pleine lune, on veille à la cabane
   loupAgi: false,            // il n'abîme le village qu'une fois par nuit
+  noyadeCetteNuit: false,    // le ruisseau non plus ne prend qu'une fois
   chasseur: null, joursChasseur: 0,   // celui qu'on loge à l'auberge
   jourVampire: -99,          // la dernière fois qu'on a parlé du seigneur
   loup: null,                // celui que la pleine lune a fait sortir de lui-même
@@ -569,7 +591,7 @@ const village = {
             naissances: 0, vieillesses: 0, majorites: 0,
             etrangers: 0, chasseurs: 0, imposteurs: 0, vampire: 0,
             extinctions: 0, metiersPerdus: 0, ruines: 0,
-            sauvetages: 0, paroles: 0, etablis: 0 },
+            sauvetages: 0, paroles: 0, etablis: 0, reprises: 0 },
   // LE TROISIÈME ACTE. Tout le reste de ce village revient : la faim
   // passe, la peur retombe, le moulin se répare, un enfant reprend le
   // métier. Voici la liste de ce qui ne reviendra pas. Elle ne fait que
@@ -596,6 +618,10 @@ const village = {
   impot: 0,                      // ce que le seigneur a mis de côté au manoir
   accuse: null,                  // celui que le village a désigné, faute de sorcière
   jourDime: 0, jourImpot: 0,
+  // LA FIN. Elle n'est pas scriptée : elle arrive le jour où il ne reste
+  // personne. Le village peut tenir des années ou s'éteindre en une
+  // génération, et on ne le sait qu'en regardant.
+  eteint: 0,                 // le jour où le dernier s'en est allé, 0 tant qu'il vit
 };
 // on enregistre les maisons fondatrices : ce sont elles qui peuvent
 // s'éteindre, et la maison qui va avec
@@ -611,9 +637,15 @@ for (const h of habitants) {
 const GENRES = ['mort', 'naissance', 'bienfait', 'peur', 'perte', 'legende', 'village'];
 const chronique = [];
 function noter(txt, fort = false, qui = null, genre = 'village') {
-  chronique.push({ txt: `jour ${village.jour} — ${txt}`, nu: txt, jour: village.jour,
-                   fort, qui, genre });
-  if (chronique.length > 3000) chronique.shift();
+  // On stockait « jour 412 — ... » ET le texte nu : deux fois la même
+  // phrase en mémoire, pour une chronique qu'on garde désormais entière.
+  chronique.push({ nu: txt, jour: village.jour, fort, qui, genre });
+  // On ne jette plus rien. Pierre veut pouvoir emporter TOUTE l'histoire
+  // de son village le jour où il s'éteint ; une chronique tronquée n'est
+  // pas une histoire, c'est un extrait. Mesuré : cent journées de village
+  // pèsent environ trois cents lignes, soit trente kilo-octets — une
+  // session de huit heures à ×100 en fait deux mille, c'est tenable.
+  if (chronique.length > 200000) chronique.shift();
 }
 
 // Un habitant qui accumule un passé devient quelqu'un. Sans ça, il n'y a
@@ -827,6 +859,27 @@ function poidsDes(h) {
     const casse = MOULINS.reduce((m, x) => Math.min(m, x.etat), 1);
     if (h.role === 'charpentier') { p.push(['réparer', travail * (1 - casse) * 8, `un moulin est à ${n2(casse)}`]); p.push(['menuiser', travail * 0.7, pourquoiTravail]); }
     if (h.role === 'forgeron')    { p.push(['forger', travail * 1.2, pourquoiTravail]); p.push(['réparer', travail * (1 - casse) * 4, `un moulin est à ${n2(casse)}`]); }
+    // LE PIÈGE SANS SORTIE, TROUVÉ EN MESURANT DEUX MILLE JOURNÉES.
+    // Les meules cassent, personne ne les remonte, donc plus de farine,
+    // donc plus de pain, donc tout le monde a faim — et « travail » vaut
+    // (1 - fatigue) × (1 - peur), qui s'effondre justement quand on a
+    // faim. Le village se retrouvait avec mille sept cents mesures de blé
+    // et un pain, incapable d'en sortir.
+    //
+    // La faim ne doit donc pas éteindre cette conduite-là : elle doit
+    // l'allumer. Une meule morte dans un village affamé est la chose la
+    // plus urgente du monde, et on y monte même épuisé.
+    if (casse < 0.3 && h.role !== 'enfant') {
+      const grenierPlein = village.ble > 20 && village.farine < 4;
+      const urgence = (village.pain < 4 ? 3.5 : 1) * (grenierPlein ? 2.5 : 1);
+      const sait = h.savoir.has('charpentier') || h.role === 'charpentier' || h.role === 'forgeron';
+      // on n'y va pas parce qu'on est frais, on y va parce qu'il le faut
+      if (!sait) p.push(['réparer', (0.5 + h.faim) * (1 - casse) * 1.4 * urgence,
+                         'le moulin est mort et plus personne ne sait']);
+      else if (h.role !== 'charpentier' && h.role !== 'forgeron')
+        p.push(['réparer', (0.5 + h.faim) * (1 - casse) * 2.6 * urgence,
+                'il a vu faire, autrefois']);
+    }
     if (h.role === 'ebeniste')    p.push(['menuiser', travail * 1.2, pourquoiTravail]);
     if (h.role === 'tailleur')    p.push(['tailler', travail * 1.2, pourquoiTravail]);
     if (h.role === 'bucheron')    p.push(['bûcheronner', travail * (village.bois < 40 ? 1.6 : 0.2),
@@ -929,6 +982,7 @@ function majPleineLune(dt) {
       const l = village.loup;
       village.loup = null;
       village.loupAgi = false;
+      village.noyadeCetteNuit = false;
       l.remords = Math.min(1, l.remords + 0.55);
       souvenir(l, "s'est réveillé sans savoir où il avait passé la nuit");
     }
@@ -1110,6 +1164,11 @@ function majNoyade(h) {
   // fatigue, parce qu'on ne se noie pas frais et dispos. Premier
   // réglage mesuré : six noyés par village, le village y passait. Ce
   // n'est pas un piège, c'est un accident.
+  // LE RUISSEAU NE PREND QU'UNE FOIS PAR NUIT. Sans ce frein, il prenait
+  // tous ceux qui passaient au même endroit dans la même brume : vingt-
+  // trois noyés sur deux mille journées, devant la vieillesse. Un accident
+  // se produit ; une hécatombe est un défaut de réglage.
+  if (village.noyadeCetteNuit) return;
   // sous la pleine lune on voit le ruisseau, même à travers la brume
   if (village.lune > 0.55) return;
   if (village.brouillard < 0.79 || h.torche > 0 || h.fatigue < 0.62) return;
@@ -1123,6 +1182,7 @@ function majNoyade(h) {
   if (sauveur) {
     h.fatigue = Math.max(0, h.fatigue - 0.5);
     h.peur = Math.min(1, h.peur + 0.4);
+    village.noyadeCetteNuit = true;
     village.arrive.sauvetages++;
     devoir(h, sauveur, 1, 'a tiré du ruisseau');
     noter(`${nommer(sauveur)} a entendu remuer dans l'eau. ${h.prenom} a eu de la chance.`, true, sauveur, 'bienfait');
@@ -1130,6 +1190,7 @@ function majNoyade(h) {
     return;
   }
   h.vivant = false;
+  village.noyadeCetteNuit = true;
   village.arrive.noyades++;
   noter(`${nommer(h)} n'a pas vu le ruisseau. On l'a retrouvé${e(h)} au petit jour.`, true, h, 'mort');
   for (const a of habitants) {
@@ -1495,16 +1556,23 @@ function agir(h, dt) {
     }
     case 'cuire':
       village.fourChauffe = true;
-      if (village.farine >= dt * R.farineParSeconde) {
+      // on ne cuit pas dans une huche pleine : le pain rassit, et surtout
+      // c'est ce frein qui laisse le blé s'accumuler en amont
+      if (village.pain < R.plafondPain && village.farine >= dt * R.farineParSeconde) {
         village.farine -= dt * R.farineParSeconde;
         village.pain += dt * R.painParSeconde;
       }
       break;
     case 'réparer':
       if (h.cible && h.cible.etat !== undefined) {
+        // Perdre le charpentier doit dégrader le village, pas le tuer.
+        // Sans lui on étaye quand même la meule, mal et lentement — le
+        // moulin tourne au tiers et il faut y passer trois fois plus de
+        // temps. La perte se voit dans la farine, pas dans un cadavre.
+        const adroit = h.savoir.has('charpentier') || h.role === 'charpentier' ? 1 : R.reparationMaladroite;
         // on ne répare pas sans bois : le bûcheron devient un maillon
         if (village.bois > 0) {
-          h.cible.etat = Math.min(1, h.cible.etat + dt * R.reparationParSeconde);
+          h.cible.etat = Math.min(1, h.cible.etat + dt * R.reparationParSeconde * adroit);
           village.bois = Math.max(0, village.bois - dt * R.boisRepare);
         }
         if (aleaDeco() < dt * 1.4) signaler('marteau', h.x, h.z);
@@ -1554,12 +1622,13 @@ function majMoulins(dt) {
     // d'un moulin capricieux, et c'est le second qui fait les disettes.
     // la roue a le courant — sauf quand le courant est pris par la glace
     const force = m.axe === 'roue' ? (village.gel ? 0 : 1) : 0.3 + village.vent * 1.4;
-    const marche = m.etat > 0.12 && village.ble > 0 && force > 0.35;
+    const marche = m.etat > 0.12 && village.ble > 0 && force > 0.35 &&
+                   village.farine < R.plafondFarine;
     m.tourne += dt * (marche ? (m.axe === 'roue' ? 1.6 : 1.1 * force) : 0);
     if (!marche) continue;
     const debit = dt * R.meuleParSeconde * m.etat * force;
     village.ble = Math.max(0, village.ble - debit);
-    village.farine += debit * 0.92;
+    village.farine = Math.min(R.plafondFarine, village.farine + debit * 0.92);
     m.etat = Math.max(0, m.etat - dt * R.usureMeule);      // l'usure de la meule
     if (m.etat <= 0.12 && !m.reparationSignalee) {
       m.reparationSignalee = true;
@@ -2086,7 +2155,14 @@ function surnommer() {
 // grossit les bonnes années et se vide les mauvaises — ce qui rend
 // l'hiver, les moulins et le pain soudain beaucoup plus importants.
 function naissances() {
-  if (village.pain < 14 || village.ble < 22) return;
+  // LA PORTE LISAIT LE BLÉ, QUI N'EST JAMAIS UN STOCK. Les meules le
+  // broient aussi vite qu'on le moissonne : mesuré, `ble` reste à zéro du
+  // centième jour à la fin, et la porte ne s'ouvrait donc plus jamais —
+  // cinq naissances en soixante-deux années, pendant que le village
+  // s'éteignait. On regarde ce que le village a VRAIMENT à manger, c'est-
+  // à-dire tout ce qui est dans la chaîne, pain compris.
+  if (village.pain < 10) return;
+  if (village.ble + village.farine + village.pain < 30) return;
   const vivants = habitants.filter(h => h.vivant);
   if (vivants.length >= 26) return;
   for (const m of vivants) {
@@ -2298,7 +2374,11 @@ function savoirsVivants() {
 // adulte meurt avant le terme, l'apprentissage s'arrête là.
 function apprendre() {
   for (const h of habitants) {
-    if (!h.vivant || h.role !== 'enfant') continue;
+    // Les enfants apprennent, et les paysans aussi. Un village n'a pas
+    // d'école : on regarde faire son voisin, et le jour où il meurt on
+    // sait à peu près. Restreint aux paysans parce qu'ils sont les seuls
+    // dont le travail laisse le loisir de regarder ailleurs.
+    if (!h.vivant || (h.role !== 'enfant' && h.role !== 'paysan')) continue;
     let maitre = null, meilleur = 0.25;
     for (const a of habitants) {
       if (!a.vivant || a === h || a.role === 'enfant') continue;
@@ -2361,8 +2441,66 @@ function rappeler(visee) {
   return true;
 }
 
+// Le dernier vivant s'en va, et le village devient un lieu. On note le
+// jour, une seule fois, et la chronique s'arrête là.
+function majExtinction() {
+  if (village.eteint) return;
+  if (habitants.some(h => h.vivant)) return;
+  village.eteint = village.jour;
+  noter(`Il ne reste plus personne à ${'Dwelve Hollow'}. ` +
+        `Le village aura vécu ${village.annee} années.`, true, null, 'perte');
+  village.pertes.push({ jour: village.jour, annee: village.annee, quoi: 'village',
+                        texte: 'Le village s\'est éteint.', cle: null, suite: null });
+}
+
+// REPRENDRE LE MÉTIER DU MORT.
+// Il manquait au village la chose la plus simple du monde : quand le
+// boulanger meurt, quelqu'un reprend le four. Sans ça, mesuré sur deux
+// mille journées, le village finissait avec neuf cents mesures de blé et
+// zéro pain — la chaîne coupée à un maillon que plus personne n'avait le
+// droit de tenir. Un adulte ne changeait jamais de métier de sa vie.
+//
+// Ça ne rend pas les métiers impérissables : il faut avoir appris. Ce qui
+// est perdu reste perdu ; ce qui est su se reprend.
+const VITAUX = ['boulanger', 'charpentier', 'paysan'];
+function reprendreUnMetier() {
+  const vivants = habitants.filter(h => h.vivant);
+  for (const r of ROLES_UTILES) {
+    if (vivants.some(h => h.role === r)) continue;           // quelqu'un le fait déjà
+    // celui qui sait, et qui peut être détaché : un paysan avant tout
+    const candidats = vivants.filter(h => h.savoir.has(r) && h.role !== 'enfant' &&
+      h.role !== 'seigneur' && h.role !== 'dame' && h.role !== 'pretre' && h.role !== 'sorciere' &&
+      // ON NE CHANGE PAS DE MÉTIER TOUS LES HUIT JOURS. Sans ce délai, la
+      // reprise creusait le trou qu'elle venait de combler : 277 reprises
+      // en deux mille journées, un village entier jouant aux chaises
+      // musicales. On prend un métier pour des années.
+      village.jour >= (h.jourMetier || 0) + R.joursParSaison * 4);
+    if (!candidats.length) continue;
+    // on ne déshabille pas Pierre pour habiller Paul : on ne prend un
+    // artisan que si le métier vacant est vital et le sien ne l'est pas
+    const libres = candidats.filter(h => h.role === 'paysan' &&
+      vivants.filter(a => a.role === 'paysan').length > 1);   // jamais le dernier paysan
+    const pris = libres.length ? libres
+               : (VITAUX.includes(r) ? candidats.filter(h => !VITAUX.includes(h.role)) : []);
+    if (!pris.length) continue;
+    // le plus âgé d'abord : c'est lui qui a vu faire le plus longtemps
+    const qui = pris.reduce((a, b) => (a.age >= b.age ? a : b));
+    const avant = qui.role;
+    qui.role = r;
+    qui.jourMetier = village.jour;
+    qui.attache = null;
+    village.arrive.reprises++;
+    noter(`${qui.prenom} a repris ${NOM_ROLE[r]}. ${qui.feminin ? 'Elle' : 'Il'} avait vu faire.`,
+          true, qui, 'village');
+    souvenir(qui, `a laissé ${NOM_ROLE[avant]} pour reprendre ${NOM_ROLE[r]}`);
+    return;                                                   // une reprise par jour
+  }
+}
+
 function finDeJournee() {
   naissances();
+  majExtinction();
+  reprendreUnMetier();
   apprendre();
   majLignees();
   majRuines();
@@ -2641,6 +2779,7 @@ return {
   avancer: simuler,
   poidsDes, choisirOccupation, lieuDe, tensionActuelle,
   nommer, nomComplet, souvenir, noter, lien, e, NOM_ROLE, ROLES, metierDe,
+  ligneChronique: (ev) => `jour ${ev.jour} — ${ev.nu}`,
   detteDe, creancier, savoirsVivants, GENRES, LIGNEES,
   estNuit, estJour, lumiere,
   analyser, appliquerRegles, resoudre,

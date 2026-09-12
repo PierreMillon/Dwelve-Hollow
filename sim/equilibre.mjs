@@ -166,7 +166,14 @@ const CIBLES = [
   // révolte, zéro surnom sur mille journées. On ne mesurait que le pain.
   // bornes rapportées à six années de village, pas à quatre-vingts jours
   ['bûchers par village',   (a) => a.buchers,      0.2,  7,   ''],
-  ['révoltes par village',  (a) => a.revoltes,     1.5,  26,  ''],
+  // PAR HABITANT, ET NON PAR VILLAGE. La borne 1,5–26 avait été calée sur
+  // un village de dix-sept âmes — un village qui, on le sait maintenant,
+  // était en train de s'éteindre sans qu'on le voie. Depuis que la porte
+  // des naissances est rouverte, il en compte vingt-quatre, et une foule
+  // se compte en têtes : le chiffre absolu montait mécaniquement alors que
+  // le village était PLUS calme par personne (1,08 contre 1,50 avant).
+  // On mesure donc ce que la cible voulait dire depuis le début.
+  ['révoltes par habitant', (a) => a.revoltes / a.vivants, 0.09, 1.55, ''],
   ['surnoms gagnés',        (a) => a.surnoms,      4,    28,  ''],
   // Le brouillard est un accident, pas un piège : au premier réglage il
   // noyait six habitants par village et le village y passait.
@@ -218,7 +225,7 @@ console.log(`\n  ${(runs * jours / dt).toFixed(0)} journées de village par seco
 
 if (drapeau('detail')) {
   console.log(`\n  ── le journal du premier village (graine ${lots[0].graine}) ──`);
-  for (const e of lots[0].chronique.slice(0, 40)) console.log('   ' + e.txt);
+  for (const e of lots[0].chronique.slice(0, 40)) console.log(`   jour ${e.jour} — ${e.nu}`);
 }
 
 // ---- le contrôle de détermination ----
@@ -234,7 +241,7 @@ function memeMonde(graine, tiragesDeDecor) {
     for (let j = 0; j < tiragesDeDecor; j++) M.aleaDeco();
     M.evenements.length = 0; M.nouveaux.length = 0;
   }
-  return M.chronique.map(e => e.txt).join('\n');
+  return M.chronique.map(e => `jour ${e.jour} — ${e.nu}`).join('\n');
 }
 
 function verifierDetermination() {

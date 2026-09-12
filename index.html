@@ -181,6 +181,28 @@
   #regle::placeholder { color: rgba(70,255,160,0.35); }
   #regle:focus { outline: none; border-color: var(--ph-line); }
   #regle.refus { border-color: #ff6b6b; color: #ff9d9d; }
+  /* L'ÉPITAPHE. Le jour où il ne reste personne, le village devient un
+     lieu. On ne relance pas, on ne propose rien : on lit, et on emporte
+     l'histoire si on veut la garder. */
+  #fin {
+    position: fixed; inset: 0; z-index: 14; display: grid; place-items: center;
+    background: rgba(0, 0, 0, 0.88); padding: 24px;
+  }
+  #fin[hidden] { display: none; }
+  #fin .dedans { width: min(460px, 100%); text-align: center; }
+  #fin h2 {
+    color: var(--ph-line); font-size: 15px; letter-spacing: 0.2em; text-transform: uppercase;
+    font-weight: normal; margin: 0 0 18px;
+  }
+  #fin .epitaphe { color: var(--ph-text); line-height: 1.9; margin: 0 0 4px; }
+  #fin .chiffres {
+    color: var(--ph-dim); margin: 20px 0 24px; display: grid;
+    grid-template-columns: 1fr auto; gap: 4px 18px; text-align: left;
+    font-variant-numeric: tabular-nums;
+  }
+  #fin .chiffres b { color: var(--ph-text); font-weight: normal; text-align: right; }
+  #fin .actions { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
+
   /* L'INSTALLATION. Le jeu tient tout entier dans une page : rien ne
      l'empêche de vivre sur l'écran d'accueil, sans barre d'adresse et
      sans réseau. Encore faut-il le dire — personne ne devine qu'une page
@@ -399,6 +421,18 @@
   <button id="btn-spin" aria-pressed="true">⟳</button>
   <input id="regle" placeholder="écrire une règle…" autocomplete="off" spellcheck="false" readonly>
   <a class="lien" href="test-3d.html">banc d'essai</a>
+</div>
+
+<div id="fin" hidden role="dialog" aria-modal="true" aria-labelledby="fin-titre">
+  <div class="dedans">
+    <h2 id="fin-titre">le village s'est éteint</h2>
+    <p class="epitaphe" id="fin-texte">—</p>
+    <div class="chiffres" id="fin-chiffres"></div>
+    <div class="actions">
+      <button id="fin-emporter">emporter l'histoire</button>
+      <button id="fin-regarder">regarder encore</button>
+    </div>
+  </div>
 </div>
 
 <div id="pose" hidden role="dialog" aria-modal="true" aria-labelledby="pose-titre">
@@ -714,7 +748,7 @@ const {
   poidsDes, nommer, nomComplet, lien, e, NOM_ROLE, metierDe,
   estNuit, estJour, lumiere, analyser, appliquerRegles, noter,
   souvenir, surnommer, lancerDragon, lancerFoire, evenements,
-  detteDe, creancier, GENRES,
+  detteDe, creancier, GENRES, ligneChronique, GRAINE: GRAINE_MONDE,
 } = M;
 
 
@@ -1873,7 +1907,7 @@ function majChronique() {
   c.innerHTML = '';
   for (const ev of chronique.slice(-8)) {
     const d = document.createElement('div');
-    d.textContent = ev.txt;
+    d.textContent = `jour ${ev.jour} — ${ev.nu}`;
     d.className = ev.fort ? 'fort' : '';
     // cliquer une ligne désigne la personne : le texte et l'image se
     // répondent, au lieu de vivre chacun de leur côté
@@ -2402,6 +2436,85 @@ addEventListener('keydown', (ev) => { if (ev.key === 'Escape') fermerMolettes();
 majListeRegles();
 
 /* ================================================================
+   LA FIN, ET CE QU'ON EN EMPORTE
+   Le village s'éteint le jour où il ne reste personne. Ce n'est pas un
+   écran de défaite : il n'y avait rien à gagner. C'est une épitaphe, et
+   un fichier — toute la chronique, du premier réveil au dernier mort,
+   gardée entière exprès pour ce moment-là.
+   ================================================================ */
+let finVue = false;
+
+function majFin() {
+  if (!village.eteint || finVue) return;
+  finVue = true;
+  const a = village.arrive;
+  $('fin-texte').textContent =
+    `Le village aura vécu ${village.annee} ${village.annee > 1 ? 'années' : 'année'}, ` +
+    `et ${village.jour} journées. Il ne reste personne pour en parler.`;
+  const lignes = [
+    ['habitants en tout', habitants.length],
+    ['naissances', a.naissances],
+    ['morts de vieillesse', a.vieillesses],
+    ['bûchers', a.buchers],
+    ['noyés dans le brouillard', a.noyades],
+    ['lignées éteintes', a.extinctions],
+    ['métiers perdus', a.metiersPerdus],
+    ['lignes de chronique', chronique.length],
+  ];
+  $('fin-chiffres').innerHTML = lignes
+    .map(([n, v]) => `<span>${n}</span><b>${v}</b>`).join('');
+  $('fin').hidden = false;
+  $('fin-emporter').focus();
+}
+
+// TOUTE l'histoire, pas un extrait. En-tête, pertes définitives, puis la
+// chronique entière — un fichier texte qu'on garde, qu'on relit, qu'on
+// envoie à quelqu'un.
+function texteDeLHistoire() {
+  const a = village.arrive;
+  const t = [];
+  t.push('DWELVE HOLLOW');
+  t.push('='.repeat(13));
+  t.push('');
+  t.push(`graine : ${GRAINE_MONDE}`);
+  t.push(`durée  : ${village.annee} années, ${village.jour} journées`);
+  t.push(`fin    : ${village.eteint ? 'le village s\'est éteint au jour ' + village.eteint : 'le village vivait encore'}`);
+  t.push('');
+  t.push(`habitants en tout ${habitants.length} · naissances ${a.naissances} · vieillesse ${a.vieillesses}`);
+  t.push(`bûchers ${a.buchers} · noyades ${a.noyades} · meurtres ${a.meurtres} · départs ${a.departs}`);
+  t.push(`lignées éteintes ${a.extinctions} · métiers perdus ${a.metiersPerdus} · maisons tombées ${a.ruines}`);
+  t.push('');
+  if (village.pertes.length) {
+    t.push('CE QUI N\'EST PAS REVENU');
+    t.push('-'.repeat(23));
+    for (const p of village.pertes) {
+      t.push(`  an ${p.annee} — ${p.texte}`);
+      if (p.suite) t.push(`           ${p.suite.texte} (an ${p.suite.annee})`);
+    }
+    t.push('');
+  }
+  t.push('LA CHRONIQUE');
+  t.push('-'.repeat(12));
+  for (const ev of chronique) t.push(ligneChronique(ev));
+  t.push('');
+  return t.join('\n');
+}
+
+function emporterLHistoire() {
+  const nom = `dwelve-hollow-${GRAINE_MONDE}-jour-${village.jour}.txt`;
+  const lien = document.createElement('a');
+  lien.href = URL.createObjectURL(new Blob([texteDeLHistoire()], { type: 'text/plain;charset=utf-8' }));
+  lien.download = nom;
+  document.body.appendChild(lien);
+  lien.click();
+  lien.remove();
+  setTimeout(() => URL.revokeObjectURL(lien.href), 4000);
+}
+
+$('fin-emporter').addEventListener('click', emporterLHistoire);
+$('fin-regarder').addEventListener('click', () => { $('fin').hidden = true; });
+
+/* ================================================================
    INSTALLER LE VILLAGE
    Le jeu tient tout entier dans une page, un simulateur, une
    bibliothèque et un morceau de musique. Rien ne l'oblige à vivre dans
@@ -2713,7 +2826,7 @@ function majMemoire() {
   // les cent dernières, la plus récente en haut
   for (const ev of gardees.slice(-100).reverse()) {
     const d = document.createElement('div');
-    d.textContent = ev.txt;
+    d.textContent = `jour ${ev.jour} — ${ev.nu}`;
     if (ev.fort) d.classList.add('fort');
     if (ev.qui) {
       d.classList.add('cliquable');
@@ -2797,6 +2910,7 @@ renderer.setAnimationLoop((maintenant) => {
       chroniqueVue = chronique.length;
       majChronique();
       majMaisons();
+      majFin();
       majMemoire();
     }
     majAffichage();
