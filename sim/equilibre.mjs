@@ -165,7 +165,11 @@ const CIBLES = [
   // toutes pendant que le village devenait muet — zéro bûcher, zéro
   // révolte, zéro surnom sur mille journées. On ne mesurait que le pain.
   // bornes rapportées à six années de village, pas à quatre-vingts jours
-  ['bûchers par village',   (a) => a.buchers,      0.2,  7,   ''],
+  // PAR HABITANT, comme les révoltes, et pour la même raison : une foule
+  // se compte en têtes. La borne 0,2–7 datait d'un village de dix-sept
+  // âmes ; à vingt-cinq, le chiffre absolu monte sans que le village soit
+  // plus cruel. L'ancienne borne haute vaut 0,40 par personne.
+  ['bûchers par habitant',  (a) => a.buchers / a.vivants, 0.012, 0.40, ''],
   // PAR HABITANT, ET NON PAR VILLAGE. La borne 1,5–26 avait été calée sur
   // un village de dix-sept âmes — un village qui, on le sait maintenant,
   // était en train de s'éteindre sans qu'on le voie. Depuis que la porte

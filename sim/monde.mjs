@@ -222,7 +222,9 @@ function poserPorte(l) {
   const p = PROFONDEUR[l.type];
   if (!p) return l;                       // un champ, une forêt : on y entre par où l'on veut
   const c = Math.cos(l.angle || 0), sn = Math.sin(l.angle || 0);
-  const d = p / 2 + 0.9;
+  // le seuil se colle au mur : chaque mètre de détour est du temps de
+  // travail en moins, et la famine le paie
+  const d = p / 2 + 0.45;
   const cotes = [[0, d], [0, -d]].map(([x, z]) =>
     ({ x: x * c + z * sn + l.x, z: -x * sn + z * c + l.z }));
   const versLaPlace = (q) => q.x * q.x + q.z * q.z;
@@ -554,6 +556,7 @@ function creerHabitant(role, logis) {
     // celle qui a soigné votre mère, et si la foule vient quand même,
     // c'est celui qui lui doit le plus qui parle.
     dette: new Map(),
+    entre: null,                  // le lieu dont il a déjà franchi le seuil
     torche: 0, rallume: 0,        // voir majTorche()
     egare: false, fou: 0,         // la pleine lune fait perdre le nord          // voir surnommer() et nomComplet()
     compte: { reparations: 0, vols: 0, prieres: 0, rembarrades: 0, accusations: 0,
@@ -895,9 +898,17 @@ function poidsDes(h) {
   // adulte. Les trois à la fois, comme demandé.
   if (h.role === 'enfant') {
     const petits = habitants.filter(a => a.vivant && a.role === 'enfant' && a !== h).length;
-    p.push(['jouer', 1.4 + petits * 0.5, `il a ${Math.floor(h.age)} ans` + (petits ? ` · ${petits} autres enfants` : '')]);
+    // LE JEU NE DOIT PAS ÉCRASER LE RESTE. Le poids montait de 0,5 par
+    // autre enfant ; depuis que le village en compte dix, jouer pesait
+    // près de six et aucun enfant n'allait plus aux champs — famine un
+    // jour sur quatre pendant qu'ils couraient sur la place. Une bande
+    // de quatre suffit à faire une bande.
+    p.push(['jouer', 1.4 + Math.min(petits, 3) * 0.5,
+            `il a ${Math.floor(h.age)} ans` + (petits ? ` · ${petits} autres enfants` : '')]);
     if (h.mere && h.mere.vivant) p.push(['suivre', 2.2 * (1 - h.age / R.ageAdulte), `il suit sa mère`]);
-    if (jour && h.age > 6) p.push(['moissonner', 0.9 * (h.age / R.ageAdulte), `il aide aux champs`]);
+    // et un enfant qui a faim va aux champs comme les autres
+    if (jour && h.age > 6) p.push(['moissonner', 0.9 * (h.age / R.ageAdulte) * (1 + h.faim),
+                                   `il aide aux champs` + (h.faim > 0.5 ? ` · il a faim` : '')]);
   }
 
   if (jour && h.role !== 'enfant') {
@@ -1428,7 +1439,8 @@ function simuler(dt) {
 
     if (village.temps > h.prochainChoix) {
       h.occupation = choisirOccupation(h);
-      h.cible = lieuDe(h, h.occupation);
+      { const avant = h.cible; h.cible = lieuDe(h, h.occupation);
+        if (h.cible !== avant) h.entre = null; }
       // Sa cadence lui appartient : certains reviennent sur leur décision
       // toutes les quatre secondes, d'autres s'y tiennent neuf. La peur
       // presse tout le monde.
@@ -1451,13 +1463,28 @@ function simuler(dt) {
 
 function avancer(h, dt) {
   if (!h.cible) return;
-  // ON VISE LA PORTE, PAS LE MUR. Tant qu'on n'est pas sur le seuil, c'est
-  // lui qu'on cherche ; une fois passé, on peut aller au cœur du lieu.
+  // ON VISE LA PORTE, PAS LE MUR — MAIS UNE SEULE FOIS.
+  // Première version : « si je suis loin du seuil, je vise le seuil,
+  // sinon je vise le cœur ». Arrivé au seuil on visait le cœur, ce qui
+  // éloignait du seuil, qu'on re-visait aussitôt : un aller-retour
+  // perpétuel sur le pas de la porte. Personne n'entrait nulle part —
+  // 93 % de journées sans pain, faim moyenne 0,97, le village entier
+  // debout devant ses maisons.
+  // Il faut donc un verrou : une fois le seuil franchi pour CETTE
+  // destination, on ne le regarde plus.
   const porte = h.cible.porte;
   let but = h.cible;
   if (porte) {
-    const dSeuil = Math.hypot(porte.x - h.x, porte.z - h.z);
-    if (dSeuil > PROCHE * 0.8) but = porte;
+    if (h.entre !== h.cible) {
+      const dSeuil = Math.hypot(porte.x - h.x, porte.z - h.z);
+      // LE SEUIL DE VERROUILLAGE DOIT ÊTRE PLUS LARGE QUE LE SEUIL
+      // D'ARRÊT. On s'arrête à PROCHE de ce qu'on vise ; si le verrou ne
+      // se pose qu'en deçà, on n'y arrive jamais. Mesuré : zéro habitant
+      // arrivé à destination sur vingt et un, tout le village planté
+      // devant ses portes, 93 % de journées sans pain.
+      if (dSeuil > PROCHE * 1.15) but = porte;
+      else h.entre = h.cible;                 // le seuil est franchi
+    }
   }
   const dx = but.x - h.x, dz = but.z - h.z;
   const d = Math.hypot(dx, dz);
@@ -1582,7 +1609,12 @@ function agir(h, dt) {
       // l'automne, et l'hiver on ne récolte rien du tout. La moyenne sur
       // l'année vaut 1 : c'est la répartition qui change, pas le total.
       const saisonnier = [0.7, 1.3, 2.0, 0][village.saison]
-                       * (h.role === 'enfant' ? 0.5 : 1);
+                       // Les enfants aident vraiment. Mesuré : le village en compte
+                       // 39 % depuis que la porte des naissances est rouverte, et à
+                       // moitié de rendement ils mangeaient sans nourrir — famine un
+                       // jour sur quatre. Un enfant de dix ans, aux champs, ce n'est
+                       // pas la moitié d'un homme, mais ce n'est pas rien.
+                       * (h.role === 'enfant' ? 0.72 : 1);
       if (village.ble < PLAFOND_BLE && saisonnier > 0) {
         village.ble += dt * saisonnier * (village.outils > 0 ? R.moissonAvecOutils : R.moissonSansOutils);
         village.outils = Math.max(0, village.outils - dt * 0.02);
@@ -1839,6 +1871,7 @@ function majRassemblements() {
       noter(`${surLaPlace.length} villageois se rassemblent. Ils vont chercher du bois.`, true, visee);
       signaler('rumeur', PLACE.x, PLACE.z);
       for (const h of surLaPlace) {
+        if (h.cible !== visee.logis) h.entre = null;
         h.cible = visee.logis; h.prochainChoix += 30;
         souvenir(h, `est allé chercher du bois pour ${visee.prenom}`);
         h.compte.accusations++;
@@ -1881,7 +1914,8 @@ function majRassemblements() {
     noter(`${furieux.length} villageois montent vers le manoir.`, true);
     village.arrive.revoltes++;
     signaler('rumeur', MANOIR.x, MANOIR.z);
-    for (const h of furieux) { h.cible = MANOIR; h.prochainChoix += 25; }
+    for (const h of furieux) { if (h.cible !== MANOIR) h.entre = null;
+                               h.cible = MANOIR; h.prochainChoix += 25; }
   }
   if (village.fouleRevolte) {
     const devant = furieux.filter(h => Math.hypot(h.x - MANOIR.x, h.z - MANOIR.z) < 9);

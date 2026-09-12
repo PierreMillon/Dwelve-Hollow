@@ -2320,6 +2320,51 @@ disais.
 
 ---
 
+## Une version cassée poussée, et ce que ça apprend (v0.29)
+
+**J'ai poussé un état où sept cibles sur quatorze échouaient.** La commande
+enchaînait le contrôle et le `git push` par `&&` — or le runner sort en
+code 0 même quand des cibles ratent, donc rien n'a bloqué. La règle est
+désormais&nbsp;: lire le résultat, pas faire confiance au code de sortie.
+
+### Ce qui cassait
+
+Les portes. Trois défauts empilés, chacun invisible sans mesure.
+
+1. **Les portes n'existaient pas.** Elles étaient poussées dans
+   `SEG_DECOR` bien après la fusion de la géométrie — un tableau que plus
+   personne ne relit.
+2. **Elles tombaient sur la fenêtre**, une fois dessinées.
+3. **Et surtout&nbsp;: personne n'entrait nulle part.** On s'arrête à
+   `PROCHE` de ce qu'on vise ; le verrou « seuil franchi » se posait en
+   deçà de cette distance. On n'y arrivait donc jamais. Mesuré&nbsp;: zéro
+   habitant arrivé à destination sur vingt et un, tout le village planté
+   devant ses portes, 93 % de journées sans pain.
+
+### Ce que la mesure a révélé ensuite
+
+Le détour par les portes coûtait encore six points de famine. En cherchant
+pourquoi, un chiffre&nbsp;: **39 % d'enfants**. Le village fait enfin des
+petits — neuf naissances par village contre 1,4 avant la v0.29 — et les
+petits mangent.
+
+Les enfants pouvaient déjà aider aux champs depuis la v0.19. Mais le poids
+de « jouer » montait de 0,5 par autre enfant&nbsp;: à dix enfants, jouer
+pesait près de six et aucun n'allait plus aux champs. Ils couraient sur la
+place pendant que le village avait faim. Le poids est plafonné — une bande
+de quatre suffit à faire une bande — et un enfant qui a faim va aux champs
+comme les autres.
+
+Famine&nbsp;: 24,8 % → **18,6 %**.
+
+### Deux cibles passent au par-habitant
+
+Bûchers et révoltes étaient comptés par village, sur une borne calée quand
+le village avait dix-sept âmes. Il en a vingt-cinq. Une foule se compte en
+têtes&nbsp;: le chiffre absolu montait sans que le village soit plus cruel.
+
+---
+
 ## 📜 Historique
 
 - **2026-09-10 (après-midi, suite)** — Lumière des torches calculée par
