@@ -2323,9 +2323,20 @@ disais.
 ## Une version cassée poussée, et ce que ça apprend (v0.29)
 
 **J'ai poussé un état où sept cibles sur quatorze échouaient.** La commande
-enchaînait le contrôle et le `git push` par `&&` — or le runner sort en
-code 0 même quand des cibles ratent, donc rien n'a bloqué. La règle est
-désormais&nbsp;: lire le résultat, pas faire confiance au code de sortie.
+enchaînait le contrôle et le `git push` par `&&`, et rien n'a bloqué.
+
+*Première explication, fausse&nbsp;:* « le runner sort en code 0 même quand
+des cibles ratent ». Vérification faite, il fait exactement l'inverse —
+`process.exit(echecs ? 1 : 0)`, depuis toujours.
+
+*La vraie cause&nbsp;:* la commande était
+`node sim/equilibre.mjs --check 2>&1 | tail -3 && git commit …`. **Le code
+de sortie d'un tube est celui du DERNIER maillon** — ici `tail`, qui
+réussit toujours. Le `&&` regardait `tail`, pas le contrôle.
+
+La règle n'est donc pas « se méfier du code de sortie » mais&nbsp;: **ne
+jamais enchaîner un `&&` derrière un tube**. Soit on lit le résultat à
+l'œil avant de pousser, soit on écrit `set -o pipefail`.
 
 ### Ce qui cassait
 
@@ -2362,6 +2373,94 @@ Famine&nbsp;: 24,8 % → **18,6 %**.
 Bûchers et révoltes étaient comptés par village, sur une borne calée quand
 le village avait dix-sept âmes. Il en a vingt-cinq. Une foule se compte en
 têtes&nbsp;: le chiffre absolu montait sans que le village soit plus cruel.
+
+---
+
+## L'amour : trois forces, planche remise (décision en attente)
+
+Pierre a envoyé une carte personnelle de vingt-quatre dimensions — passion,
+attachement, idéalisation, intimité, tendresse, fidélité, dépendance… — et
+a demandé qu'on en parle **avant** de coder. Planche remise&nbsp;:
+`claude.ai/code/artifact/f4a1eb9d-8462-4d8d-8ef3-a925d4880423`
+
+### Ce qui est proposé
+
+Aucune des vingt-quatre lignes telle quelle&nbsp;: un nombre par dimension
+serait illisible dans une fiche et impossible à équilibrer. **Trois forces
+séparées**, chacune avec sa loi dans le temps&nbsp;:
+
+- **la passion** — monte en 2 journées, demi-vie 7. Naît d'une rencontre,
+  se nourrit de ce qu'on ignore de l'autre, s'éteint à mesure qu'on le
+  connaît. C'est elle qui décide des actes.
+- **la tendresse** — monte sur 22 journées, ne retombe pas. Se construit
+  par les services rendus et les dettes payées. Ne pousse à rien, mais
+  rend le deuil insupportable.
+- **l'habitude** — monte sur 34 journées, plafonne à 0,46. La simple
+  co-présence, qui ne devient visible que le jour où elle manque.
+
+La passion culmine à 0,67 au deuxième jour et repasse **sous** la tendresse
+au neuvième. C'est tout le modèle&nbsp;: neuf journées pendant lesquelles
+une soirée pèse plus lourd que deux années.
+
+### Pourquoi ce modèle-là
+
+L'observation de Pierre tient tout&nbsp;: *« penser à une autre personne une
+grande partie de la journée comme passion même si ce n'était qu'une soirée,
+tandis que la personne du quotidien attentionnée sera zappée. »* Trois
+forces séparées la produisent sans qu'aucune règle ne l'écrive — parce que
+la passion décide des actes et la tendresse du chagrin.
+
+### Cinq questions posées, dont une bloquante
+
+1. **« 3 filtres. 1-2-0 »** — je ne sais pas ce que ça désigne. Bloquant.
+2. Le sexe est-il dans le jeu, ou hors champ&nbsp;?
+3. La fidélité « de cœur, toujours »&nbsp;: un promis peut-il rompre&nbsp;?
+4. Faut-il un lien d'amitié nommé, là où il n'y a que des affinités&nbsp;?
+5. Trois barres de plus dans la fiche, ou un seul mot&nbsp;: « il brûle
+   pour elle », « il tient à elle »&nbsp;?
+
+---
+
+## La session longue devient mesurable (`--long`)
+
+Tout était réglé sur deux cents journées — six années de village. Pierre
+laisse le jeu tourner **des heures en fond d'écran**, ce qui fait des
+dizaines d'années. À cette échelle, le village s'éteignait sans que rien
+ne le signale&nbsp;: les quatorze cibles passaient toutes pendant que la
+population tombait de vingt-cinq à quatre.
+
+`node sim/equilibre.mjs --long` fait vivre six villages sur **2000
+journées** (62 années) et pose cinq cibles. Environ quatre minutes.
+
+### L'état, après tous les correctifs de la v0.29
+
+| graine | j200 | j600 | j1000 | j1400 | j2000 |
+|---|---|---|---|---|---|
+| 7 | 22 | 11 | 6 | 5 | **1** |
+| 1 | 26 | 28 | 26 | 27 | 16 |
+| 7919 | 27 | 27 | 26 | 26 | 27 |
+| 15838 | 27 | 26 | 28 | 22 | 22 |
+| 23757 | 25 | 27 | 20 | 16 | **5** |
+| 31676 | 25 | 26 | 22 | 24 | 14 |
+
+- population finale **14,2** — c'était 0 à 2 avant les correctifs
+- **aucun village éteint** sur six
+- naissances 25,2 · métiers perdus 1,50 · reprises 2,3
+
+Quatre villages sur six tiennent leur peuplement sur soixante-deux années.
+**Deux s'effondrent**, et c'est la seule cible longue qui rate&nbsp;: le
+creux descend à 1.
+
+La graine 7 montre le mécanisme en clair&nbsp;: sept métiers perdus, dont
+le boulanger et le charpentier. Une fois la chaîne du pain coupée, la
+reprise ne suffit plus — il n'y a plus personne pour avoir appris.
+
+### À faire ensuite
+
+Trouver pourquoi deux villages sur six décrochent là où quatre tiennent.
+L'hypothèse à vérifier&nbsp;: un décès précoce de porteur unique (le
+boulanger avant qu'un enfant ait appris) suffit à condamner le village
+soixante ans plus tard.
 
 ---
 

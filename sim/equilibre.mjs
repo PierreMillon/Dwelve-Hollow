@@ -10,6 +10,12 @@
 //   node sim/equilibre.mjs --runs=40 --jours=120
 //   node sim/equilibre.mjs --detail            le journal du premier village
 //   node sim/equilibre.mjs --check             test de non-régression (code de sortie)
+//   node sim/equilibre.mjs --long              la SESSION LONGUE : 2000 journées
+//
+// ATTENTION AU TUBE. Le code de sortie d'un tube est celui du dernier
+// maillon : « --check | tail -3 && git push » regarde `tail`, qui réussit
+// toujours. Une version cassée a été poussée comme ça. Sans tube, ou
+// `set -o pipefail`.
 //
 // Règle pour la suite : toute constante qui touche à la nourriture, à la
 // peur, au soupçon ou à l'usure relance --check avant d'être poussée.
@@ -212,20 +218,24 @@ const runs = arg('runs', drapeau('check') ? 16 : 12);
 const jours = arg('jours', drapeau('check') ? 200 : 60);
 const graine0 = arg('graine', 1);
 
+// --long n'a que faire de l'aperçu : douze villages de soixante jours de
+// plus, c'est douze secondes et vingt lignes de bruit avant le vrai sujet.
 const t0 = Date.now();
 const lots = [];
-for (let i = 0; i < runs; i++) lots.push(unVillage(graine0 + i * 7919, jours));
+if (!drapeau('long'))
+  for (let i = 0; i < runs; i++) lots.push(unVillage(graine0 + i * 7919, jours));
 const dt = (Date.now() - t0) / 1000;
-const a = agreger(lots);
-a.foires = lots.reduce((t, s) => t + s.foires, 0) / lots.length;
-
-afficher(a, `${runs} villages × ${jours} jours`);
+const a = lots.length ? agreger(lots) : null;
+if (a) {
+  a.foires = lots.reduce((t, s) => t + s.foires, 0) / lots.length;
+  afficher(a, `${runs} villages × ${jours} jours`);
+}
 // Ce compteur disait « années » en comptant des JOURNÉES : une année de
 // village en vaut trente-deux. Le chiffre annoncé était donc trente-deux
 // fois trop flatteur, et il a été répété tel quel dans plusieurs rapports.
 const parAn = 4 * (REGLAGES.joursParSaison || 8);
-console.log(`\n  ${(runs * jours / dt).toFixed(0)} journées de village par seconde` +
-            `  ·  ${(runs * jours / parAn / dt).toFixed(1)} années  (${dt.toFixed(1)} s au total)`);
+if (a) console.log(`\n  ${(runs * jours / dt).toFixed(0)} journées de village par seconde` +
+                   `  ·  ${(runs * jours / parAn / dt).toFixed(1)} années  (${dt.toFixed(1)} s au total)`);
 
 if (drapeau('detail')) {
   console.log(`\n  ── le journal du premier village (graine ${lots[0].graine}) ──`);
@@ -256,6 +266,72 @@ function verifierDetermination() {
   dire('même graine, même chronique', a === b);
   dire('le décor ne change pas l\'histoire', a === c);
   return echecs;
+}
+
+/* ================================================================
+   LA SESSION LONGUE
+   Tout était réglé sur deux cents journées — six années de village. Or
+   Pierre laisse le jeu tourner des heures en fond d'écran, ce qui fait
+   des dizaines d'années. À cette échelle, le village s'éteignait sans que
+   rien ne le signale : les quatorze cibles passaient toutes pendant que la
+   population tombait de vingt-cinq à quatre.
+   On mesure donc aussi loin qu'on joue.
+   ================================================================ */
+const CIBLES_LONGUES = [
+  // ce qu'un village doit tenir sur soixante-deux années
+  ['population au jour 2000', (a) => a.finale,       8,   34, ''],
+  ['creux le plus bas',       (a) => a.creux,        5,   34, ''],
+  ['villages éteints',        (a) => a.eteints,      0,    0, ''],
+  ['métiers perdus',          (a) => a.perdus,       0,  2.5, ''],
+  ['naissances',              (a) => a.naissances,  25,  240, ''],
+];
+
+function sessionLongue() {
+  const GRAINES = [7, 1, 7919, 15838, 23757, 31676];
+  const JALONS = [200, 600, 1000, 1400, 2000];
+  const t0 = Date.now();
+  console.log(`\n  LA SESSION LONGUE — ${GRAINES.length} villages × 2000 journées (62 années)\n`);
+  console.log('  graine |' + JALONS.map(j => String(j).padStart(6)).join('') +
+              ' | naiss repr noyés | métiers perdus');
+  console.log('  ' + '─'.repeat(78));
+  const t = { finale: 0, creux: 99, eteints: 0, perdus: 0, naissances: 0, reprises: 0 };
+  for (const g of GRAINES) {
+    const M = creerMonde(g), v = M.village;
+    let k = 0, creux = 99; const L = [];
+    for (const J of JALONS) {
+      while (k < J * JOUR / TRANCHE) { M.avancer(TRANCHE); k++; }
+      const n = M.habitants.filter(h => h.vivant).length;
+      L.push(String(n).padStart(6)); creux = Math.min(creux, n);
+    }
+    const fin = M.habitants.filter(h => h.vivant).length;
+    t.finale += fin; t.creux = Math.min(t.creux, creux);
+    t.perdus += v.perdus.size; t.naissances += v.arrive.naissances;
+    t.reprises += v.arrive.reprises;
+    if (!fin) t.eteints++;
+    console.log('  ' + String(g).padStart(6) + ' |' + L.join('') + ' |' +
+      String(v.arrive.naissances).padStart(6) + String(v.arrive.reprises).padStart(5) +
+      String(v.arrive.noyades).padStart(6) + ' | ' + ([...v.perdus].join(', ') || '—'));
+  }
+  const n = GRAINES.length;
+  const a = { finale: t.finale / n, creux: t.creux, eteints: t.eteints,
+              perdus: t.perdus / n, naissances: t.naissances / n, reprises: t.reprises / n };
+  console.log(`\n  ${((Date.now() - t0) / 1000).toFixed(0)} s`);
+  console.log('\n  ── ce que doit tenir une longue session ──────');
+  let echecs = 0;
+  for (const [nom, f, lo, hi, u] of CIBLES_LONGUES) {
+    const v = f(a), ok = v >= lo && v <= hi;
+    if (!ok) echecs++;
+    console.log(`    ${ok ? 'ok ' : 'RATÉ'}  ${nom.padEnd(24)} ${v.toFixed(2).padStart(7)}${u}` +
+                `   attendu ${lo}–${hi}${u}`);
+  }
+  return echecs;
+}
+
+if (drapeau('long')) {
+  const echecs = sessionLongue();
+  console.log(echecs ? `\n  ${echecs} cible(s) longue(s) ratée(s).\n`
+                     : '\n  la longue session tient.\n');
+  process.exit(echecs ? 1 : 0);
 }
 
 if (drapeau('determinisme')) process.exit(verifierDetermination() ? 1 : 0);
