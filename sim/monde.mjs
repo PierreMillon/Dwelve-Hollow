@@ -1642,7 +1642,14 @@ function agir(h, dt) {
       break;
     }
     case 'colporter': {
-      village.ble += dt * 0.6;
+      // CE QU'IL SORT DE SON BALLOT TIENT DANS UN BALLOT. Sans ce plafond,
+      // le colporteur versait 54 mesures par journée dans un grenier qui
+      // n'en garde que 45 : mesuré sur la graine 7, le village finissait
+      // avec 925 mesures de blé et pas une miche, parce que le boulanger
+      // était mort et que plus rien n'arrêtait le grain de monter. Un
+      // village riche en blé et mort de faim, c'est un chiffre, pas une
+      // histoire.
+      if (village.ble < PLAFOND_BLE) village.ble += dt * 0.6;
       // ce qu'il sort de son ballot n'a pas de nom : on s'attroupe, on
       // écoute, et on repart avec un peu moins peur
       for (const a of habitants) {
@@ -2484,6 +2491,18 @@ function apprendre() {
     for (const a of habitants) {
       if (!a.vivant || a === h || a.role === 'enfant') continue;
       if (!ROLES_UTILES.includes(a.role)) continue;
+      // ON N'APPREND PAS LA PRÊTRISE EN REGARDANT. Un prêtre n'est pas
+      // fait par quelqu'un qui l'a vu faire : il est ordonné ailleurs, et
+      // c'est bien pour ça que le village n'en refabrique pas quand il
+      // perd le sien. Le laisser s'apprendre coûtait tout le reste : il
+      // est sur la place du matin au soir, il bénit, il console, donc
+      // c'est vers lui que va le lien le plus fort de presque chaque
+      // enfant. Mesuré sur six villages et six cents journées, neuf
+      // personnes savaient dire la messe pour trois qui savaient cuire,
+      // et le boulanger passait un jour sur dix à être seul de son
+      // métier — le jour où il mourait, le village avait soixante ans
+      // devant lui et personne pour rallumer le four.
+      if (a.role === 'pretre') continue;
       const l = lien(h, a) + (a === h.mere ? 0.4 : 0);
       if (l > meilleur) { meilleur = l; maitre = a; }
     }

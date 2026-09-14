@@ -2455,16 +2455,136 @@ La graine 7 montre le mécanisme en clair&nbsp;: sept métiers perdus, dont
 le boulanger et le charpentier. Une fois la chaîne du pain coupée, la
 reprise ne suffit plus — il n'y a plus personne pour avoir appris.
 
-### À faire ensuite
+---
 
-Trouver pourquoi deux villages sur six décrochent là où quatre tiennent.
-L'hypothèse à vérifier&nbsp;: un décès précoce de porteur unique (le
-boulanger avant qu'un enfant ait appris) suffit à condamner le village
-soixante ans plus tard.
+## Neuf personnes savaient dire la messe, trois savaient cuire (v0.30)
+
+L'hypothèse notée la veille était&nbsp;: «&nbsp;un décès précoce de
+porteur unique suffit à condamner le village&nbsp;». Elle est vraie, mais
+elle ne dit pas pourquoi il y avait un porteur unique. L'autopsie de la
+graine 7, relevée tous les huit jours, donne la vraie réponse.
+
+```
+ 224 pop=21 boul:1 char:4 forg:1 buch:0 tail:2 pret:11 eben:1
+ 256 pop=15 boul:0 char:3 forg:1 buch:0 tail:2 pret:10 eben:0  blé=651
+```
+
+Un seul homme sait cuire pendant plus de cent journées, pendant que
+**onze personnes savent dire la messe**. Le jour où il meurt, le pain
+tombe à zéro pour toujours — la naissance demande dix pains, donc plus un
+seul enfant en mille sept cents journées — et le village met soixante ans
+à s'éteindre.
+
+### Ce qui causait ça
+
+`apprendre()` choisit le maître au lien le plus fort. Le prêtre est sur
+la place du matin au soir&nbsp;: il bénit, il console, il enterre. C'est
+lui, presque toujours, le lien le plus fort d'un enfant. Chaque enfant
+n'avance qu'un seul métier par journée&nbsp;; neuf créneaux sur onze
+partaient dans un savoir qui ne nourrit personne.
+
+Mesuré sur six villages et six cents journées, avant correction&nbsp;:
+
+| métier | sachants moy. | jours à 1 seul | jours à 0 |
+|---|---|---|---|
+| prêtre | **9,33** | 0 % | 0 % |
+| charpentier | 4,45 | 0 % | 0 % |
+| tailleur | 3,74 | 3 % | 0 % |
+| boulanger | **3,13** | 13 % | **10 %** |
+| forgeron | 2,65 | 16 % | 0 % |
+| ébéniste | 2,34 | 3 % | 10 % |
+| bûcheron | 1,15 | 67 % | 14 % |
+
+### La fausse piste, gardée pour mémoire
+
+Premier essai&nbsp;: multiplier le lien vers un maître dont peu de gens
+savent le métier — «&nbsp;on regarde d'abord celui qui est seul à
+savoir&nbsp;». Balayé de 0 à 2.
+
+| attraitDuRare | écart max−min | métiers perdus |
+|---|---|---|
+| 0 | 8,09 | 0,33 |
+| 0,3 | 1,40 | **0,00** |
+| 0,6 | 1,31 | **0,00** |
+| 1 | 1,32 | **0,00** |
+| 2 | 1,06 | **0,00** |
+
+Il n'y a rien entre 0 et 0,3. C'est une boucle qui s'égalise
+toute seule&nbsp;: dès qu'un enfant apprend le métier rare, il cesse
+d'être rare et l'attrait se porte sur le suivant. Le point d'équilibre
+est «&nbsp;tout le monde sait tout&nbsp;», quel que soit le coefficient —
+et un village qui ne peut plus rien perdre n'a plus de troisième acte.
+Retiré.
+
+### Ce qui a été fait
+
+**On n'apprend pas la prêtrise en regardant.** Un prêtre n'est pas fait
+par quelqu'un qui l'a vu faire&nbsp;: il est ordonné ailleurs. C'est
+d'ailleurs déjà la règle implicite du jeu, puisque le village n'en
+refabrique pas quand il perd le sien. Le prêtre est simplement écarté des
+maîtres possibles — le lien nu décide toujours du reste.
+
+**Le ballot du colporteur a un fond.** `colporter` versait 0,6 mesure par
+seconde sans plafond, soit cinquante-quatre par journée dans un grenier
+qui en garde quarante-cinq. Sur la graine 7, le village finissait avec
+925 mesures de blé et pas une miche. Un village riche en blé et mort de
+faim, c'est un chiffre, pas une histoire.
+
+### Après
+
+| métier | sachants moy. | jours à 1 seul | jours à 0 |
+|---|---|---|---|
+| boulanger | 8,67 | 11 % | **0 %** |
+| charpentier | 6,04 | 0 % | 0 % |
+| tailleur | 4,88 | 2 % | 0 % |
+| forgeron | 2,58 | 14 % | 0 % |
+| ébéniste | 2,29 | 18 % | 0 % |
+| prêtre | 2,09 | 0 % | 0 % |
+| bûcheron | 1,38 | 67 % | 0 % |
+
+La répartition reste inégale — le bûcheron tient toujours à un homme deux
+jours sur trois — mais plus aucun métier ne tombe à zéro sachant sur six
+cents journées. Le prêtre passe de 9,33 à 2,09&nbsp;: ce qu'il en reste,
+ce sont les fondateurs, ordonnés avant le village. Et il redevient
+perdable pour de bon, ce qui est juste.
+
+### La session longue, après
+
+| graine | j200 | j600 | j1000 | j1400 | j2000 | métiers perdus |
+|---|---|---|---|---|---|---|
+| 7 | 22 | 22 | 14 | 14 | **8** | prêtre, bûcheron |
+| 1 | 29 | 27 | 27 | 23 | 11 | prêtre |
+| 7919 | 25 | 27 | 27 | 27 | 28 | — |
+| 15838 | 27 | 27 | 26 | 19 | 27 | — |
+| 23757 | 25 | 26 | 20 | 20 | 7 | ébéniste |
+| 31676 | 25 | 26 | 20 | 22 | 12 | — |
+
+| cible | avant | après | attendu |
+|---|---|---|---|
+| population au jour 2000 | 14,2 | **15,5** | 8–34 |
+| creux le plus bas | **1,0** | **7,0** | 5–34 |
+| villages éteints | 0 | 0 | 0 |
+| métiers perdus | 1,50 | **0,67** | 0–2,5 |
+| naissances | 25,2 | 26,7 | 25–240 |
+
+**Les cinq cibles longues tiennent**, et les quatorze courtes aussi. Les
+six villages traversent soixante-deux années.
+
+### Ce qui reste ouvert
+
+Le bûcheron tient à un seul homme deux jours sur trois. Ça ne casse rien
+aujourd'hui — le bois se perd et se retrouve — mais c'est le prochain
+maillon à un fil.
 
 ---
 
 ## 📜 Historique
+
+- **2026-09-14** — La cible longue qui ratait est trouvée et tenue&nbsp;:
+  les enfants apprenaient la prêtrise parce que le prêtre est le lien le
+  plus fort de presque tout le monde, et personne n'apprenait à cuire.
+  Plus le ballot du colporteur, sans fond. Creux le plus bas 1 → 7, les
+  six villages traversent soixante-deux années. v0.30.
 
 - **2026-09-10 (après-midi, suite)** — Lumière des torches calculée par
   sommet dans le nuanceur des lignes épaisses, avec le four qui éclaire
