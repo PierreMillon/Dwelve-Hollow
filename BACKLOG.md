@@ -2729,6 +2729,20 @@ avec les autres boutons — c'est un bouton, il va chez les boutons, et
 plus rien ne se recouvre. La règle de Pierre est de nouveau tenue&nbsp;:
 une fenêtre s'affiche sur l'écran, jamais sur un bouton.
 
+### La preuve que les légendes ne touchent à rien
+
+La session longue a été relancée après coup. Les six villages sur deux
+mille journées rendent **exactement les mêmes chiffres qu'avant les
+légendes** — mêmes populations aux cinq relevés, mêmes naissances, mêmes
+reprises, mêmes noyés, mêmes métiers perdus. Seule la durée du calcul
+bouge, de 323 à 330 secondes.
+
+C'est la garantie qu'on voulait sans avoir à la plaider&nbsp;: le système
+des légendes **lit** le monde et n'y touche pas. Il relève le ciel, il
+compose des phrases, il écrit dans la chronique — et pas un villageois ne
+décide autrement. Un diff de deux fichiers de sortie vaut mieux qu'un
+paragraphe d'intention.
+
 ### Ce qui reste ouvert
 
 Le surnom est resté une liste de dix, à part. Il mesure un caractère sur
