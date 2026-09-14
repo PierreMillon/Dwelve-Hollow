@@ -419,7 +419,7 @@
   <span class="title">DWELVE HOLLOW</span>
 </div>
 
-<button id="version">v0.30</button>
+<button id="version">v0.31</button>
 
 <div id="saison">an <b id="s-an">1</b> · <b id="s-saison">printemps</b> · jour <b id="s-jour">1</b> · <b id="s-phase">aube</b> · <b id="s-lune">lune</b> · pain <b id="s-pain">0</b> · peur <b id="s-peur">0 %</b></div>
 
@@ -585,7 +585,16 @@
   <div class="contenu">
     <h2>DWELVE HOLLOW — HISTORIQUE</h2>
 
-    <div class="v courante"><b>v0.30</b> — <b>ce que le village sait encore faire.</b>
+    <div class="v courante"><b>v0.31</b> — <b>×1000.</b>
+      Une quatrième vitesse, pour laisser le village vivre des décennies pendant qu'on regarde
+      ailleurs. Le plafond d'avancement par image était fixe — six secondes simulées — ce qui
+      protégeait du retour d'onglet mais bridait la vitesse choisie&nbsp;: à ×1000 une image demande
+      cent secondes simulées, et le bouton aurait menti d'un facteur seize. Il suit maintenant la
+      vitesse. Mesuré&nbsp;: ×721 réel dans un conteneur sans carte graphique qui tient 7 images par
+      seconde — le bouton est exact tant que la page reste au-dessus de dix images par seconde,
+      puisqu'une image ne peut jamais avancer de plus d'un dixième de seconde réelle.</div>
+
+    <div class="v"><b>v0.30</b> — <b>ce que le village sait encore faire.</b>
       Le prêtre est sur la place du matin au soir&nbsp;: il bénit, il console, et c'est donc vers lui
       que va le lien le plus fort de presque chaque enfant. Comme on apprenait un métier en
       regardant celui dont on est le plus proche, neuf villageois savaient dire la messe pour trois
@@ -2069,7 +2078,7 @@ function majAffichage() {
   $('s-peur').textContent = Math.round(village.peur * 100) + ' %';
 }
 
-const VITESSES = [1, 10, 100];
+const VITESSES = [1, 10, 100, 1000];
 let iVitesse = 0, enPause = false;
 $('btn-vitesse').addEventListener('click', (e) => {
   iVitesse = (iVitesse + 1) % VITESSES.length;
@@ -3194,7 +3203,15 @@ renderer.setAnimationLoop((maintenant) => {
     // tranches fixes — le résultat est le même à toutes les vitesses,
     // seule la quantité de tranches change.
     const TRANCHE = 0.2;
-    let reste = Math.min(dt * VITESSES[iVitesse], 6);   // plafond : un onglet rendu au premier plan ne rattrape pas une semaine
+    // LE PLAFOND DOIT SUIVRE LA VITESSE. Il était fixe à 6 secondes
+    // simulées par image, ce qui protégeait bien du retour d'onglet mais
+    // bridait aussi la vitesse choisie : à ×1000 une image demande 100
+    // secondes simulées, le plafond n'en laissait passer que 6, et le
+    // bouton aurait menti d'un facteur seize. On plafonne donc sur ce
+    // qu'une image PEUT demander à cette vitesse — dt est déjà borné à
+    // 0,1 s plus haut, donc c'est bien le retour d'onglet qui est coupé,
+    // pas le régime normal.
+    let reste = Math.min(dt * VITESSES[iVitesse], 0.1 * VITESSES[iVitesse]);
     while (reste > 0) {
       const pas = Math.min(TRANCHE, reste);
       M.avancer(pas);
