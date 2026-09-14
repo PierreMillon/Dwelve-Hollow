@@ -77,6 +77,15 @@ function unVillage(graine, jours) {
   s.ble = Math.round(M.village.ble);
   s.farine = Math.round(M.village.farine);
   s.autorite = M.village.autorite;
+  // CE QU'ON RACONTE. Une légende se compose — un acte, un lieu, le nom
+  // de l'année — donc deux choses peuvent casser sans qu'on le voie : il
+  // peut ne plus s'en créer, et elles peuvent se mettre à se ressembler.
+  // On mesure les deux, et sur les noms d'année aussi, puisque c'est eux
+  // qui portent la variété.
+  s.legendes = M.village.legendes.length;
+  s.legendesUniques = new Set(M.village.legendes.map(L => L.acte)).size;
+  s.annees = M.village.annees.length;
+  s.anneesUniques = new Set(M.village.annees.map(a => a.nom)).size;
   s.chronique = M.chronique;
   return s;
 }
@@ -101,6 +110,11 @@ function agreger(lots) {
     vieillesses: m(s => s.vieillesses || 0), loups: m(s => s.loups || 0),
     meurtres: m(s => s.meurtres || 0),
     couples: m(s => s.couples), vivants: m(s => s.vivants),
+    legendes: m(s => s.legendes), annees: m(s => s.annees),
+    // la part de noms distincts, pas le nombre : un village qui vit deux
+    // fois plus longtemps en écrit deux fois plus, ça ne dit rien
+    partLegendes: m(s => s.legendes ? s.legendesUniques / s.legendes : 1),
+    partAnnees: m(s => s.annees ? s.anneesUniques / s.annees : 1),
     autorite: m(s => s.autorite),
     // ce qui ne revient pas, et la mémoire qui décide
     extinctions: m(s => s.extinctions || 0),
@@ -135,6 +149,8 @@ function afficher(a, titre) {
   console.log(`  révoltes                  ${num(a.revoltes)}`);
   console.log(`  successions à la cabane   ${num(a.successions)}`);
   console.log(`  surnoms gagnés            ${num(a.surnoms)}`);
+  console.log(`  légendes · part distincte ${num(a.legendes ?? 0)} · ${Math.round(100*(a.partLegendes ?? 1))} %`);
+  console.log(`  années nommées · distinct ${num(a.annees ?? 0)} · ${Math.round(100*(a.partAnnees ?? 1))} %`);
   console.log(`  noyés dans le brouillard  ${num(a.noyades)}`);
   console.log(`  naissances                ${num(a.naissances ?? 0)}`);
   console.log(`  passages à quatorze ans   ${num(a.majorites ?? 0)}`);
@@ -185,6 +201,15 @@ const CIBLES = [
   // On mesure donc ce que la cible voulait dire depuis le début.
   ['révoltes par habitant', (a) => a.revoltes / a.vivants, 0.09, 1.55, ''],
   ['surnoms gagnés',        (a) => a.surnoms,      4,    28,  ''],
+  // LES LÉGENDES. Le genre « legende » a existé des semaines sans qu'une
+  // seule ligne le porte : un bouton ouvrait une liste vide. Une borne
+  // basse l'aurait vu tout de suite.
+  ['légendes par village',  (a) => a.legendes,     1,    14,  ''],
+  // Et la variété, qui est le vrai sujet : elles doivent être TOUJOURS
+  // différentes. Mesuré sur trois villages de vingt ans, 42 actes
+  // distincts sur 43 légendes.
+  ['actes de légende distincts', (a) => a.partLegendes, 0.85, 1.01, ''],
+  ['noms d\'année distincts', (a) => a.partAnnees,  0.45, 1.01, ''],
   // Le brouillard est un accident, pas un piège : au premier réglage il
   // noyait six habitants par village et le village y passait.
   ['noyés dans le brouillard', (a) => a.noyades,   0,    7,   ''],

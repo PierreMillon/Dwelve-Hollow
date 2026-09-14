@@ -666,6 +666,21 @@ const village = {
   // personne. Le village peut tenir des années ou s'éteindre en une
   // génération, et on ne le sait qu'en regardant.
   eteint: 0,                 // le jour où le dernier s'en est allé, 0 tant qu'il vit
+  // LES LÉGENDES. Le genre « legende » existait dans la chronique et un
+  // bouton l'attendait dans la mémoire, mais RIEN n'était jamais marqué
+  // ainsi : la liste était vide depuis le jour où elle a été écrite. Et
+  // les surnoms, seule chose qui en tenait lieu, sont tirés d'une liste
+  // de dix — on en a fait le tour au deuxième village.
+  //
+  // Une légende ne se tire donc pas d'une liste : elle se COMPOSE de ce
+  // qui est arrivé. Trois fentes, chacune remplie par le village
+  // lui-même : l'acte, le lieu où il a eu lieu, et le nom que le village
+  // a donné à cette année-là. Deux villages n'ont pas le même hiver.
+  annees: [],                // { an, nom } — comment le village appelle chaque année
+  marqueur: null,            // { poids, nom } — le meilleur candidat de l'année en cours
+  actes: [],                 // { qui, acte, ou, jour } — les exploits de l'année en cours
+  sansPainAn: 0, naissancesAn: 0,   // ce que l'année aura compté, pour la nommer
+  legendes: [],              // ce que le village raconte encore, année par année
 };
 // on enregistre les maisons fondatrices : ce sont elles qui peuvent
 // s'éteindre, et la maison qui va avec
@@ -692,6 +707,180 @@ function lieuProche(x, z, portee = 11) {
     if (d < bd) { bd = d; best = l; }
   }
   return best;
+}
+
+// « le pont » → « au pont », « les champs » → « aux champs ». Un lieu
+// porte son article depuis sa création ; on ne le recolle pas à la main.
+function auLieu(l) {
+  const n = l && l.nom;
+  if (!n) return '';
+  if (n.startsWith('les ')) return 'aux ' + n.slice(4);
+  if (n.startsWith('le ')) return 'au ' + n.slice(3);
+  if (n.startsWith("l'")) return "à l'" + n.slice(2);
+  if (n.startsWith('la ')) return 'à la ' + n.slice(3);
+  if (n.startsWith('une ')) return 'devant une ' + n.slice(4);
+  return 'à ' + n;
+}
+
+// LE NOM DE L'ANNÉE. Chaque événement marquant propose un nom, avec son
+// poids ; le village garde le plus lourd et l'oublie au premier janvier.
+// Les noms qui portent un prénom sont les meilleurs — ce sont eux qui
+// font qu'une année ne ressemble à aucune autre.
+// ON NE NOMME PAS DEUX ANNÉES PAREIL. Sans ça, le dragon passait presque
+// chaque année et écrasait tout : quatorze années de suite appelées
+// « l'année du dragon », mesuré sur la graine 1. C'est la même règle que
+// pour les surnoms — un nom sert à distinguer, donc il ne se porte
+// qu'une fois. Chaque redite divise le poids par dix : le dragon peut
+// encore donner son nom à une année si vraiment rien d'autre n'est
+// arrivé, mais il perd contre la mort d'un vieil homme, qui elle est
+// arrivée une seule fois.
+function marquerAnnee(poids, nom) {
+  const redites = village.annees.filter(a => a.nom === nom).length;
+  // « l'année sans histoire » n'est pas un nom qu'on se dispute : c'est
+  // un constat, et il peut revenir autant de fois que le calme.
+  poids *= Math.pow(0.1, redites);
+  if (!village.marqueur || poids > village.marqueur.poids) village.marqueur = { poids, nom };
+}
+
+// « le boulanger » → « boulanger ». Les rôles portent leur article depuis
+// toujours ; certaines phrases n'en veulent pas.
+const nuMetier = (h) => metierDe(h).replace(/^(le |la |l')/, '');
+const dePrenom = (p) => (/^[AEIOUYÉÈÊ]/.test(p) ? `d'${p}` : `de ${p}`);
+
+// UN EXPLOIT. Pas ce qui arrive à quelqu'un : ce que quelqu'un fait. On
+// les met de côté toute l'année, et le village n'en retient qu'un.
+// Et on ne raconte pas deux fois la même histoire. Le chasseur de
+// monstres jurait que la chose ne reviendrait pas cinq fois dans le même
+// village, toujours à l'auberge : la cinquième ne fait plus une légende,
+// elle fait une habitude.
+function exploit(h, acte, poids = 1) {
+  if (!h) return;
+  const redites = village.legendes.filter(L => L.acte === acte).length;
+  poids *= Math.pow(0.4, redites);
+  const ou = h.x !== undefined ? lieuProche(h.x, h.z) : null;
+  // LE SIGNE. Une légende n'est pas un compte rendu — sinon c'est la
+  // chronique, qu'on a déjà. Ce qui la rend légende, c'est ce que le
+  // village AJOUTE : le ciel qu'il faisait devient un présage, et le
+  // brouillard s'ouvre après coup. On relève donc l'état du monde à
+  // l'instant de l'acte, et c'est lui qui fournira le merveilleux.
+  //
+  // Rien de magique n'arrive vraiment : le monde ne change pas, c'est le
+  // récit qui déforme. C'est aussi pour ça que le décor reste incapable
+  // de toucher à l'histoire — il ne fait que lui prêter des images.
+  const signe = {
+    lune: village.lune, brouillard: village.brouillard, gel: village.gel,
+    nuit: estNuit(), pluie: village.pluie, vent: village.vent,
+    saison: village.saison, dragon: !!village.dragon, loup: !!village.loup,
+  };
+  village.actes.push({ qui: h, acte, ou, jour: village.jour, poids, signe });
+}
+
+// Chaque présage ne sert qu'une fois par village : le merveilleux qui se
+// répète n'est plus du merveilleux, c'est une formule. Le dernier, lui,
+// peut revenir — dire qu'on ne sait plus, ça ne s'use pas.
+const PRESAGES = [
+  { si: (g) => g.lune > 0.93,
+    dit: (h) => `La lune était pleine. On dit qu'elle s'est arrêtée au-dessus ${dePrenom(h.prenom)} et n'a plus bougé de la nuit.` },
+  { si: (g) => g.brouillard > 0.7,
+    dit: (h) => `Le brouillard tenait jusqu'aux toits. Certains jurent qu'il s'est ouvert devant ${h.feminin ? 'elle' : 'lui'}, et refermé après.` },
+  { si: (g) => g.dragon,
+    dit: () => `L'ombre passait encore sur les toits. On raconte qu'elle s'est détournée ce jour-là.` },
+  { si: (g) => g.loup,
+    dit: () => `La bête rôdait du côté des champs. On dit qu'on l'a entendue s'éloigner sans que personne l'ait chassée.` },
+  { si: (g) => g.gel,
+    dit: (h) => `Le ruisseau était pris. On raconte que la glace a tenu sous ${h.feminin ? 'elle' : 'lui'} seul${e(h)}.` },
+  { si: (g) => g.pluie > 0.6,
+    dit: () => `Il pleuvait depuis des jours. On dit que la pluie s'est arrêtée le temps qu'il fallait.` },
+  { si: (g) => g.vent > 0.86,
+    dit: () => `Le vent couchait les blés. On dit qu'il est tombé d'un coup, et qu'on a entendu jusqu'au dernier mot.` },
+  { si: (g) => g.nuit,
+    dit: () => `C'était la nuit. Personne n'a jamais su d'où venait la lumière.` },
+  { si: (g) => g.saison === 3,
+    dit: () => `C'était l'hiver. On dit que personne n'a eu froid ce jour-là.` },
+  { si: (g) => g.saison === 0,
+    dit: () => `C'était le printemps. On dit que les champs ont donné le double, cette année-là.` },
+  { si: () => true,
+    dit: () => `Personne n'a le même souvenir de ce jour-là, et tous les récits se valent.` },
+];
+
+function presage(acte) {
+  const g = acte.signe || {};
+  // Le dernier de la liste convient toujours ; c'est celui qu'on prend
+  // quand rien de particulier ne se passait. On le garde donc pour ce
+  // cas-là, et pas comme voiture-balai — sinon il sortait une fois sur
+  // trois, ce qui revenait à n'avoir pas de présage du tout.
+  const candidats = PRESAGES.filter(P => P.si(g)).map(P => P.dit(acte.qui));
+  if (!candidats.length) return null;
+  const neuf = candidats.find(t => !village.legendes.some(L => L.presage === t));
+  if (neuf) return neuf;
+  // Tous déjà dits : on reprend le plus ancien. Un village finit par
+  // redire ses images, mais il redit la plus oubliée, pas la dernière.
+  let vieux = candidats[0], quand = Infinity;
+  for (const t of candidats) {
+    const j = village.legendes.filter(L => L.presage === t).pop();
+    if (j && j.jour < quand) { quand = j.jour; vieux = t; }
+  }
+  return vieux;
+}
+
+// LA CLÔTURE. Une légende ne se fait pas sur le moment — elle se fait
+// après coup, quand l'année a un nom. C'est pour ça qu'on attend le
+// dernier soir pour la dire.
+function cloreLAnnee(an) {
+  // Deux noms ne se voient pas le jour où ils arrivent : ils se voient au
+  // bilan. On les propose au dernier soir, avant de trancher.
+  const parAn = R.joursParSaison * 4;
+  if (village.sansPainAn > parAn * 0.5) marquerAnnee(2.9, `l'année de la grande faim`);
+  if (village.naissancesAn >= 4) marquerAnnee(1.0, `l'année des berceaux`);
+  village.sansPainAn = 0; village.naissancesAn = 0;
+  // UNE ANNÉE PEUT N'AVOIR RIEN À DIRE. Quand le meilleur candidat est
+  // une redite déjà usée par la décote — le dragon pour la troisième
+  // fois, la révolte pour la quatrième — le village ne s'en souvient
+  // plus comme de ça. Il vaut mieux l'appeler par son vrai nom. Mesuré :
+  // sans ce plancher, la graine 7919 appelait trois années différentes
+  // « l'année où l'on a douté de Guillaume ».
+  const dits = new Set(village.legendes.map(L => L.acte));
+  const forts = village.actes.filter(a => !dits.has(a.acte)).sort((a, b) => b.poids - a.poids);
+
+  // UNE ANNÉE QUI A DONNÉ UNE LÉGENDE N'EST PAS SANS HISTOIRE. On
+  // calculait le nom avant de savoir ce qu'on raconterait, et cinq
+  // années de suite s'appelaient « l'année sans histoire » alors que
+  // chacune avait fait entrer quelqu'un dans ce qu'on raconte. Quand
+  // rien d'autre ne pèse, l'année porte donc le nom de celui-là.
+  const libre = (t) => t && !village.annees.some(a => a.nom === t);
+  let nom = null;
+  if (village.marqueur && village.marqueur.poids >= 0.3 && libre(village.marqueur.nom)) {
+    nom = village.marqueur.nom;
+  } else if (forts.length) {
+    const propose = `l'année ${dePrenom(forts[0].qui.prenom)}`;
+    if (libre(propose)) nom = propose;
+  }
+  if (!nom) nom = "l'année sans histoire";
+  village.annees.push({ an, nom });
+  village.marqueur = null;
+
+  // Le village n'en retient pas trois par an, mais il peut en retenir
+  // deux quand l'année a été chargée — le second doit peser vraiment, et
+  // ce n'est jamais deux fois la même personne.
+  // ON NE RACONTE JAMAIS DEUX FOIS LA MÊME HISTOIRE. La décote ne
+  // suffisait pas : quand rien d'autre n'était arrivé de l'année, le même
+  // acte repassait quand même — mesuré, 66 % d'actes distincts sur des
+  // villages de six ans. Une légende qu'on a déjà n'est pas une légende.
+  // Une année peut très bien n'en donner aucune. (`forts` est calculé
+  // plus haut : le nom de l'année en dépend.)
+  let gardes = 0;
+  for (const acte of forts) {
+    if (gardes >= 2) break;
+    if (gardes === 1 && (acte.poids < 1.5 || acte.qui === forts[0].qui)) break;
+    const ou = acte.ou ? ' ' + auLieu(acte.ou) : '';
+    const pres = presage(acte);
+    const texte = `On raconte ${nomComplet(acte.qui)}, qui ${acte.acte}${ou}, ${nom}. ${pres}`;
+    village.legendes.push({ ...acte, an, nomAnnee: nom, presage: pres, texte });
+    noter(texte, true, acte.qui, 'legende', acte.ou);
+    souvenir(acte.qui, `est entré${e(acte.qui)} dans ce qu'on raconte`);
+    gardes++;
+  }
+  village.actes.length = 0;
 }
 
 function noter(txt, fort = false, qui = null, genre = 'village', ou = null) {
@@ -1172,6 +1361,10 @@ function majPleineLune(dt) {
 function mourir(h, texte) {
   h.vivant = false;
   noter(texte, true, h, 'mort');
+  // Le dernier recours pour nommer une année. Une année où il n'est
+  // arrivé que la mort d'un vieil homme s'appelle par son nom — c'est
+  // toujours mieux que « l'année sans histoire », et ça ne se répète pas.
+  marquerAnnee(0.6, `l'année où l'on a perdu ${h.prenom}`);
   for (const a of habitants) {
     if (!a.vivant || a === h) continue;
     const l = Math.max(lien(a, h), a.secret === h ? a.secretForce : 0);
@@ -1214,6 +1407,7 @@ function majAge(h, dt) {
     h.suit = null;
     village.arrive.majorites++;
     noter(`${h.prenom} a pris le métier de ${NOM_ROLE[manque]}. ${h.feminin ? 'Elle' : 'Il'} a quatorze ans.`, true, h, 'naissance');
+    exploit(h, `est devenu${e(h)} ${nuMetier(h)} à quatorze ans`, 1.8);
     souvenir(h, `est devenu${e(h)} ${NOM_ROLE[manque]}`);
     return;
   }
@@ -1253,6 +1447,7 @@ function majNoyade(h) {
     village.arrive.sauvetages++;
     devoir(h, sauveur, 1, 'a tiré du ruisseau');
     noter(`${nommer(sauveur)} a entendu remuer dans l'eau. ${h.prenom} a eu de la chance.`, true, sauveur, 'bienfait');
+    exploit(sauveur, `a tiré ${h.prenom} du ruisseau`, 2.6);
     souvenir(sauveur, `a repêché ${h.prenom} dans le brouillard`);
     return;
   }
@@ -1260,6 +1455,7 @@ function majNoyade(h) {
   village.noyadeCetteNuit = true;
   village.arrive.noyades++;
   noter(`${nommer(h)} n'a pas vu le ruisseau. On l'a retrouvé${e(h)} au petit jour.`, true, h, 'mort');
+  marquerAnnee(2.3, `l'année où ${h.prenom} n'a pas vu le ruisseau`);
   for (const a of habitants) {
     if (!a.vivant || a === h) continue;
     const l = Math.max(lien(a, h), a.secret === h ? a.secretForce : 0);
@@ -1384,7 +1580,10 @@ function simuler(dt) {
                        + 0.10 * Math.sin(village.temps * 0.017);
   const gelait = village.gel;
   village.gel = village.froid > R.gelSeuil;
-  if (village.gel && !gelait) noter('Le ruisseau a pris pendant la nuit. La roue est muette.', true);
+  if (village.gel && !gelait) {
+    noter('Le ruisseau a pris pendant la nuit. La roue est muette.', true);
+    marquerAnnee(0.8, `l'année du grand froid`);
+  }
   if (!village.gel && gelait) noter('La glace a cédé. La roue repart.');
   const dtJour = dt / JOUR;
   village.heure += dtJour;
@@ -1551,6 +1750,7 @@ function tenterFlirt(h) {
     if (lien(h, c) > 0.72 && lien(c, h) > 0.72 && !c.aime && !h.aime) {
       h.aime = c; c.aime = h; h.courtise = null;
       noter(`${h.prenom} et ${c.prenom} se sont promis l'un à l'autre.`, true, h);
+      marquerAnnee(1.2, `l'année de ${h.prenom} et ${c.prenom}`);
       souvenir(h, `s'est promis${e(h)} à ${c.prenom}`);
       souvenir(c, `s'est promis${e(c)} à ${h.prenom}`);
     }
@@ -1739,6 +1939,7 @@ function majMoulins(dt) {
     if (m.etat <= 0.12 && !m.reparationSignalee) {
       m.reparationSignalee = true;
       noter(`${m.nom} s'est arrêté. La meule ne tourne plus.`, true);
+      marquerAnnee(0.9, `l'année où ${m.nom} s'est arrêté`);
       malheur(m.x, m.z, 0.16);
     }
   }
@@ -1820,6 +2021,7 @@ function voisinage(dt) {
       if (!a.aime && !b.aime && lien(a, b) > 0.86 && a.role !== 'colporteur' && b.role !== 'colporteur') {
         a.aime = b; b.aime = a;
         noter(`${a.prenom} et ${b.prenom} se sont promis l'un à l'autre.`, true, a);
+      marquerAnnee(1.2, `l'année de ${a.prenom} et ${b.prenom}`);
         souvenir(a, `s'est promis${e(a)} à ${b.prenom}`);
         souvenir(b, `s'est promis${e(b)} à ${a.prenom}`);
       }
@@ -1897,6 +2099,7 @@ function majRassemblements() {
         village.repitFoule = village.jour + 2;
         if (protege) {
           noter(`${nommer(sgr)} s'est interposé. La foule s'est défaite.`, true, sgr, 'bienfait');
+          exploit(sgr, 'a arrêté la foule', 3);
           // On lui doit d'être encore là. Le seigneur ne le fait pas pour
           // ça, mais le village s'en souviendra le jour de la révolte.
           devoir(visee, sgr, 0.9);
@@ -1919,6 +2122,7 @@ function majRassemblements() {
   if (!village.fouleRevolte && village.jour >= village.repitRevolte && furieux.length >= SEUIL_REVOLTE) {
     village.fouleRevolte = true;
     noter(`${furieux.length} villageois montent vers le manoir.`, true);
+    marquerAnnee(2.4, `l'année où l'on est monté au manoir`);
     village.arrive.revoltes++;
     signaler('rumeur', MANOIR.x, MANOIR.z);
     for (const h of furieux) { if (h.cible !== MANOIR) h.entre = null;
@@ -1970,6 +2174,7 @@ function finirAccusation(v, jusquauBout) {
   if (village.accuse === v) village.accuse = null;
   if (jusquauBout) {
     noter(`Le bûcher a brûlé sur la place. ${nommer(v)} n'est plus.`, true, v, 'mort');
+    marquerAnnee(3.4, `l'année du bûcher ${dePrenom(v.prenom)}`);
     village.arrive.buchers++;
     // Ceux qui ont crié avec les autres s'en veulent après coup, et
     // d'autant plus qu'ils étaient pieux. La honte, elle, ne vient que
@@ -2032,6 +2237,8 @@ function etablir(h) {
   }
   village.arrive.etablis++;
   noter(`${h.prenom} a posé son ballot et n'est pas reparti. Il sait ${NOM_ROLE[r]}.`, true, h, 'perte');
+  exploit(h, `a rapporté le métier de ${NOM_ROLE[r].replace(/^(le |la |l')/, '')} d'ailleurs`, 2.8);
+  marquerAnnee(2.7, `l'année où ${h.prenom} a posé son ballot`);
   suiteDe(r, `${nommer(h)} l'a rapporté d'ailleurs.`);
   return true;
 }
@@ -2079,6 +2286,8 @@ function majChasseur() {
     } else {
       c.vivant = false;
       noter(`${c.prenom} a repris la route. Il a juré que la chose ne reviendrait pas.`, true);
+      exploit(c, 'a juré que la chose ne reviendrait pas', 1.9);
+      marquerAnnee(2.0, `l'année du chasseur`);
       for (const h of habitants) if (h.vivant) h.peur = Math.max(0, h.peur - 0.25);
     }
     return;
@@ -2130,6 +2339,7 @@ function majVampire() {
   village.jourVampire = village.jour;
   village.arrive.vampire++;
   noter(`On dit tout bas que le seigneur boit le sang du village. Le grenier du manoir est plein.`, true, sgr);
+  marquerAnnee(2.1, `l'année où l'on a douté de ${sgr.prenom}`);
   for (const h of habitants) {
     if (!h.vivant || h === sgr) continue;
     soupconner(h, sgr, 0.28 * (0.4 + h.superstition));
@@ -2256,6 +2466,7 @@ function surnommer() {
   h.surnom = h.feminin ? su.f : su.m;
   village.arrive.surnoms++;
   noter(`On a commencé à l'appeler ${h.surnom}. C'était ${h.prenom}.`, false, h);
+  marquerAnnee(0.7, `l'année où ${h.prenom} est devenu${e(h)} ${h.surnom}`);
   souvenir(h, `a gagné son surnom : ${h.surnom}`);
 }
 
@@ -2289,6 +2500,8 @@ function naissances() {
     nouveaux.push(bebe);
     village.arrive.naissances++;
     noter(`${m.prenom} a eu un enfant. On l'appelle ${bebe.prenom}.`, true, bebe, 'naissance');
+    village.naissancesAn++;
+    marquerAnnee(0.5, `l'année où ${bebe.prenom} est né${e(bebe)}`);
     souvenir(m, `a mis ${bebe.prenom} au monde`);
     souvenir(m.aime, `est devenu${e(m.aime)} parent de ${bebe.prenom}`);
     return;                       // une naissance par jour, pas davantage
@@ -2443,6 +2656,7 @@ function majLignees() {
     l.eteinte = true; l.jour = village.jour;
     village.arrive.extinctions++;
     perdre('lignee', `Il n'y a plus de ${nom} au village. La maison restera vide.`);
+    marquerAnnee(3.0, `l'année où les ${nom} se sont éteints`);
     // la maison ne se relouera pas : personne n'arrive jamais ici pour
     // s'installer, et c'est exactement pour ça que le vide se voit
     if (l.logis && !habitants.some(h => h.vivant && h.logis === l.logis)) {
@@ -2535,6 +2749,7 @@ function majMetiers() {
       ebeniste: 'Plus personne ne travaille le bois pour le plaisir.',
     }[r] || '';
     perdre('metier', `Plus personne ne sait ${NOM_ROLE[r]}. ${suite}`.trim(), r);
+    marquerAnnee(3.1, `l'année où plus personne n'a su ${NOM_ROLE[r]}`);
   }
 }
 
@@ -2554,6 +2769,7 @@ function rappeler(visee) {
   village.arrive.paroles++;
   noter(`${nommer(qui)} a rappelé devant tous ce que ${visee.prenom} avait fait pour ${qui.feminin ? 'elle' : 'lui'}. On s'est tu.`,
         true, qui, 'bienfait');
+  exploit(qui, `a parlé pour ${visee.prenom} devant la foule`, 3.2);
   souvenir(qui, `a parlé pour ${visee.prenom} devant la foule`);
   souvenir(visee, `a été défendu${e(visee)} par ${qui.prenom}`);
   // celui qui défend l'accusé devient un peu suspect à son tour
@@ -2612,12 +2828,18 @@ function reprendreUnMetier() {
     village.arrive.reprises++;
     noter(`${qui.prenom} a repris ${NOM_ROLE[r]}. ${qui.feminin ? 'Elle' : 'Il'} avait vu faire.`,
           true, qui, 'village');
+    exploit(qui, `a repris ${NOM_ROLE[r]} que personne ne faisait plus`, 1.4);
     souvenir(qui, `a laissé ${NOM_ROLE[avant]} pour reprendre ${NOM_ROLE[r]}`);
     return;                                                   // une reprise par jour
   }
 }
 
 function finDeJournee() {
+  // L'ANNÉE QUI VIENT DE FINIR. `village.annee` est encore celle de la
+  // veille à cet instant — la saison n'est recalculée qu'au tour suivant —
+  // donc c'est bien l'année close qu'on nomme.
+  if (village.jour > 1 && (village.jour - 1) % (R.joursParSaison * 4) === 0) cloreLAnnee(village.annee);
+  if (village.pain < 1) village.sansPainAn++;
   naissances();
   majExtinction();
   reprendreUnMetier();
@@ -2775,6 +2997,7 @@ function lancerDragon() {
   village.dragon = { a, r: 120, y: 34, t: 0, parti: false };
   village.arrive.dragons++;
   noter('Une ombre passe sur les toits. Un dragon tourne au-dessus du village.', true);
+  marquerAnnee(2.5, `l'année du dragon`);
   signaler('souffle');
 }
 function majDragon(dt) {
@@ -2900,7 +3123,7 @@ return {
   poidsDes, choisirOccupation, lieuDe, tensionActuelle,
   nommer, nomComplet, souvenir, noter, lien, e, NOM_ROLE, ROLES, metierDe,
   ligneChronique: (ev) => `jour ${ev.jour} — ${ev.nu}`,
-  detteDe, creancier, savoirsVivants, GENRES, LIGNEES,
+  detteDe, creancier, savoirsVivants, GENRES, LIGNEES, auLieu,
   estNuit, estJour, lumiere,
   analyser, appliquerRegles, resoudre,
   lancerDragon, lancerFoire, surnommer,

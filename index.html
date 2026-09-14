@@ -359,12 +359,15 @@
 
   /* LE CRÉATEUR D'ÂME. Un bouton discret : si on ne clique pas, il ne se
      passe rien et le village s'en charge tout seul. */
-  #btn-ame {
-    position: fixed; right: 12px; bottom: 66px; z-index: 6;
-    background: rgba(3, 10, 7, 0.985); color: var(--ph-line);
-    border: 1px solid var(--ph-line); padding: 7px 12px;
-    font: inherit; cursor: pointer; letter-spacing: 0.06em;
-  }
+  /* LE BOUTON DES ÂMES MANGEAIT LES PANNEAUX. Il flottait en bas à
+     droite, c'est-à-dire exactement sur la dernière ligne de la mémoire
+     et sur le bas des lieux — la règle est pourtant qu'une fenêtre
+     s'affiche sur l'écran, jamais sur un bouton. Le poser à gauche ne
+     réglait rien : l'histoire prend tout l'écran, il mangeait sa
+     dernière ligne. Il descend donc DANS la barre, avec les autres :
+     c'est un bouton, il va chez les boutons, et plus rien ne se
+     recouvre. */
+  #btn-ame { color: var(--ph-line); border-color: var(--ph-line); }
   #btn-ame[hidden] { display: none; }
   #ame {
     position: fixed; inset: 0; display: none; z-index: 11;
@@ -419,7 +422,7 @@
   <span class="title">DWELVE HOLLOW</span>
 </div>
 
-<button id="version">v0.31</button>
+<button id="version">v0.32</button>
 
 <div id="saison">an <b id="s-an">1</b> · <b id="s-saison">printemps</b> · jour <b id="s-jour">1</b> · <b id="s-phase">aube</b> · <b id="s-lune">lune</b> · pain <b id="s-pain">0</b> · peur <b id="s-peur">0 %</b></div>
 
@@ -468,7 +471,6 @@
 
 <div id="etiquette" hidden><span class="pointe"></span><span class="nom"></span></div>
 
-<button id="btn-ame" hidden>donner une âme ?</button>
 <div id="ame">
   <div class="contenu">
     <h2>DONNER UNE ÂME</h2>
@@ -496,6 +498,7 @@
   <button id="btn-spin" aria-pressed="true">⟳</button>
   <input id="regle" placeholder="écrire une règle…" autocomplete="off" spellcheck="false" readonly>
   <button id="btn-lieux" aria-pressed="false">lieux</button>
+  <button id="btn-ame" hidden>donner une âme ?</button>
 </div>
 
 <div id="fin" hidden role="dialog" aria-modal="true" aria-labelledby="fin-titre">
@@ -585,7 +588,21 @@
   <div class="contenu">
     <h2>DWELVE HOLLOW — HISTORIQUE</h2>
 
-    <div class="v courante"><b>v0.31</b> — <b>×1000.</b>
+    <div class="v courante"><b>v0.32</b> — <b>ce qu'on raconte.</b>
+      Il y avait un genre «&nbsp;légende&nbsp;» dans la chronique et un bouton qui l'attendait dans la
+      mémoire&nbsp;: <b>rien n'était jamais marqué ainsi</b>, et le bouton ouvrait une liste vide. Les
+      surnoms, seule chose qui en tenait lieu, sont tirés d'une liste de dix — on en avait fait le
+      tour au deuxième village. Une légende ne se tire donc plus d'une liste, elle se <b>compose</b> :
+      un acte que quelqu'un a vraiment fait, le lieu où il l'a fait, et le nom que le village a
+      donné à cette année-là. Les années portent un nom maintenant — l'année du bûcher de Guibourc,
+      l'année où plus personne n'a su cuire, l'année où l'on a perdu Gautier — et un nom ne se donne
+      jamais deux fois. Reste ce qui fait qu'une légende n'est pas un compte rendu&nbsp;: le
+      <b>présage</b>. Le ciel qu'il faisait à l'instant de l'acte est relevé, et le village le
+      raconte après coup comme un signe. La lune s'arrête au-dessus de lui, le brouillard s'ouvre et
+      se referme, l'ombre du dragon se détourne. Rien de magique n'arrive vraiment — c'est le récit
+      qui déforme, et c'est bien pour ça que c'est une légende.</div>
+
+    <div class="v"><b>v0.31</b> — <b>×1000.</b>
       Une quatrième vitesse, pour laisser le village vivre des décennies pendant qu'on regarde
       ailleurs. Le plafond d'avancement par image était fixe — six secondes simulées — ce qui
       protégeait du retour d'onglet mais bridait la vitesse choisie&nbsp;: à ×1000 une image demande
@@ -2627,6 +2644,18 @@ function texteDeLHistoire() {
       t.push(`  an ${p.annee} — ${p.texte}`);
       if (p.suite) t.push(`           ${p.suite.texte} (an ${p.suite.annee})`);
     }
+    t.push('');
+  }
+  if (village.legendes.length) {
+    t.push('CE QU\'ON RACONTE');
+    t.push('-'.repeat(16));
+    for (const L of village.legendes) t.push(`  an ${L.an} — ${L.texte}`);
+    t.push('');
+  }
+  if (village.annees.length) {
+    t.push('LES ANNÉES');
+    t.push('-'.repeat(10));
+    for (const a2 of village.annees) t.push(`  an ${String(a2.an).padStart(3)} — ${a2.nom}`);
     t.push('');
   }
   t.push('LA CHRONIQUE');

@@ -2616,7 +2616,134 @@ un lien mort dans un menu.
 
 ---
 
+## Ce qu'on raconte (v0.32)
+
+Pierre&nbsp;: *«&nbsp;Pas assez de légendes se créent et elles devraient
+être toujours différentes. On ajoute des trucs en plus ou on
+ajuste&nbsp;?&nbsp;»*
+
+Ni l'un ni l'autre&nbsp;: il y avait un **trou**. Le genre `legende`
+existait dans la chronique depuis la v0.28, un bouton
+«&nbsp;légendes&nbsp;» l'attendait dans le panneau mémoire — et **aucune
+ligne du monde ne le portait**. Zéro appel dans toute la simulation. Ce
+bouton ouvrait une liste vide depuis le jour où il a été écrit.
+
+Ce qui en tenait lieu, c'étaient les surnoms&nbsp;: une **liste fixe de
+dix**. Un village en distribue six ou sept, le suivant tire dans les
+mêmes dix. On en a fait le tour au deuxième village, et aucune liste,
+même de cinquante, ne règle ça — elle repousse le moment.
+
+### Le principe
+
+Une légende ne se tire pas d'une liste, elle se **compose** de ce qui est
+arrivé. Trois fentes, chacune remplie par le village lui-même.
+
+**L'acte.** Ce que quelqu'un a *fait*, pas ce qui lui est arrivé. Sept
+gestes sont marqués&nbsp;: arrêter la foule, parler pour quelqu'un devant
+elle, tirer un noyé du ruisseau, rapporter d'ailleurs un métier perdu,
+jurer que la chose ne reviendra pas, prendre un métier à quatorze ans,
+reprendre celui que plus personne ne faisait.
+
+**Le lieu.** Déjà stocké dans l'événement depuis la v0.28. `auLieu()`
+recolle l'article&nbsp;: «&nbsp;le pont&nbsp;» devient «&nbsp;au
+pont&nbsp;», «&nbsp;les champs&nbsp;» «&nbsp;aux champs&nbsp;».
+
+**Le nom de l'année.** Chaque événement marquant propose un nom avec un
+poids&nbsp;; le village garde le plus lourd. *L'année du bûcher de
+Guibourc. L'année où plus personne n'a su cuire. L'année où l'on a perdu
+Gautier. L'année sans histoire.*
+
+Et une légende ne se fait pas sur le moment — elle se fait **après coup,
+quand l'année a un nom**. C'est pour ça qu'on attend le dernier soir.
+
+### Le présage — ce qui en fait une légende
+
+Pierre, pendant que je codais&nbsp;: *«&nbsp;La légende doit avoir un
+côté fantastique mystique&nbsp;»*. Il avait raison&nbsp;: ce que je
+venais d'écrire était une chronique bien tournée, pas une légende. Une
+légende n'est pas un compte rendu — sinon c'est la chronique, qu'on a
+déjà.
+
+Ce qui la fait, c'est ce que le village **ajoute**. Alors on relève le
+ciel qu'il faisait à l'instant de l'acte — lune, brouillard, gel, pluie,
+vent, nuit, saison, dragon, loup — et on le raconte après coup comme un
+signe.
+
+> On raconte Guillaume de Beaufort, qui a arrêté la foule à la cabane,
+> l'année du dragon. **La lune était pleine. On dit qu'elle s'est arrêtée
+> au-dessus de Guillaume et n'a plus bougé de la nuit.**
+
+> On raconte Foulques le colporteur, qui a tiré Perrine du ruisseau au
+> moulin à eau, l'année du chasseur. **Le brouillard tenait jusqu'aux
+> toits. Certains jurent qu'il s'est ouvert devant lui, et refermé
+> après.**
+
+**Rien de magique n'arrive vraiment.** Le monde ne change pas&nbsp;: le
+récit déforme. C'est aussi pour ça que la règle «&nbsp;le décor ne doit
+jamais pouvoir changer l'histoire&nbsp;» tient toujours — le ciel ne fait
+que prêter des images à ce que les gens se racontent.
+
+### Quatre règles contre la répétition
+
+Le premier jet marchait et se répétait. Mesuré, corrigé, remesuré.
+
+| règle | avant | après |
+|---|---|---|
+| un nom d'année ne se donne qu'une fois (décote ÷10 par redite) | 12 noms distincts sur 60 | — |
+| des noms de repli qui portent un prénom (mort, surnom, naissance, meule) | — | 31 / 60 |
+| une année qui a donné une légende n'est pas «&nbsp;sans histoire&nbsp;» : elle porte le nom de celui-là | — | **38 / 60** |
+| on ne raconte jamais deux fois le même acte — une année peut n'en donner aucune | 66 % d'actes distincts | **94 %** |
+
+Et chaque présage ne sert qu'une fois par village&nbsp;; quand ils sont
+tous dits, on reprend le plus **oublié**, pas le dernier.
+
+Sur trois villages de vingt ans&nbsp;: **29 légendes, 29 distinctes.**
+
+### Une fausse piste, gardée pour mémoire
+
+Premier essai contre la monotonie des années&nbsp;: une décote ÷4 par
+redite. Insuffisante — le dragon passe presque chaque année et gardait
+0,62 contre 0,60 pour la mort d'un vieil homme. Il a fallu ÷10. Une
+décote se calibre contre ce qu'elle doit perdre, pas «&nbsp;à la
+baisse&nbsp;».
+
+### Trois cibles de plus au banc d'essai
+
+Un genre a pu rester vide des semaines parce que rien ne le mesurait.
+
+- `légendes par village` 2,88 — attendu 1 à 14
+- `actes de légende distincts` 0,94 — attendu 0,85 à 1,01
+- `noms d'année distincts` 1,00 — attendu 0,45 à 1,01
+
+Les dix-sept cibles courtes tiennent.
+
+### Deux choses au passage
+
+Les légendes et les noms d'année entrent dans **l'export de fin** — deux
+sections de plus sous «&nbsp;ce qui n'est pas revenu&nbsp;».
+
+Et le bouton **«&nbsp;donner une âme&nbsp;»** flottait en bas à droite,
+sur la dernière ligne de la mémoire. Le poser à gauche ne réglait
+rien&nbsp;: l'histoire prend tout l'écran. Il descend **dans la barre**,
+avec les autres boutons — c'est un bouton, il va chez les boutons, et
+plus rien ne se recouvre. La règle de Pierre est de nouveau tenue&nbsp;:
+une fenêtre s'affiche sur l'écran, jamais sur un bouton.
+
+### Ce qui reste ouvert
+
+Le surnom est resté une liste de dix, à part. Il mesure un caractère sur
+la durée, pas un geste&nbsp;; c'est autre chose qu'une légende, et ça n'a
+pas été touché. À voir si Pierre veut les rapprocher.
+
+---
+
 ## 📜 Historique
+
+- **2026-09-14 (soir)** — Les légendes existent. Le genre `legende` était
+  vide depuis sa création&nbsp;; une légende se compose maintenant d'un
+  acte, d'un lieu, du nom de l'année, et d'un présage tiré du ciel qu'il
+  faisait. 29 légendes, 29 distinctes sur trois villages de vingt ans.
+  Plus le bouton ×1000. v0.31 → v0.32.
 
 - **2026-09-14 (suite)** — Réserve des 11 images par seconde levée au
   profileur&nbsp;: 98 % du temps est dans le rastériseur logiciel, la
