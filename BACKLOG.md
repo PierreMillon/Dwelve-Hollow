@@ -2161,8 +2161,9 @@ que rien ne soit perdu. Il n'y a plus qu'un seul endroit qui nomme.
 - L'entrée « Dwelve Hollow » au menu du site : en attente. Je ne peux pas
   vérifier depuis le conteneur que l'URL GitHub Pages répond (le proxy
   refuse `pierremillon.github.io`). Pierre donnera le lien.
-- Les 11 images par seconde en rendu logiciel : jamais établi comme une
-  régression, jamais mesuré sur une vraie machine.
+- Les 11 images par seconde en rendu logiciel : **réglé le 14 septembre**,
+  voir « Les 11 images par seconde : réserve levée ». C'est le rastériseur
+  logiciel, pas le jeu.
 
 ---
 
@@ -2578,8 +2579,48 @@ maillon à un fil.
 
 ---
 
+## Les 11 images par seconde : réserve levée
+
+Depuis la v0.27 une réserve traînait au carnet&nbsp;: le jeu tourne à
+11 images par seconde dans le conteneur, et **ça n'avait jamais été
+établi comme une régression**. C'est mesuré maintenant, au profileur
+processeur de Chrome (CDP `Profiler`, un échantillon toutes les 200 µs,
+dix secondes), sans toucher une ligne de la page.
+
+| vitesse | `(program)` natif | toute la simulation | images/s |
+|---|---|---|---|
+| ×1 | **98,4 %** | ~0,5 % | 12 |
+| ×100 | **95,0 %** | ~2,5 % | 11 |
+
+`(program)` est le code natif hors JavaScript&nbsp;: ici, le rastériseur
+logiciel SwiftShader, puisque le conteneur n'a pas de carte graphique.
+**Le temps ne passe pas dans le jeu, il passe à peindre des pixels sans
+GPU.** Les 11 images par seconde sont donc un artefact de mesure et ne
+disent rien de la machine de Pierre.
+
+Ce que ça règle aussi, c'est la question «&nbsp;qu'est-ce qu'on devrait
+optimiser&nbsp;?&nbsp;»&nbsp;: à ×100 — cent secondes simulées par
+seconde réelle — la simulation entière coûte moins de 3 % d'une image.
+Elle n'est pas le goulot, et l'optimiser serait du travail perdu. Les
+seuls postes visibles côté monde sont `simuler` (0,8 %), `majLassitude`
+et `voisinage` (0,3 % chacun) — sous le bruit.
+
+### La réserve qui reste
+
+L'adresse GitHub Pages du jeu n'est toujours pas vérifiable d'ici, et on
+sait maintenant pourquoi&nbsp;: `pierremillon.github.io` est **bloqué par
+le proxy de sortie du conteneur** (`EGRESS_BLOCKED`), ce qui ne dit rien
+de l'état du déploiement. L'entrée «&nbsp;Dwelve Hollow&nbsp;» au menu du
+site attend donc toujours que Pierre confirme l'adresse — on ne met pas
+un lien mort dans un menu.
+
+---
+
 ## 📜 Historique
 
+- **2026-09-14 (suite)** — Réserve des 11 images par seconde levée au
+  profileur&nbsp;: 98 % du temps est dans le rastériseur logiciel, la
+  simulation coûte moins de 3 % même à ×100. Rien à optimiser côté monde.
 - **2026-09-14** — La cible longue qui ratait est trouvée et tenue&nbsp;:
   les enfants apprenaient la prêtrise parce que le prêtre est le lien le
   plus fort de presque tout le monde, et personne n'apprenait à cuire.
