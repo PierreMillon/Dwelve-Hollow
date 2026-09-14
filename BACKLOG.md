@@ -2410,13 +2410,17 @@ tandis que la personne du quotidien attentionnée sera zappée. »* Trois
 forces séparées la produisent sans qu'aucune règle ne l'écrive — parce que
 la passion décide des actes et la tendresse du chagrin.
 
-### Cinq questions posées, dont une bloquante
+### Les questions posées
 
-1. **« 3 filtres. 1-2-0 »** — je ne sais pas ce que ça désigne. Bloquant.
-2. Le sexe est-il dans le jeu, ou hors champ&nbsp;?
-3. La fidélité « de cœur, toujours »&nbsp;: un promis peut-il rompre&nbsp;?
-4. Faut-il un lien d'amitié nommé, là où il n'y a que des affinités&nbsp;?
-5. Trois barres de plus dans la fiche, ou un seul mot&nbsp;: « il brûle
+La bloquante est levée. Pierre, le 14 septembre&nbsp;: *«&nbsp;Oublie
+cette entrée 1 2 0&nbsp;»* — les deux lignes `3 filters. / 1-2-0` de sa
+carte sortent du modèle, on n'essaie plus de les interpréter. Il en
+restait quatre&nbsp;:
+
+1. Le sexe est-il dans le jeu, ou hors champ&nbsp;?
+2. La fidélité « de cœur, toujours »&nbsp;: un promis peut-il rompre&nbsp;?
+3. Faut-il un lien d'amitié nommé, là où il n'y a que des affinités&nbsp;?
+4. Trois barres de plus dans la fiche, ou un seul mot&nbsp;: « il brûle
    pour elle », « il tient à elle »&nbsp;?
 
 ---
