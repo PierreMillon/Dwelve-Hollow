@@ -2297,9 +2297,8 @@ de musique&nbsp;: rien ne l'oblige à vivre dans un onglet.
 
 ### Reste à faire
 
-Toujours l'entrée « Dwelve Hollow » au menu du site personnel, en attente
-de l'URL. Elle a maintenant un argument de plus&nbsp;: le lien mènera à
-quelque chose qui s'installe.
+~~L'entrée « Dwelve Hollow » au menu du site personnel.~~ Abandonnée le
+14 septembre sur décision de Pierre — voir « Le déploiement : classé ».
 
 ---
 
@@ -2605,14 +2604,14 @@ Elle n'est pas le goulot, et l'optimiser serait du travail perdu. Les
 seuls postes visibles côté monde sont `simuler` (0,8 %), `majLassitude`
 et `voisinage` (0,3 % chacun) — sous le bruit.
 
-### La réserve qui reste
+### Le déploiement : classé
 
-L'adresse GitHub Pages du jeu n'est toujours pas vérifiable d'ici, et on
-sait maintenant pourquoi&nbsp;: `pierremillon.github.io` est **bloqué par
-le proxy de sortie du conteneur** (`EGRESS_BLOCKED`), ce qui ne dit rien
-de l'état du déploiement. L'entrée «&nbsp;Dwelve Hollow&nbsp;» au menu du
-site attend donc toujours que Pierre confirme l'adresse — on ne met pas
-un lien mort dans un menu.
+Pierre, le 14 septembre&nbsp;: *«&nbsp;Oublie GitHub Pages&nbsp;»*. Le
+point est clos et ne revient plus dans les listes. Pour mémoire, la
+raison technique&nbsp;: `pierremillon.github.io` est bloqué par le proxy
+de sortie du conteneur (`EGRESS_BLOCKED`), donc l'adresse n'est de toute
+façon pas vérifiable d'ici. L'entrée «&nbsp;Dwelve Hollow&nbsp;» au menu
+du site personnel est abandonnée avec.
 
 ---
 
