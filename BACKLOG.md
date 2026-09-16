@@ -2976,7 +2976,39 @@ remesurée sur cette base.
 
 ---
 
+## L'amour remesuré sur la base réparée
+
+La branche `amour` avait été écartée parce qu'elle tuait un village sur
+six. La v0.35 a montré que ce village mourait d'un **verrou du bois** qui
+n'avait rien à voir avec elle. Remesurée sur la base réparée&nbsp;:
+
+| | branche `amour` | `main` v0.35 |
+|---|---|---|
+| population au jour 2000 | **27,00** | 27,00 |
+| creux le plus bas | **24,00** | 24,00 |
+| villages éteints | 0 | 0 |
+| métiers perdus (62 ans) | 0,00 | 0,00 |
+| naissances | 33,17 | 31,83 |
+| promesses rompues | **2,25** | — |
+| amitiés nommées | **1,00** | — |
+
+**La session longue tient. Les dix-neuf cibles courtes tiennent, sauf
+une** — `pertes définitives` à 0,25, c'est-à-dire exactement la cible qui
+rate déjà sur `main` (0,33). Elle ne rate pas à cause de l'amour&nbsp;:
+elle rate parce que le village est devenu increvable, et c'est la question
+du troisième acte, posée plus haut.
+
+**Le modèle de l'amour n'avait donc aucun défaut propre.** Il accélérait
+un piège qui existait avant lui. Il attend le feu vert de Pierre pour
+être fusionné, pas une correction.
+
+---
+
 ## 📜 Historique
+
+- **2026-09-16 (nuit)** — Branche `amour` remesurée sur la base réparée :
+  la session longue tient, seule rate la cible du troisième acte, qui rate
+  aussi sur `main`. Le modèle n'avait pas de défaut propre.
 
 - **2026-09-16 (soir)** — Le verrou du bois trouvé sur la graine 23757 :
   pas de bois, donc pas de réparation, donc pas de pain, donc la fatigue
