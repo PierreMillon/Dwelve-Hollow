@@ -150,6 +150,10 @@
     color: var(--ph-line); opacity: 0.55; letter-spacing: 0.14em;
     margin: 12px 0 5px; font-size: 10px;
   }
+  #m-annees { max-height: 9.4em; overflow-y: auto; margin-bottom: 6px; }
+  #memoire .annee { color: var(--ph-text); padding: 1px 0; }
+  #memoire .annee span { color: var(--ph-dim); display: inline-block; min-width: 4.4em; }
+  #saison #s-annee { color: var(--ph-dim); }
   #memoire .perte { color: var(--ph-line); margin-bottom: 4px; }
   #memoire .perte span { color: var(--ph-dim); }
   #memoire .suite { color: var(--ph-dim); margin: -2px 0 5px 12px; }
@@ -422,9 +426,9 @@
   <span class="title">DWELVE HOLLOW</span>
 </div>
 
-<button id="version">v0.33</button>
+<button id="version">v0.34</button>
 
-<div id="saison">an <b id="s-an">1</b> · <b id="s-saison">printemps</b> · jour <b id="s-jour">1</b> · <b id="s-phase">aube</b> · <b id="s-lune">lune</b> · pain <b id="s-pain">0</b> · peur <b id="s-peur">0 %</b></div>
+<div id="saison">an <b id="s-an">1</b> · <b id="s-saison">printemps</b> · jour <b id="s-jour">1</b> · <b id="s-phase">aube</b> · <b id="s-lune">lune</b> · pain <b id="s-pain">0</b> · peur <b id="s-peur">0 %</b><span id="s-annee"></span></div>
 
 <div id="chronique"></div>
 
@@ -463,6 +467,8 @@
   <div class="nom">la mémoire du village</div>
   <div class="section">ce qui ne reviendra pas</div>
   <div id="m-pertes"></div>
+  <div class="section">les années</div>
+  <div id="m-annees"></div>
   <div class="section">relire</div>
   <div id="m-filtres"></div>
   <input type="text" id="m-cherche" placeholder="un nom, un mot" autocomplete="off" spellcheck="false">
@@ -588,7 +594,14 @@
   <div class="contenu">
     <h2>DWELVE HOLLOW — HISTORIQUE</h2>
 
-    <div class="v courante"><b>v0.33</b> — <b>l'amitié voulait dire quelque chose.</b>
+    <div class="v courante"><b>v0.34</b> — <b>les années ont un nom, et ça se lit.</b>
+      Le village nomme ses années depuis la v0.32 — l'année du bûcher de Guibourc, l'année où plus
+      personne n'a su cuire, l'année sans histoire — et ça ne s'affichait nulle part. Le bandeau
+      porte maintenant le nom de <b>l'an dernier</b> (celle en cours n'en a pas encore&nbsp;: une
+      année ne se nomme qu'à son dernier soir, quand on sait ce qu'il s'y est passé), et la mémoire
+      gagne une section «&nbsp;les années&nbsp;», de la plus récente à la première.</div>
+
+    <div class="v"><b>v0.33</b> — <b>l'amitié voulait dire quelque chose.</b>
       Pierre&nbsp;: «&nbsp;l'amitié reste trop bloquée à 1&nbsp;». Mesuré&nbsp;: <b>99 % des liens
       valaient exactement 1,00</b>. Tout le monde aimait tout le monde au maximum, et la valeur ne
       disait plus rien — alors que c'est elle qui choisit le maître d'apprentissage, qui défend qui,
@@ -2107,6 +2120,15 @@ function majAffichage() {
   $('s-phase').textContent = (PHASES.find(([h]) => village.heure < h) || PHASES[0])[1];
   $('s-pain').textContent = Math.floor(village.pain);
   $('s-peur').textContent = Math.round(village.peur * 100) + ' %';
+  // LE NOM DE L'ANNÉE ÉCOULÉE. Le village nomme ses années depuis la
+  // v0.32 et ça ne se lisait nulle part. On montre la dernière NOMMÉE —
+  // celle en cours n'a pas encore de nom, puisqu'une année ne se nomme
+  // qu'à son dernier soir, quand on sait ce qu'il s'y est passé.
+  // « l'an dernier », et pas juste le nom : posé nu derrière « an 9 », il
+  // se lisait comme le nom de l'année EN COURS, qui n'en a pas encore.
+  const derniere = village.annees[village.annees.length - 1];
+  const texte = derniere ? ` · l'an dernier, ${derniere.nom}` : '';
+  if ($('s-annee').textContent !== texte) $('s-annee').textContent = texte;
 }
 
 const VITESSES = [1, 10, 100, 1000];
@@ -3163,6 +3185,15 @@ function majMemoire() {
         (p.suite ? `<div class="suite">${p.suite.texte}<span> · an ${p.suite.annee}</span></div>` : '')
       ).join('')
     : '<div class="rien">rien encore. Tout se répare toujours.</div>';
+
+  // LES ANNÉES, DE LA PLUS RÉCENTE À LA PREMIÈRE. Le village les nomme
+  // depuis la v0.32 et ça ne se lisait nulle part.
+  const an = $('m-annees');
+  const liste = village.annees.length
+    ? village.annees.slice().reverse().map(a =>
+        `<div class="annee"><span>an ${a.an}</span> ${a.nom}</div>`).join('')
+    : '<div class="rien">la première année n\'est pas finie.</div>';
+  if (an.innerHTML !== liste) an.innerHTML = liste;
 
   const lignes = $('m-lignes');
   lignes.innerHTML = '';

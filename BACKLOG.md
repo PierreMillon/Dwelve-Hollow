@@ -2874,7 +2874,31 @@ auquel on ne peut pas se fier ne fait pas gagner de temps.
 
 ---
 
+## Les années ont un nom, et ça se lit enfin (v0.34)
+
+Le village nomme ses années depuis la v0.32, et **ça ne s'affichait nulle
+part**. Pierre, interrogé sur l'endroit&nbsp;: *«&nbsp;les deux&nbsp;»*.
+
+**Le bandeau** porte le nom de l'an dernier — pas celui de l'année en
+cours, qui n'en a pas encore&nbsp;: une année ne se nomme qu'à son
+dernier soir, quand on sait ce qu'il s'y est passé. Posé nu derrière
+«&nbsp;an 9&nbsp;», le nom se lisait comme celui de l'année courante, d'où
+le «&nbsp;l'an dernier&nbsp;» qui lève l'ambiguïté.
+
+**La mémoire** gagne une section «&nbsp;les années&nbsp;», de la plus
+récente à la première, au-dessus des filtres.
+
+```
+an 9 · hiver · gel · jour 286 · pain 13 · peur 0 %
+                             · l'an dernier, l'année où l'on a douté de Guillaume
+```
+
+---
+
 ## 📜 Historique
+
+- **2026-09-16 (suite)** — Les noms d'année s'affichent : dans le bandeau
+  pour l'an dernier, et en liste complète dans la mémoire. v0.34.
 
 - **2026-09-16** — L'amitié valait 1,00 pour 99 % des liens. Réparée, elle
   a fait tomber trois réglages qui tenaient par ce défaut — la paix
