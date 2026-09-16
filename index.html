@@ -109,6 +109,18 @@
   #fiche .barre span.n { width: 78px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   #fiche .barre span.j { flex: 1; height: 4px; background: rgba(70,255,160,0.15); position: relative; }
   #fiche .barre span.j i { position: absolute; inset: 0 auto 0 0; background: var(--ph-line); }
+  /* LE CŒUR. Trois barres, et le mot qui l'emporte. Les traits diffèrent
+     autant que les longueurs : la passion pleine, la tendresse à moitié
+     éteinte, l'habitude en pointillé — sinon trois barres vertes de la
+     même couleur ne se distinguent qu'à la longueur, et la fiche se lit
+     du coin de l'œil. */
+  #fiche .coeur { margin-bottom: 7px; }
+  #fiche .coeur .qui { color: var(--ph-line); margin-bottom: 2px; }
+  #fiche .coeur .qui em { color: var(--ph-dim); font-style: normal; }
+  #fiche .coeur .barre span.n { width: 62px; }
+  #fiche .coeur .t i { background: var(--ph-line); opacity: 0.62; }
+  #fiche .coeur .b i { background: repeating-linear-gradient(90deg,
+      var(--ph-line) 0 2px, transparent 2px 5px); opacity: 0.85; }
   #fiche .souvenir { color: var(--ph-dim); }
   /* LA FRISE. Une vie tient sur une ligne : à gauche la naissance, à
      droite aujourd'hui, et un cran à chaque fois que la chronique a parlé
@@ -445,6 +457,8 @@
   <div id="f-besoins"></div>
   <div class="section" id="f-t-soupcons">IL SOUPÇONNE</div>
   <div id="f-soupcons"></div>
+  <div class="section" id="f-t-coeur">SON CŒUR</div>
+  <div id="f-coeur"></div>
   <div class="section">LIENS</div>
   <div id="f-liens"></div>
   <div class="section" id="f-t-dettes">IL DOIT</div>
@@ -906,7 +920,7 @@ const {
   LIEUX, MOULINS, CHAMPS, PLACE, EGLISE, MANOIR, FOUR, CABANE, GRANGE, FORET, ATELIERS,
   RUISSEAU, ROUTE, POINT_PONT, LARGEUR_EAU, PROFONDEUR_EAU,
   hauteur, distRoute, distRuisseau,
-  poidsDes, nommer, nomComplet, lien, e, NOM_ROLE, metierDe,
+  poidsDes, nommer, nomComplet, lien, e, NOM_ROLE, metierDe, etatDuCoeur,
   estNuit, estJour, lumiere, analyser, appliquerRegles, noter,
   souvenir, surnommer, lancerDragon, lancerFoire, evenements,
   detteDe, creancier, GENRES, ligneChronique, GRAINE: GRAINE_MONDE,
@@ -3012,9 +3026,36 @@ function ecrire(id, html) {
   if (el && el.innerHTML !== html) el.innerHTML = html;
 }
 
-function barre(nom, v) {
-  return `<div class="barre"><span class="n">${nom}</span>` +
+function barre(nom, v, classe = '') {
+  return `<div class="barre ${classe}"><span class="n">${nom}</span>` +
          `<span class="j"><i style="width:${Math.round(Math.max(0, Math.min(1, v)) * 100)}%"></i></span></div>`;
+}
+
+// SON CŒUR. Trois forces qui ne disent pas la même chose, et dont le
+// désaccord est toute l'histoire : la passion décide des actes, la
+// tendresse décide du chagrin, l'habitude ne se voit que le jour où elle
+// manque. Le quatrième — le désir — n'a pas de barre : il incline les
+// pas et ne se dit pas.
+//
+// L'habitude plafonne à 0,46 dans le monde ; on l'affiche à son échelle,
+// sinon elle a l'air de ne jamais monter.
+const MOT_COEUR = { 'brûle': 'brûle pour', 'tient': 'tient à', 'habitué': "s'est habitué à" };
+function majCoeur(h) {
+  const liens = [...h.coeur.entries()]
+    .filter(([a]) => a.vivant)
+    .map(([a, c]) => [a, c, Math.max(c.passion, c.tendresse, c.habitude / 0.46)])
+    .sort((x, y) => y[2] - x[2])
+    .slice(0, 2);
+  $('f-t-coeur').hidden = !liens.length;
+  ecrire('f-coeur', liens.length ? liens.map(([a, c]) => {
+    const mot = MOT_COEUR[etatDuCoeur(h, a)] || 'a connu';
+    const accord = h.feminin ? mot.replace("s'est habitué", "s'est habituée") : mot;
+    return `<div class="coeur"><div class="qui">${accord} ${nomCliquable(a)}` +
+      `<em> · depuis ${village.jour - c.depuis} jours</em></div>` +
+      barre('passion', c.passion) +
+      barre('tendresse', c.tendresse, 't') +
+      barre('habitude', c.habitude / 0.46, 'b') + '</div>';
+  }).join('') : '');
 }
 // UNE VIE SUR UNE LIGNE. Le jour de naissance se déduit de l'âge — le
 // monde ne le retient pas, et ce n'est pas la peine : une année de
@@ -3102,6 +3143,8 @@ function majFiche() {
     ? soup.map(([a, v]) => barre(prenomCliquable(a), v)).join('')
     : '<div class="ligne pq">personne, pour l\'instant</div>');
 
+  majCoeur(h);
+
   const proches = [...h.liens.entries()].filter(([a]) => a.vivant)
     .sort((a, b) => b[1] - a[1]).slice(0, 3);
   // l'attachement tu qui n'est visible que d'ici : le village l'ignore,
@@ -3120,7 +3163,8 @@ function majFiche() {
     ? `<div class="ligne premier">tient à ${nomCliquable(h.secret)}` +
       `<br><span class="pq">n'en a jamais rien dit · ${h.secretForce.toFixed(2)}</span></div>` : '';
   ecrire('f-liens', ditesRegles +
-    (h.aime && h.aime.vivant ? `<div class="ligne premier">promis${e(h)} à ${nomCliquable(h.aime)}</div>` : '') + tu +
+    (h.aime && h.aime.vivant ? `<div class="ligne premier">promis${e(h)} à ${nomCliquable(h.aime)}</div>` : '') +
+    (h.ami && h.ami.vivant ? `<div class="ligne premier">ne quitte plus ${nomCliquable(h.ami)}</div>` : '') + tu +
     (proches.length ? proches.map(([a, v]) =>
       `<div class="ligne"><span class="pq">${v.toFixed(2)}</span> ${nomCliquable(a)}</div>`).join('')
       : (tu || ditesRegles ? '' : '<div class="ligne"><span class="pq">personne, pour l\'instant</span></div>')));
