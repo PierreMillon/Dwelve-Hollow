@@ -2895,7 +2895,95 @@ an 9 · hiver · gel · jour 286 · pain 13 · peur 0 %
 
 ---
 
+## Le village priait sa propre mort (v0.35)
+
+La graine 23757 était le village fragile depuis toujours — celui dont le
+carnet disait «&nbsp;mérite qu'on le regarde&nbsp;». Regardé, au jour
+1201&nbsp;:
+
+```
+pop 17 · blé 72 · farine 30 · pain 0 · bois 0,00
+moulins 0,11 et 0,21 — tous les métiers encore connus
+occupations : prier 8, dormir 3, jouer 3, réparer 2, manger 1
+le bûcheron : « prier », fatigue 1,00
+```
+
+Huit villageois sur dix-sept priaient, assis sur soixante-douze mesures
+de blé, et le bûcheron priait avec eux.
+
+### Le cercle
+
+```
+bois 0  →  pas de réparation  →  meules mortes  →  pas de farine
+        →  pas de pain  →  faim 1,00  →  fatigue 1,00
+        →  « travail » = 0  →  bûcheronner = 0  →  bois 0
+```
+
+Le carnet décrivait déjà ce piège, corrigé une fois pour la
+réparation&nbsp;: *«&nbsp;la faim ne doit pas éteindre cette conduite-là,
+elle doit l'allumer&nbsp;»*. L'exception avait été faite pour la meule,
+**pas pour ce qui rend la réparation possible** — une réparation consomme
+du bois, et `bûcheronner` valait `travail × 1,6`, donc zéro dès que la
+fatigue atteint 1.
+
+Quand il ne reste plus une bûche et qu'une meule est morte, on monte au
+bois épuisé. Et ça vaut pour tout le monde&nbsp;: le bûcheron peut
+justement être celui qui manque.
+
+### Ce que ça change
+
+| | avant | après |
+|---|---|---|
+| graine 23757 au jour 2000 | 5 habitants | **26** |
+| creux le plus bas | 5,00 | **24,00** |
+| population au jour 2000 | 17,50 | **27,00** |
+| métiers perdus, 6 villages × 62 ans | 0,67 | **0,00** |
+| journées sans pain | 21,90 % | **17,64 %** |
+| journées moulin cassé | 9,36 % | **5,76 %** |
+
+### LA QUESTION QUI S'OUVRE — le troisième acte s'éteint
+
+`pertes définitives` vaut **0,33 pour un plancher de 0,40&nbsp;: le banc
+court est ROUGE**, et poussé quand même. Voici pourquoi, et ce que ça
+pose.
+
+Ce plancher existe pour une raison de conception&nbsp;: *«&nbsp;une borne
+basse à zéro ne dirait rien — c'est justement le risque qu'il ne se passe
+jamais rien d'irréversible&nbsp;»*. Or le chiffre décisif n'est pas
+0,33&nbsp;: c'est **0,00 métier perdu sur six villages et soixante-deux
+années**. Pas un seul, jamais.
+
+Le village est devenu increvable. Le troisième acte — ce qui distingue un
+village d'une boucle — ne se déclenche plus.
+
+Deux lectures, et c'est à Pierre de trancher&nbsp;:
+
+1. **Le plancher était calibré sur un jeu qui avait un verrou.** Les
+   villages mouraient d'un défaut, pas d'un destin. 0,33 serait alors le
+   vrai rythme, et la borne à corriger.
+2. **Il manque une vraie source de perte**, maintenant que celle-ci était
+   un bug. Un village doit pouvoir perdre un métier sans qu'un cercle
+   vicieux l'y force.
+
+La deuxième est une décision de conception, pas un réglage&nbsp;: elle ne
+se prend pas en tournant un bouton, et je ne la prends pas seul.
+
+### Et pour le modèle de l'amour
+
+Ce verrou explique l'échec de la branche `amour`&nbsp;: elle ne tuait pas
+le village, elle accélérait un piège qui était déjà là. Elle mérite d'être
+remesurée sur cette base.
+
+---
+
 ## 📜 Historique
+
+- **2026-09-16 (soir)** — Le verrou du bois trouvé sur la graine 23757 :
+  pas de bois, donc pas de réparation, donc pas de pain, donc la fatigue
+  au maximum, donc plus personne pour aller chercher du bois. Huit
+  villageois sur dix-sept priaient. Creux le plus bas 5 → 24. Mais plus
+  aucun métier ne se perd en soixante-deux ans : le troisième acte est à
+  rouvrir. v0.35.
 
 - **2026-09-16 (suite)** — Les noms d'année s'affichent : dans le bandeau
   pour l'an dernier, et en liste complète dans la mémoire. v0.34.

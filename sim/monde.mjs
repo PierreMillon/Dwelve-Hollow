@@ -1202,6 +1202,26 @@ function poidsDes(h) {
         p.push(['réparer', (0.5 + h.faim) * (1 - casse) * 2.6 * urgence,
                 'il a vu faire, autrefois']);
     }
+    // LE MÊME PIÈGE, UN MAILLON PLUS LOIN. L'exception ci-dessus sauvait
+    // la réparation de l'épuisement, mais pas ce qui la rend possible :
+    // une réparation consomme du bois, et `bûcheronner` vaut
+    // travail × 1,6, donc zéro dès que la fatigue est à 1.
+    //
+    // Mesuré sur la graine 23757 au jour 1201 : bois 0,00, les deux
+    // meules à 0,11 et 0,21, blé 72, farine 30, pain 0 — et le bûcheron
+    // en train de prier, à fatigue 1,00. Huit villageois sur dix-sept
+    // priaient. Le cercle était parfait : pas de bois, donc pas de
+    // réparation, donc pas de farine, donc pas de pain, donc la fatigue
+    // au maximum, donc plus personne pour aller chercher du bois.
+    //
+    // Quand il ne reste plus une bûche et qu'une meule est morte, on
+    // monte au bois épuisé. C'est la même règle que pour la meule, et
+    // elle doit valoir pour TOUT LE MONDE : le bûcheron peut être celui
+    // qui manque.
+    if (village.bois < 3 && casse < 0.4 && h.role !== 'enfant') {
+      p.push(['bûcheronner', (0.4 + h.faim) * 2.2 * (village.pain < 4 ? 2 : 1),
+              'il ne reste plus une bûche, et la meule est morte']);
+    }
     if (h.role === 'ebeniste')    p.push(['menuiser', travail * 1.2, pourquoiTravail]);
     if (h.role === 'tailleur')    p.push(['tailler', travail * 1.2, pourquoiTravail]);
     if (h.role === 'bucheron')    p.push(['bûcheronner', travail * (village.bois < 40 ? 1.6 : 0.2),
