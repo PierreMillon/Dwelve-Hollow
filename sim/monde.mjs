@@ -56,7 +56,18 @@ export const REGLAGES = {
   plafondLassitude: 2.2,
   // Les conduites rares ne sont plus tirées au sort : elles doivent
   // l'emporter franchement quand leur moment vient, ou ne jamais venir.
-  poidsAccuser: 9,      // balayage : 26 était le réglage d'avant le soupçon ciblé
+  // LE RÉGLAGE QUI TENAIT PAR ACCIDENT. À 9, les bûchers restaient rares
+  // uniquement parce que le facteur « on n'accuse pas qui l'on aime »
+  // valait 0,03 pour tout le monde : tous les liens étaient collés à 1.
+  // Liens réparés, le même 9 donnait 1,03 bûcher par habitant — vingt et
+  // un morts sur vingt-six en dix ans. Le frein est maintenant explicite.
+  //
+  // Mesuré sur VINGT-QUATRE graines, parce que sur huit ce chiffre ne
+  // veut rien dire : l'écart-type vaut les deux tiers de la moyenne, et
+  // un premier balayage à huit graines m'a fait conclure « ce réglage ne
+  // change rien » alors qu'il fait tout. 9 → 1,03 · 4 → 0,52 ·
+  // 2,6 → 0,29 · 2 → 0,14 · 1 → 0,013.
+  poidsAccuser: 3,
   seuilFoule: 3,        // balayage : à 4, un village amoindri ne fait plus jamais foule
   cycleLune: 8,         // jours d'un cycle lunaire complet
   joursParSaison: 8,    // quatre saisons, donc une année de 32 jours et 4 lunes
@@ -94,10 +105,40 @@ export const REGLAGES = {
   // pour l'avoir appris. C'est ce nombre-là qui décide si un village
   // peut perdre son boulanger pour de bon.
   apprentissage: 4,     // journées passées près d'un maître pour savoir son métier
+  // CE QU'ON NE VOIT PLUS, ON S'EN ÉLOIGNE. Il n'y avait aucune
+  // décroissance des liens sauf pour ceux qu'une règle fait détester :
+  // un lien ne pouvait que monter, et tout le village finissait à 1.
+  // C'est ce taux qui, contre le gain, fixe où s'arrête une amitié —
+  // haute pour qui l'on croise tout le jour, basse pour qui l'on croise
+  // un matin sur vingt. L'amitié devient une chose qu'il faut entretenir.
+  // CE QU'IL FAUT POUR SE PROMETTRE À QUELQU'UN, en multiples de ce que
+  // « être proche » veut dire pour cette personne-là. C'était écrit en
+  // absolu — 0,72 pour aboutir une cour, 0,86 pour une promesse
+  // spontanée — et calibré quand tous les liens valaient 1. Le jour où
+  // le lien le plus fort d'un village est tombé à 0,84, la promesse
+  // spontanée est devenue littéralement impossible : plus de couples,
+  // plus d'enfants, et un village sur six qui s'éteint au bout de
+  // soixante ans sans qu'on comprenne pourquoi.
+  seuilCour: 1.7,       // aboutir une cour : être 1,7 fois plus proche que d'ordinaire
+  seuilPromesse: 2.1,   // se promettre sans avoir été courtisé
+  oubliLien: 0.30,      // par journée, proportionnel au lien — balayage : 0,09 laissait
+                        // encore 36 % des liens au-dessus de 0,80 ; à 0,30 les quartiles
+                        // sont 0,30 · 0,44 · 0,59 et le plus fort lien d'un village 0,86
   ruineApres: 6,        // journées avant qu'une maison vide commence à tomber
   // LA MÉMOIRE. Ce qu'on doit à quelqu'un divise ce qu'on lui soupçonne.
   poidsDette: 5,
-  detteQuiSauve: 0.55,  // au-delà, on parle devant la foule
+  // LE SEUIL QUI DÉCOUPLE. Les bûchers et « la parole qui sauve »
+  // tiraient sur la même corde : baisser l'accusation faisait disparaître
+  // les foules, donc les sauvetages avec. À 4, les bûchers étaient pile
+  // sur le plafond ; à 3, plus personne n'arrêtait jamais rien.
+  //
+  // Alors on sépare : l'accusation devient rare, et le sauvetage devient
+  // plus probable PAR foule. Mesuré sur 48 villages × 200 journées, à
+  // poids d'accusation 3 — dette 0,55 → 0,35 parole ; 0,35 → 1,06 ;
+  // 0,20 → 3,35 ; 0,10 → 3,81. Plus bas que 0,20, n'importe quel petit
+  // service sauverait du bûcher, et la phrase « on n'accuse pas celle qui
+  // a soigné votre mère » ne voudrait plus rien dire.
+  detteQuiSauve: 0.25,  // au-delà, on parle devant la foule
   // Un étranger sur cinquante sait un métier que le village a perdu.
   // À ce taux-là c'est une légende et non une réparation : mesuré, zéro
   // fois en 96 années de village. Le chemin est vérifié à part.
@@ -903,6 +944,10 @@ function souvenir(h, txt) {
   if (h.memoire.length > 14) h.memoire.shift();
 }
 const lien = (a, b) => a.liens.get(b) || 0;
+// « a est-il k fois plus proche de b qu'il ne l'est des gens en
+// général ? » Tous les seuils d'attachement passent par là : écrits en
+// absolu, ils ne valaient que pour l'échelle où ils avaient été mesurés.
+const plusProcheQue = (a, b, k) => lien(a, b) > k * Math.max(0.08, a.lienMoyen || 0);
 
 /* ---- CE QU'ON DOIT ---- */
 // Une dette n'est pas de l'affection : on peut devoir beaucoup à
@@ -998,9 +1043,19 @@ function malheur(x, z, force, sauf = null) {
   }
 }
 
+// ON NE GAGNE PLUS RIEN QUAND ON A DÉJÀ TOUT. Le gain était plat, donc
+// il suffisait de se croiser assez longtemps pour arriver à 1 et y
+// rester. Mesuré sur trois villages de trois cents journées : 99 % des
+// liens exactement à 1,00, quartiles 1,00 · 1,00 · 1,00. La valeur ne
+// disait plus rien, et tout ce qui la lit — le choix du maître
+// d'apprentissage, qui défend qui, qui s'exclut de la foule, le seuil de
+// la promesse — lisait une constante.
+//
+// Le gain se fait donc sur ce qui MANQUE : les premières heures avec
+// quelqu'un comptent, les centièmes ne comptent presque plus.
 function rapprocher(a, b, k) {
-  a.liens.set(b, Math.min(1, lien(a, b) + k));
-  b.liens.set(a, Math.min(1, lien(b, a) + k));
+  a.liens.set(b, Math.min(1, lien(a, b) + k * (1 - lien(a, b))));
+  b.liens.set(a, Math.min(1, lien(b, a) + k * (1 - lien(b, a))));
 }
 
 const estNuit = () => village.heure < 0.22 || village.heure > 0.86;
@@ -1043,12 +1098,23 @@ function poidsDes(h) {
     // le prêtre écouté rend l'accusation plus facile : son autorité vient
     // s'ajouter à la superstition de chacun
     const poussee = h.superstition + village.autorite * 0.8;
-    // on n'accuse pas quelqu'un qu'on aime bien : la foule s'exclut
-    // toute seule de ceux qui connaissent la victime, sans qu'aucune
-    // règle ne dise « épargner ses amis »
+    // ON N'ACCUSE PAS QUELQU'UN DONT ON EST PLUS PROCHE QUE DES AUTRES.
+    // C'était écrit `1 - proche`, en absolu. Ça marchait par accident :
+    // tous les liens étaient collés à 1, donc le facteur valait 0,03 pour
+    // tout le monde et retenait le village entier. Le jour où les liens
+    // ont voulu dire quelque chose, le même village a brûlé vingt et un
+    // des siens en dix ans — l'équilibre reposait sur le défaut.
+    //
+    // La comparaison est donc relative, et vraie à n'importe quelle
+    // échelle : on épargne celui dont on est plus proche que de
+    // l'ordinaire de sa vie, et on accuse celui qu'on connaît moins que
+    // les autres. Un village où personne n'est plus proche de personne
+    // reste dangereux — mais par sa froideur, plus par un chiffre.
     const proche = Math.max(lien(h, cible), h.secret === cible ? h.secretForce : 0);
+    const ordinaire = Math.max(0.05, h.lienMoyen || 0);
+    const epargne = Math.min(1, proche / ordinaire);
     const rancoeur = h.deteste === cible ? 2.5 : 1;   // une règle « déteste » pèse ici
-    p.push(['accuser', h.soupcon * poussee * (0.25 + h.peur) * R.poidsAccuser * (1 - proche) * rancoeur,
+    p.push(['accuser', h.soupcon * poussee * (0.25 + h.peur) * R.poidsAccuser * (1 - epargne) * rancoeur,
             `soupçon ${n2(h.soupcon)} × superstition ${n2(h.superstition)}` +
             (village.autorite > 0.4 ? ` · le prêtre est écouté` : '') +
             (proche > 0.2 ? ` · mais il tient à ${cible.prenom}` : '') +
@@ -1747,7 +1813,7 @@ function tenterFlirt(h) {
     }
     // et ça peut aboutir : courtiser quelqu'un rapproche plus vite que
     // simplement le croiser, donc l'engagement arrive pour de bon
-    if (lien(h, c) > 0.72 && lien(c, h) > 0.72 && !c.aime && !h.aime) {
+    if (plusProcheQue(h, c, R.seuilCour) && plusProcheQue(c, h, R.seuilCour) && !c.aime && !h.aime) {
       h.aime = c; c.aime = h; h.courtise = null;
       noter(`${h.prenom} et ${c.prenom} se sont promis l'un à l'autre.`, true, h);
       marquerAnnee(1.2, `l'année de ${h.prenom} et ${c.prenom}`);
@@ -2018,7 +2084,8 @@ function voisinage(dt) {
       }
 
       // et quand deux personnes ne se quittent plus, ça finit par se dire
-      if (!a.aime && !b.aime && lien(a, b) > 0.86 && a.role !== 'colporteur' && b.role !== 'colporteur') {
+      if (!a.aime && !b.aime && plusProcheQue(a, b, R.seuilPromesse) &&
+          plusProcheQue(b, a, R.seuilPromesse) && a.role !== 'colporteur' && b.role !== 'colporteur') {
         a.aime = b; b.aime = a;
         noter(`${a.prenom} et ${b.prenom} se sont promis l'un à l'autre.`, true, a);
       marquerAnnee(1.2, `l'année de ${a.prenom} et ${b.prenom}`);
@@ -2835,6 +2902,23 @@ function reprendreUnMetier() {
 }
 
 function finDeJournee() {
+  // Chaque lien perd un peu de lui-même chaque soir — celui qu'on a vu
+  // aussi, mais lui le regagne le lendemain. C'est la différence entre
+  // les deux qui fait la place d'un ami.
+  for (const h of habitants) {
+    if (!h.vivant) continue;
+    let somme = 0, combien = 0;
+    for (const [b, l] of h.liens) {
+      const v = l * (1 - R.oubliLien);
+      if (v < 0.004) { h.liens.delete(b); continue; }
+      h.liens.set(b, v);
+      if (b.vivant) { somme += v; combien++; }
+    }
+    // Ce que « être proche de quelqu'un » veut dire POUR LUI. Un
+    // solitaire et un homme de la place n'ont pas la même échelle, et
+    // c'est à leur propre échelle qu'ils épargnent ou accusent.
+    h.lienMoyen = combien ? somme / combien : 0;
+  }
   // L'ANNÉE QUI VIENT DE FINIR. `village.annee` est encore celle de la
   // veille à cet instant — la saison n'est recalculée qu'au tour suivant —
   // donc c'est bien l'année close qu'on nomme.

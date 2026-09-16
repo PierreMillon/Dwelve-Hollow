@@ -2754,7 +2754,133 @@ pas été touché. À voir si Pierre veut les rapprocher.
 
 ---
 
+## L'amitié valait 1,00 pour tout le monde (v0.33)
+
+Pierre, en une phrase&nbsp;: *«&nbsp;L'amitié reste trop bloquée à
+1&nbsp;»*. Mesuré avant de toucher quoi que ce soit&nbsp;:
+
+```
+graine 7     — 604 liens >0 · à 1,00 exactement : 598 (99 %)
+               quartiles 1,00 · 1,00 · 1,00 · max 1,00
+```
+
+**99 % des liens exactement à 1,00.** Tout le village s'aimait au
+maximum, sans distinction. Et cette valeur décide du choix du maître
+d'apprentissage, de qui défend qui, de qui s'exclut d'une foule, du seuil
+de la promesse&nbsp;: tout ça lisait une constante depuis des semaines.
+
+La cause est simple&nbsp;: **un lien ne pouvait que monter.** Aucune
+décroissance, sauf pour ceux qu'une règle fait détester.
+
+### La correction
+
+Le gain se fait sur ce qui manque — `k × (1 − lien)` — donc les premières
+heures avec quelqu'un comptent et les centièmes presque plus. Et chaque
+lien perd 30 % de lui-même chaque soir.
+
+| | avant | après |
+|---|---|---|
+| à 1,00 exactement | 99 % | **0 %** |
+| quartiles | 1,00 · 1,00 · 1,00 | **0,33 · 0,40 · 0,49** |
+| plus fort lien d'un village | 1,00 | 0,84 |
+
+L'amitié redevient une chose qu'il faut entretenir.
+
+### Trois réglages tenaient par le défaut
+
+C'est là que ça devient intéressant. Réparer les liens a fait tomber
+trois choses d'un coup, toutes calibrées dans un monde où tout valait 1.
+
+**La paix sociale.** Le seul frein au bûcher était « on n'accuse pas
+quelqu'un qu'on aime&nbsp;», écrit `1 − proche`. Comme `proche` valait
+0,98 pour tout le monde, ce facteur valait 0,03 et retenait le village
+entier. Liens réparés, le même village brûlait **1,03 habitant par
+habitant** — vingt et un morts sur vingt-six en dix ans.
+
+**La promesse.** Il fallait un lien de 0,86 pour se promettre
+spontanément à quelqu'un, dans un monde qui plafonne maintenant à 0,84.
+Littéralement impossible.
+
+**Le banc d'essai lui-même.** Voir la section suivante.
+
+Tous ces seuils passent en **relatif**&nbsp;: `plusProcheQue(a, b, k)`
+demande « a est-il k fois plus proche de b qu'il ne l'est des gens en
+général&nbsp;? ». Ça se lit à n'importe quelle échelle et ça restera vrai
+si l'oubli est retouché un jour.
+
+Et le frein du bûcher devient explicite plutôt qu'accidentel&nbsp;: le
+poids d'accusation passe de 9 à 3, et le seuil de dette qui fait parler
+quelqu'un devant la foule de 0,55 à 0,25 — parce que les deux tiraient
+sur la même corde. Baisser l'accusation faisait disparaître les foules,
+donc les sauvetages avec&nbsp;; il fallait rendre le sauvetage plus
+probable PAR foule.
+
+| à poids d'accusation 3 | dette 0,55 | 0,35 | 0,20 |
+|---|---|---|---|
+| bûchers par habitant | 0,260 | 0,260 | 0,217 |
+| foules arrêtées d'un mot | 0,35 | 1,06 | 3,35 |
+
+### Ce que ça a coûté, et la leçon
+
+Trois erreurs de méthode dans la même nuit, toutes la même&nbsp;:
+**j'ai cru des mesures trop bruitées.**
+
+1. Un balayage du poids d'accusation sur huit graines m'a fait écrire
+   «&nbsp;ce réglage ne change rien&nbsp;». Sur vingt-quatre&nbsp;:
+   9 → 1,03 · 4 → 0,52 · 2 → 0,14 · 1 → 0,013. Il fait tout.
+2. Quatre valeurs voisines du taux d'oubli ont donné 0,40 / 0,94 / 0,55 /
+   0,83 — non monotone. J'en ai tiré des conclusions pendant trois
+   mesures avant de comprendre que c'était du bruit.
+3. J'ai annoncé que le seuil relatif «&nbsp;ne réparait pas le
+   décrochage&nbsp;» parce que les naissances ne bougeaient pas sur 400
+   journées. Sur 2000, il fait passer le creux de 2 à 5.
+
+**Un chiffre d'événement rare ne se lit pas sur huit graines.** C'est
+écrit dans `equilibre.mjs` maintenant.
+
+### Résultat
+
+Les **dix-sept cibles courtes** tiennent sur 48 villages, les **cinq
+longues** aussi. Page vérifiée au navigateur, aucune erreur console.
+
+### Réserve honnête
+
+`creux le plus bas` vaut **5,00 pour un plancher de 5** — la graine 23757
+descend à 5 habitants au jour 2000. Ça passe, mais tout juste. Ce village
+reste le plus fragile des six et mérite qu'on le regarde.
+
+---
+
+## Seize villages ne suffisaient pas
+
+Plusieurs cibles comptent des **événements rares**. Mesuré sur 96
+villages, les pertes définitives valent 0,563 en moyenne — mais&nbsp;:
+
+```
+répartition : 0 → 77 villages   2 → 13   4 → 4   5 → 1   7 → 1
+```
+
+**77 villages sur 96 n'en ont aucune.** L'écart-type vaut plus du double
+de la moyenne. Sur seize villages, l'erreur-type est alors de 0,32 pour
+une moyenne de 0,56&nbsp;: le banc pouvait lire n'importe quoi entre 0 et
+1,2 sans qu'une ligne de code ait changé.
+
+Une cible a raté à 0,02 du plancher pour cette seule raison, et j'ai
+failli corriger un jeu qui n'avait rien.
+
+`--check` tourne donc sur **48 villages** au lieu de 16. L'erreur-type
+tombe à 0,19, et le banc coûte trois minutes au lieu d'une. Un banc rapide
+auquel on ne peut pas se fier ne fait pas gagner de temps.
+
+---
+
 ## 📜 Historique
+
+- **2026-09-16** — L'amitié valait 1,00 pour 99 % des liens. Réparée, elle
+  a fait tomber trois réglages qui tenaient par ce défaut — la paix
+  sociale, la promesse, et le banc d'essai lui-même. Tous les seuils
+  d'attachement passent en relatif. `--check` passe à 48 villages parce
+  que 16 ne mesuraient rien. v0.33.
 
 - **2026-09-14 (soir)** — Les légendes existent. Le genre `legende` était
   vide depuis sa création&nbsp;; une légende se compose maintenant d'un

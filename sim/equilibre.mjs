@@ -239,7 +239,25 @@ function verifier(a) {
 // Depuis les saisons, quatre-vingts jours ne font que deux années et
 // demie : trop court pour qu'un hiver compte, et trop court pour voir
 // grandir un enfant. Le contrôle passe à 200 jours, soit six années.
-const runs = arg('runs', drapeau('check') ? 16 : 12);
+// SEIZE VILLAGES NE SUFFISAIENT PAS, ET ÇA A COÛTÉ UNE NUIT.
+//
+// Plusieurs cibles comptent des ÉVÉNEMENTS RARES — bûchers, pertes
+// définitives, foules arrêtées d'un mot. Mesuré sur 96 villages : les
+// pertes définitives valent 0,563 en moyenne, mais 77 villages sur 96
+// n'en ont aucune et les autres en ont 2, 4, 5, 7. L'écart-type vaut plus
+// du double de la moyenne.
+//
+// Sur seize villages, l'erreur-type est alors de 0,32 pour une moyenne de
+// 0,56 : le banc pouvait lire n'importe quoi entre 0 et 1,2 sans qu'une
+// ligne de code ait changé. Deux conséquences vécues le 15 septembre —
+// une cible a raté à 0,02 du plancher pour rien, et un balayage du poids
+// d'accusation sur huit graines m'a fait écrire « ce réglage ne change
+// rien » alors qu'il fait passer les bûchers de 0,013 à 1,03.
+//
+// À 48, l'erreur-type tombe à 0,19 et le banc vaut ce qu'il annonce. Ça
+// coûte trois minutes au lieu d'une. Un banc rapide auquel on ne peut pas
+// se fier ne fait pas gagner de temps.
+const runs = arg('runs', drapeau('check') ? 48 : 12);
 const jours = arg('jours', drapeau('check') ? 200 : 60);
 const graine0 = arg('graine', 1);
 
