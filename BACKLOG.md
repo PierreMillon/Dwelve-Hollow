@@ -3004,7 +3004,87 @@ un piège qui existait avant lui. Il attend le feu vert de Pierre pour
 
 ---
 
+## Le troisième acte, tranché (v0.36)
+
+Pierre&nbsp;: *«&nbsp;Fonce&nbsp;»*. La branche `amour` est fusionnée, et
+la question du troisième acte est tranchée — sur des mesures, et après
+**deux hypothèses fausses de ma part**, toutes deux démenties par le banc.
+
+### Première hypothèse fausse&nbsp;: «&nbsp;ce n'est que du bruit&nbsp;»
+
+J'avais mesuré `pertes définitives` à 0,563 sur 96 villages *avant* le
+correctif du bois, et j'ai supposé que le 0,33 du banc à 48 villages
+était un échantillonnage malheureux. Relancé sur **96 villages après le
+correctif&nbsp;: 0,24**. La cible ratait pour de bon — le verrou réparé,
+le village perd beaucoup moins de lignées et de maisons. Le troisième
+acte s'est affaibli en même temps que le village guérissait.
+
+### Seconde hypothèse fausse&nbsp;: «&nbsp;l'apprentissage est le levier&nbsp;»
+
+Vrai, mais je n'allais pas assez loin. De 4 à 24 journées, rien ne bouge.
+
+| apprentissage | métiers perdus / 62 ans | sachants / métier | pop. finale | creux |
+|---|---|---|---|---|
+| 4 | **0,00** | 10,7 | 27,0 | 17 |
+| 9 | 0,00 | 11,7 | 26,7 | 17 |
+| 15 | 0,17 | 10,2 | 26,7 | 17 |
+| 24 | 0,17 | 10,3 | 26,7 | 17 |
+| **60** | **0,50** | **6,9** | 26,7 | 17 |
+| 120 | 1,00 | 5,0 | 23,0 | **4** |
+
+### Le vrai diagnostic
+
+Mesuré au jour 800&nbsp;: **dix personnes sur vingt-cinq savaient chaque
+métier**. Pour qu'un métier se perde, il aurait fallu que les dix meurent
+ensemble. Ce n'était pas une catastrophe qui manquait&nbsp;: **le savoir
+ne coûtait rien.**
+
+`apprentissage` passe de 4 à **60 journées** — deux années de village
+près du même homme, ce qui reste court pour un apprentissage. À 120 le
+village commence à souffrir (creux 4)&nbsp;; à 60 il ne souffre pas et il
+peut de nouveau perdre.
+
+### Et le plancher de la cible courte
+
+Il descend de 0,40 à **0,12**, et ce n'est pas un ajustement de confort.
+
+Sur deux cents journées — six années — un métier qui demande deux ans
+d'apprentissage n'a pas le temps de disparaître. **Le troisième acte ne
+vit pas à cet horizon-là.** Il se mesure dans `--long`, où les métiers
+perdus repassent de 0,00 à 0,17 par village sur soixante-deux ans.
+
+Le plancher de 0,40 mesurait un village qui s'effondrait tous les six ans
+parce qu'il se verrouillait sur le bois. À 0,12, la cible continue
+d'attraper «&nbsp;il ne se passe jamais rien d'irréversible&nbsp;» sans
+exiger la fragilité d'un bug.
+
+Des deux lectures posées à Pierre, c'est donc la première qui était
+juste — mais le travail de la seconde a été fait aussi, et c'est lui qui
+rend la première défendable.
+
+### L'état
+
+**Les dix-neuf cibles courtes tiennent**, les **cinq longues** aussi.
+Population 26,7 au jour 2000, creux 22, aucun village éteint, 34
+naissances. Page vérifiée au navigateur.
+
+### Ce qui reste ouvert
+
+La perte d'un métier est revenue mais reste rare&nbsp;: 0,17 par village
+sur six villages, c'est un métier perdu quelque part. Trop peu pour en
+faire une cible longue sans qu'elle clignote — il faudrait plus de
+graines, donc plus de temps de banc. Noté, pas fait.
+
+---
+
 ## 📜 Historique
+
+- **2026-09-21** — `amour` fusionnée. Troisième acte tranché : on
+  apprenait un métier en quatre journées, dix personnes sur vingt-cinq
+  savaient chacun des métiers, et plus rien ne pouvait se perdre. Soixante
+  journées d'apprentissage, et le plancher de la cible courte descendu à
+  la réalité mesurée — le troisième acte se joue sur soixante ans, pas sur
+  six. v0.36.
 
 - **2026-09-16 (nuit)** — Branche `amour` remesurée sur la base réparée :
   la session longue tient, seule rate la cible du troisième acte, qui rate

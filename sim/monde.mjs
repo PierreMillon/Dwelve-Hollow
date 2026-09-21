@@ -104,7 +104,24 @@ export const REGLAGES = {
   // LE TROISIÈME ACTE. Un métier ne se reprend que s'il reste quelqu'un
   // pour l'avoir appris. C'est ce nombre-là qui décide si un village
   // peut perdre son boulanger pour de bon.
-  apprentissage: 4,     // journées passées près d'un maître pour savoir son métier
+  // ON N'APPREND PAS UN MÉTIER EN QUATRE JOURS. C'était le réglage, et
+  // il rendait le troisième acte arithmétiquement impossible : mesuré au
+  // jour 800, DIX personnes sur vingt-cinq savaient chaque métier. Pour
+  // qu'un métier se perde il aurait fallu que les dix meurent ensemble.
+  // Zéro métier perdu sur six villages et soixante-deux années.
+  //
+  // Ce n'était pas une catastrophe qui manquait, c'est que le savoir ne
+  // coûtait rien. Soixante journées, c'est deux années de village passées
+  // près du même homme — et c'est encore court pour un apprentissage.
+  //
+  // Balayé sur 6 villages × 2000 journées (métiers perdus · sachants par
+  // métier · population finale · creux) :
+  //    4 → 0,00 · 10,7 · 27,0 · 17      15 → 0,17 · 10,2 · 26,7 · 17
+  //    9 → 0,00 · 11,7 · 26,7 · 17      24 → 0,17 · 10,3 · 26,7 · 17
+  //   60 → 0,50 ·  6,9 · 26,7 · 17     120 → 1,00 ·  5,0 · 23,0 ·  4
+  // À 120 le village commence à souffrir ; à 60 il ne souffre pas et il
+  // peut de nouveau perdre.
+  apprentissage: 60,    // journées passées près d'un maître pour savoir son métier
   // CE QU'ON NE VOIT PLUS, ON S'EN ÉLOIGNE. Il n'y avait aucune
   // décroissance des liens sauf pour ceux qu'une règle fait détester :
   // un lien ne pouvait que monter, et tout le village finissait à 1.

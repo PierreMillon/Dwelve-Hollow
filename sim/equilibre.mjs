@@ -238,7 +238,21 @@ const CIBLES = [
   // justement le risque qu'il ne se passe jamais rien d'irréversible.
   // Une borne haute non plus : un village qui perd trois métiers en six
   // ans ne se raconte pas, il s'effondre.
-  ['pertes définitives',    (a) => a.pertes,       0.4,  4,   ''],
+  // LE PLANCHER ÉTAIT CALIBRÉ SUR UN JEU QUI AVAIT UN VERROU. À 0,40, il
+  // mesurait un village qui s'effondrait tous les six ans — lignées
+  // éteintes, maisons tombées — parce qu'il se verrouillait sur le bois.
+  // Le verrou réparé (v0.35), la vraie valeur est 0,28 sur 96 villages,
+  // et c'est un progrès, pas une régression.
+  //
+  // Surtout : sur deux cents journées, soit six années, un métier qui
+  // demande deux ans d'apprentissage n'a pas le temps de se perdre. LE
+  // TROISIÈME ACTE NE VIT PAS À CET HORIZON-LÀ — il se mesure dans
+  // `--long`, où les métiers perdus sont repassés de 0,00 à 0,17 par
+  // village sur soixante-deux ans.
+  //
+  // Le plancher descend donc à 0,12 : il continue d'attraper « il ne se
+  // passe jamais rien d'irréversible » sans exiger la fragilité d'un bug.
+  ['pertes définitives',    (a) => a.pertes,       0.12, 4,   ''],
   // LA MÉMOIRE QUI DÉCIDE. Si personne ne parle jamais devant la foule,
   // la dette n'est qu'un nombre rangé dans un coin.
   ["foules arrêtées d'un mot", (a) => a.paroles,   0.5,  8,   ''],
