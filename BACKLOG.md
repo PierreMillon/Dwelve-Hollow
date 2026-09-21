@@ -3181,7 +3181,63 @@ murs.
 
 ---
 
+## La loupe de l'iPhone, et le cache qui ne l'a pas suivie (v0.38)
+
+Un appui un peu long sur la chronique faisait surgir l'ovale grossissant
+d'iOS par-dessus le village. La feuille de style ne suffit pas&nbsp;: iOS
+ouvre sa loupe à partir d'une **sélection**, et n'envoie pas
+`selectstart`. On écoute donc le changement de sélection lui-même et on la
+replie dans la foulée, on coupe le menu contextuel et le pincement de
+Safari, et la sélection est interdite partout sauf dans les champs de
+saisie.
+
+### Le correctif était juste, et il ne serait arrivé chez personne
+
+En reprenant le dépôt, `index.html` disait v0.38 et `sw.js` disait encore
+`dwelve-v0.37`. Le nom du cache porte le numéro de version&nbsp;: tant
+qu'il ne bouge pas, quelqu'un qui a déjà installé le jeu garde l'ancienne
+page **indéfiniment**. Le correctif de la loupe visait précisément un
+iPhone installé&nbsp;— c'est-à-dire le seul endroit où il ne serait jamais
+descendu.
+
+Le plus instructif n'est pas l'oubli, c'est que le fichier se prévenait
+lui-même. En haut de `sw.js`, depuis la première version, il y avait
+déjà&nbsp;:
+
+> À MONTER À CHAQUE VERSION DU JEU, sans quoi les visiteurs déjà
+> installés garderont l'ancienne page indéfiniment.
+
+**Un commentaire ne retient rien.** Il est lu par celui qui édite le
+fichier, et ici le fichier n'avait pas été ouvert du tout. D'où
+`sim/version.mjs`&nbsp;: il relit les trois endroits où le numéro
+s'écrit — le bouton du coin, la ligne courante de l'historique du menu, le
+nom du cache — et sort en erreur s'ils divergent.
+
+Vérifié dans les deux sens, parce qu'un garde-fou qui ne peut pas échouer
+ne garde rien&nbsp;: vert sur les trois v0.38, et rouge avec le code de
+sortie 1 en remettant le cache à v0.37.
+
+**À faire avant chaque livraison, maintenant&nbsp;:**
+
+```
+node sim/version.mjs
+node sim/equilibre.mjs --check
+```
+
+Banc d'essai repassé sur la tête fusionnée&nbsp;: dix-neuf cibles courtes
+et les deux propriétés de détermination, toutes vertes (26,35 habitants,
+0,88 perte définitive, 3,08 légendes par village).
+
+---
+
 ## 📜 Historique
+
+- **2026-09-21 (soir)** — La loupe d'iOS ne s'ouvre plus sur la chronique
+  (la sélection elle-même guettée et repliée, faute de `selectstart` sur
+  iOS). Et le cache du service worker, resté à v0.37 alors que la page
+  passait en v0.38 : le correctif n'aurait atteint aucun téléphone
+  installé. Garde-fou `sim/version.mjs` ajouté, vérifié rouge puis vert.
+  v0.38.
 
 - **2026-09-21 (suite)** — Le chantier du monastère : sept campagnes, la
   congrégation qui n'arrive qu'après le chevet, l'enceinte qui se craint
