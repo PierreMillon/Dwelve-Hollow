@@ -31,6 +31,26 @@
   }
   canvas { display: block; touch-action: none; }
 
+  /* LA LOUPE DE L'IPHONE. Un appui un peu long sur du texte fait surgir
+     l'ovale grossissant d'iOS — celui de la sélection — par-dessus le jeu.
+     Il ne naît que là où le texte est sélectionnable : on l'interdit
+     partout, sauf dans les champs où l'on tape vraiment.
+
+     Le « !important » est ici à sa place : ce n'est pas un réglage de mise
+     en page, c'est une interdiction, et une règle universelle a la
+     spécificité la plus faible du document — la moindre règle plus précise
+     écrite plus bas la reprendrait. */
+  *:not(input):not(textarea) {
+    -webkit-user-select: none !important;
+    user-select: none !important;
+    -webkit-touch-callout: none !important;
+    -webkit-tap-highlight-color: transparent;
+  }
+  /* et la loupe se nourrit aussi du curseur de texte : rien ici ne se
+     présente comme du texte à prendre */
+  *:not(input):not(textarea) { cursor: default; }
+  a, button, label, summary { cursor: pointer; }
+
   #hud {
     position: fixed; top: 0; left: 0; z-index: 2;
     padding: 8px 12px;
@@ -438,7 +458,7 @@
   <span class="title">DWELVE HOLLOW</span>
 </div>
 
-<button id="version">v0.37</button>
+<button id="version">v0.38</button>
 
 <div id="saison">an <b id="s-an">1</b> · <b id="s-saison">printemps</b> · jour <b id="s-jour">1</b> · <b id="s-phase">aube</b> · <b id="s-lune">lune</b> · pain <b id="s-pain">0</b> · peur <b id="s-peur">0 %</b><span id="s-annee"></span></div>
 
@@ -608,7 +628,13 @@
   <div class="contenu">
     <h2>DWELVE HOLLOW — HISTORIQUE</h2>
 
-    <div class="v courante"><b>v0.37</b> — <b>le chantier du monastère, et des chemins qui ne sont plus des droites.</b>
+    <div class="v courante"><b>v0.38</b> — <b>la loupe de l'iPhone ne s'ouvre plus.</b>
+      Un appui un peu long sur le texte faisait surgir l'ovale grossissant d'iOS par-dessus le
+      village. Rien ici ne se sélectionne&nbsp;: la sélection se replie d'elle-même, le menu
+      contextuel et le pincement sont coupés. Les panneaux défilent comme avant.
+    </div>
+
+    <div class="v"><b>v0.37</b> — <b>le chantier du monastère, et des chemins qui ne sont plus des droites.</b>
       Une abbaye cistercienne des Corbières se bâtit en <b>sept campagnes</b>, du chevet à l'enceinte,
       sur cinquante-trois années — la longueur d'une session longue. On bâtit par l'est, pour dire la
       messe avant d'avoir un toit&nbsp;; la <b>congrégation n'arrive qu'à la fermeture du chevet</b>, et
@@ -944,6 +970,38 @@ import { LineSegmentsGeometry } from './vendor/three/LineSegmentsGeometry.js';
 import { LineMaterial } from './vendor/three/LineMaterial.js';
 import { AVION_SOMMETS, AVION_TRIANGLES } from './models/avion.js';
 import { creerMonde, graineDepuis } from './sim/monde.mjs';
+
+/* ================================================================
+   0. LA LOUPE DE L'IPHONE, POUR DE BON.
+
+   La feuille de style dit au navigateur ce qui est sélectionnable, et
+   elle ne suffit pas : iOS ouvre sa loupe à partir d'une SÉLECTION, et
+   il n'envoie pas « selectstart » pour prévenir. Il change la sélection,
+   puis il montre l'ovale grossissant — au milieu de la chronique qu'on
+   était en train de lire au pouce.
+
+   On écoute donc le changement lui-même et on replie la sélection dans
+   la foulée : il n'y a rien à sélectionner ici, sauf dans un champ de
+   saisie, qu'on laisse tranquille. Sans sélection, pas de loupe.
+
+   Le menu contextuel et le pincement de Safari sont coupés au passage :
+   un appui long et un zoom n'ont aucun sens sur un jeu plein écran, et
+   ce sont les deux autres portes d'entrée du même geste. Rien ici ne
+   touche au défilement des panneaux, qui garde ses propres écouteurs.
+   ================================================================ */
+document.addEventListener('contextmenu', e => e.preventDefault(), { passive: false });
+document.addEventListener('selectstart', e => {
+  const a = document.activeElement;
+  if (a && (a.tagName === 'INPUT' || a.tagName === 'TEXTAREA')) return;
+  e.preventDefault();
+}, { passive: false });
+document.addEventListener('selectionchange', () => {
+  const a = document.activeElement;
+  if (a && (a.tagName === 'INPUT' || a.tagName === 'TEXTAREA')) return;
+  const sel = document.getSelection && document.getSelection();
+  if (sel && !sel.isCollapsed) { try { sel.removeAllRanges(); } catch (e) {} }
+});
+document.addEventListener('gesturestart', e => e.preventDefault(), { passive: false });
 
 /* ================================================================
    1. LE MONDE
