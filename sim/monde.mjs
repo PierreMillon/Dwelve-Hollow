@@ -120,6 +120,21 @@ export const REGLAGES = {
   // plus d'enfants, et un village sur six qui s'éteint au bout de
   // soixante ans sans qu'on comprenne pourquoi.
   seuilCour: 1.7,       // aboutir une cour : être 1,7 fois plus proche que d'ordinaire
+  seuilAmitie: 1.6,     // et pour que ça s'appelle une amitié, réciproque
+  // Combien de fois la passion neuve doit dépasser la tendresse qui
+  // retient pour qu'une promesse se rompe. Haut exprès : ça doit rester
+  // l'exception qu'on raconte, pas un chassé-croisé de village.
+  rompreMalgre: 1.9,
+  repitRupture: 4,      // en saisons : on ne manque pas à sa parole deux fois de suite
+  // UNE PASSION NE S'ENTRETIENT PAS EN VIVANT ENSEMBLE. Elle avait un
+  // terme de rallumage par la présence : elle se stabilisait alors à 0,43
+  // pour toujours, et la bascule tombait au 146e jour. Pierre a écrit
+  // « Passion, 3 à 6 mois » — soit huit à seize journées de village. Elle
+  // s'allume donc à un ÉVÉNEMENT (voir etincelle) et ne fait plus que
+  // décroître ensuite, chacun à sa demi-vie.
+  flammeRallume: 0,
+  monteeTendresse: 0.020,   // par journée passée ensemble
+  detteAttache: 0.14,       // et par ce qu'on doit à quelqu'un — c'est ça, surtout
   seuilPromesse: 2.1,   // se promettre sans avoir été courtisé
   oubliLien: 0.30,      // par journée, proportionnel au lien — balayage : 0,09 laissait
                         // encore 36 % des liens au-dessus de 0,80 ; à 0,30 les quartiles
@@ -575,6 +590,18 @@ function creerHabitant(role, logis) {
     // ce qu'il a vécu. La collision a donné des NaN partout et le contrôle
     // l'a vue au premier passage.
     souvenance: entre(0, 1),      // certains n'oublient ni les dettes ni les bontés
+    // LA CONSTANCE. Demi-vie de la passion, en journées. C'est elle qui
+    // fait que la bascule n'arrive pas le même jour pour tout le monde :
+    // chez l'un la passion est retombée sous la tendresse au quatrième
+    // jour, chez l'autre elle tient trois semaines. Pierre : « trois
+    // barres, et la bascule se fait variable ».
+    constance: entre(4, 20),
+    ardeur: entre(0, 1),          // ce qui décide du désir, et rien d'autre
+    // LE CŒUR. Une carte à part, et pas un chiffre de plus dans `liens` :
+    // on n'a pas une passion pour les vingt-cinq personnes du village. On
+    // n'y entre que par une cour, une promesse, ou un lien qui déborde.
+    coeur: new Map(),             // personne → { passion, tendresse, habitude, desir, depuis }
+    ami: null,                    // le plus proche, nommé — voir majAmities()
     // besoins : ils montent seuls, ce sont eux le moteur
     faim: entre(0, 0.4), fatigue: entre(0, 0.3), foi: entre(0, 0.5), peur: 0,
     soupcon: entre(0, 0.15), rancune: 0, chagrin: 0,
@@ -1134,7 +1161,16 @@ function poidsDes(h) {
   // prioritaire que la faim ou la fatigue
   if (h.courtise && h.courtise.vivant) {
     const lasse = Math.max(0, 1 - h.rembarrades * 0.28);   // on n'insiste pas indéfiniment
-    p.push(['courtiser', 2.2 * lasse * (1 - h.peur) * (nuit ? 0.25 : 1),
+    // LA PASSION DÉCIDE DES ACTES, et c'est tout ce qu'elle fait. Une
+    // tendresse de dix ans ne fait pas traverser le village ; une soirée
+    // encore chaude, si. C'est là que l'observation de Pierre entre dans
+    // le code, sans qu'aucune règle ne l'écrive.
+    const feu = (h.coeur.get(h.courtise) || {}).passion || 0;
+    // La passion S'AJOUTE, elle ne remplace pas. Écrit d'abord comme un
+    // facteur `0,45 + feu`, ça DIVISAIT par deux l'envie de courtiser de
+    // quiconque n'était pas en feu — moins de couples, moins d'enfants,
+    // et un village tombé à un habitant sur la graine 23757.
+    p.push(['courtiser', 2.2 * (1 + feu) * lasse * (1 - h.peur) * (nuit ? 0.25 : 1),
             `une règle : il tient à ${h.courtise.prenom}` +
             (h.rembarrades ? ` · rembarré ${h.rembarrades} fois` : '')]);
   }
@@ -1453,11 +1489,26 @@ function mourir(h, texte) {
   marquerAnnee(0.6, `l'année où l'on a perdu ${h.prenom}`);
   for (const a of habitants) {
     if (!a.vivant || a === h) continue;
-    const l = Math.max(lien(a, h), a.secret === h ? a.secretForce : 0);
-    if (l < 0.3) continue;
-    a.chagrin = Math.min(1, a.chagrin + l);
+    // LE DEUIL SE MESURE À LA TENDRESSE. Il se mesurait au lien, c'est-à-
+    // dire à la fréquence à laquelle on s'était croisés — on pleurait donc
+    // exactement autant son voisin de place que celui qui vous avait tiré
+    // du ruisseau. C'est le rôle de la tendresse, et le seul : elle ne
+    // pousse à rien, mais elle rend une absence insupportable.
+    const c = a.coeur.get(h);
+    const t = c ? c.tendresse : 0;
+    const l = Math.max(lien(a, h), a.secret === h ? a.secretForce : 0, t);
+    if (l < 0.3 && t < 0.18) continue;
+    // LE DEUIL SE RÉPARTIT, IL NE S'AJOUTE PAS. Écrit `l × 0,5 + t`, il
+    // passait de 0,4 à 1,1 pour un proche — et comme chacun a maintenant
+    // quatre ou cinq personnes dans le cœur, chaque mort endeuillait le
+    // village entier deux fois plus fort. Le chagrin nourrit l'usure,
+    // l'usure raccourcit les vies, et la graine 23757 s'est éteinte.
+    // On pleure donc PLUS celui à qui on tenait et MOINS le voisin de
+    // place, sans que le village pleure davantage au total.
+    a.chagrin = Math.min(1, a.chagrin + l * 0.3 + t * 0.6);
     a.compte.deuils++;
-    souvenir(a, `a perdu ${h.prenom}`);
+    souvenir(a, t > 0.3 ? `a perdu ${h.prenom}, et ne s'en remettra pas`
+                        : `a perdu ${h.prenom}`);
   }
   if (h.aime && h.aime.vivant) { souvenir(h.aime, `est resté${e(h.aime)} seul${e(h.aime)}`); h.aime.aime = null; }
   for (const a of habitants) if (a.mere === h && a.vivant) souvenir(a, `a perdu sa mère`);
@@ -1532,6 +1583,8 @@ function majNoyade(h) {
     village.noyadeCetteNuit = true;
     village.arrive.sauvetages++;
     devoir(h, sauveur, 1, 'a tiré du ruisseau');
+    // On ne sort pas indemne de la main qui vous repêche.
+    etincelle(h, sauveur, 0.7);
     noter(`${nommer(sauveur)} a entendu remuer dans l'eau. ${h.prenom} a eu de la chance.`, true, sauveur, 'bienfait');
     exploit(sauveur, `a tiré ${h.prenom} du ruisseau`, 2.6);
     souvenir(sauveur, `a repêché ${h.prenom} dans le brouillard`);
@@ -1797,6 +1850,7 @@ function tenterFlirt(h) {
   const c = h.courtise;
   if (!c || !c.vivant || village.temps < h.prochainFlirt) return;
   h.prochainFlirt = village.temps + 26;
+  etincelle(h, c, 0.35);
 
   // 1. elle en aime un autre. On peut insister une fois, pas trois.
   if (c.aime && c.aime !== h) {
@@ -1835,6 +1889,7 @@ function tenterFlirt(h) {
     // simplement le croiser, donc l'engagement arrive pour de bon
     if (plusProcheQue(h, c, R.seuilCour) && plusProcheQue(c, h, R.seuilCour) && !c.aime && !h.aime) {
       h.aime = c; c.aime = h; h.courtise = null;
+      etincelle(h, c, 1); etincelle(c, h, 0.8);
       noter(`${h.prenom} et ${c.prenom} se sont promis l'un à l'autre.`, true, h);
       marquerAnnee(1.2, `l'année de ${h.prenom} et ${c.prenom}`);
       souvenir(h, `s'est promis${e(h)} à ${c.prenom}`);
@@ -2107,6 +2162,7 @@ function voisinage(dt) {
       if (!a.aime && !b.aime && plusProcheQue(a, b, R.seuilPromesse) &&
           plusProcheQue(b, a, R.seuilPromesse) && a.role !== 'colporteur' && b.role !== 'colporteur') {
         a.aime = b; b.aime = a;
+        etincelle(a, b, 0.9); etincelle(b, a, 0.9);
         noter(`${a.prenom} et ${b.prenom} se sont promis l'un à l'autre.`, true, a);
       marquerAnnee(1.2, `l'année de ${a.prenom} et ${b.prenom}`);
         souvenir(a, `s'est promis${e(a)} à ${b.prenom}`);
@@ -2769,6 +2825,208 @@ function majRuines() {
   }
 }
 
+// ---- LE CŒUR ----
+// Trois forces séparées, chacune avec sa loi dans le temps, plus une
+// quatrième qui ne se dit pas. Aucune ne dérive des autres : c'est leur
+// désaccord qui fait toute l'histoire.
+//
+//   la passion   monte en deux journées, et retombe avec une demi-vie
+//                PROPRE À CHACUN — de quatre à vingt journées. C'est elle
+//                qui décide des actes.
+//   la tendresse monte lentement, par les services rendus et les jours
+//                passés ensemble, et ne retombe jamais. Elle ne pousse à
+//                rien, mais elle rend le deuil insupportable.
+//   l'habitude   la simple co-présence. Elle plafonne bas et ne devient
+//                visible que le jour où elle manque.
+//   le désir     monte vite, retombe vite, et ne se dit pas. Il ne
+//                s'affiche nulle part : il ne fait qu'incliner les pas.
+//
+// Ce que Pierre a écrit tient dans leur écart : « penser à une autre
+// personne une grande partie de la journée comme passion même si ce
+// n'était qu'une soirée, tandis que la personne du quotidien attentionnée
+// sera zappée. » La passion d'un soir pèse plus lourd que deux ans de
+// tendresse — pendant quelques jours, et pas les mêmes pour chacun.
+function coeurDe(h, a) {
+  let c = h.coeur.get(a);
+  if (!c) {
+    c = { passion: 0, tendresse: 0, habitude: 0, desir: 0, depuis: village.jour };
+    h.coeur.set(a, c);
+  }
+  return c;
+}
+
+// Une étincelle : on n'entre dans le cœur de quelqu'un que par un
+// événement, jamais par le simple fait d'exister dans le même village.
+function etincelle(h, a, force = 1) {
+  if (!h.vivant || !a || !a.vivant || h === a || a.role === 'enfant' || h.role === 'enfant') return;
+  const c = coeurDe(h, a);
+  c.passion = Math.min(1, c.passion + 0.42 * force * (1 - c.passion));
+  c.desir = Math.min(1, c.desir + 0.5 * force * h.ardeur * (1 - c.desir));
+}
+
+function majCoeurs() {
+  for (const h of habitants) {
+    if (!h.vivant || h.role === 'enfant') continue;
+
+    // ON SE MET À LA REGARDER AUTREMENT. Il manquait le commencement : le
+    // cœur ne s'allumait que sur une cour, une promesse ou un sauvetage,
+    // donc personne n'a jamais eu de passion pour quelqu'un qui n'était
+    // pas déjà son promis — et aucune promesse ne pouvait se rompre,
+    // faute de rival. Les deux bancs d'essai tournaient sur du code
+    // strictement identique, au centième près, ce qui l'a révélé.
+    //
+    // Pas de dé : c'est le temps passé ensemble qui allume, le jour où il
+    // dépasse ce qu'on partage avec les autres. L'ardeur décide seulement
+    // de qui s'en aperçoit.
+    if (h.age >= R.ageAdulte && h.ardeur > 0.35) {
+      let vu = null, fort = 0;
+      for (const [a, l] of h.liens) {
+        if (!a.vivant || a === h.aime || a.role === 'enfant') continue;
+        if (a.age < R.ageAdulte || h.coeur.has(a)) continue;
+        if (l > fort) { fort = l; vu = a; }
+      }
+      if (vu && plusProcheQue(h, vu, R.seuilCour)) etincelle(h, vu, 0.6 + h.ardeur * 0.4);
+    }
+
+    for (const [a, c] of h.coeur) {
+      if (!a.vivant) { c.passion *= 0.5; c.desir *= 0.4; continue; }
+      const ensemble = lien(h, a);            // ce qu'on a partagé récemment
+      const du = detteDe(h, a);               // ce qu'on lui doit
+
+      // LA PASSION SE NOURRIT DE CE QU'ON IGNORE DE L'AUTRE. Premier jet :
+      // elle se nourrissait de la seule présence, donc un couple qui vit
+      // ensemble l'entretenait indéfiniment — bascule médiane au 64e jour
+      // au lieu de la dizaine visée, et l'observation de Pierre passait à
+      // la trappe. Elle s'éteint à mesure qu'on connaît quelqu'un : c'est
+      // la tendresse elle-même qui lui coupe les vivres.
+      const inconnu = Math.max(0, 1 - c.tendresse * 1.6);
+      c.passion = Math.min(1, c.passion + R.flammeRallume * ensemble * inconnu * (1 - c.passion));
+      c.passion *= Math.pow(0.5, 1 / h.constance);
+
+      // LA TENDRESSE SE FAIT SURTOUT DE CE QU'ON SE DOIT. Écrite d'abord
+      // comme la passion — nourrie par la présence — elle saturait à 1,00
+      // pour tout le monde en quelques mois, exactement le défaut des
+      // liens d'amitié, et elle mangeait l'habitude puisque les deux
+      // vivaient de la même chose. On s'attache à qui nous a tenus
+      // debout ; vivre à côté de quelqu'un, c'est l'habitude, pas la
+      // tendresse.
+      c.tendresse = Math.min(1, c.tendresse +
+        (R.monteeTendresse * ensemble + R.detteAttache * du) * (1 - c.tendresse));
+      // Et elle s'efface très lentement, faute de quoi rien ne pouvait
+      // plus recommencer : une tendresse éternelle pour tous ceux qu'on a
+      // croisés interdit toute étincelle neuve, et le village n'avait
+      // plus une seule passion passé la première année. Demi-vie de cent
+      // soixante-dix journées — cinq années de village. On n'oublie pas
+      // quelqu'un, on cesse d'y penser tous les jours.
+      c.tendresse *= 0.996;
+
+      // l'habitude plafonne bas, et c'est exprès
+      c.habitude = Math.min(0.46, c.habitude + 0.016 * ensemble);
+
+      // le désir ne dure pas et ne laisse rien
+      c.desir = Math.min(1, c.desir + 0.22 * ensemble * h.ardeur * (1 - c.desir)) * 0.82;
+
+      // on oublie ceux dont il ne reste rien
+      if (c.passion < 0.01 && c.tendresse < 0.01 && c.habitude < 0.01) h.coeur.delete(a);
+    }
+  }
+}
+
+// Ce qui domine, ce soir, et qui se dit en un mot. Les trois forces n'ont
+// pas le même plafond — l'habitude s'arrête à 0,46 — donc on les compare
+// à leur propre échelle, sans quoi « habitué » ne sortait jamais : il
+// était en dernier d'une cascade de `if` que la tendresse gagnait
+// toujours.
+function etatDuCoeur(h, a) {
+  const c = h.coeur.get(a);
+  if (!c) return null;
+  const p = c.passion, t = c.tendresse, b = c.habitude / 0.46;
+  const fort = Math.max(p, t, b);
+  if (fort < 0.15) return null;
+  if (fort === p) return 'brûle';
+  if (fort === t) return 'tient';
+  return 'habitué';
+}
+
+// L'AMITIÉ NOMMÉE. Il n'y avait que des affinités sans nom — un chiffre
+// qui décidait de tout et que personne ne pouvait lire. Pierre : « oui,
+// et il se dit dans la chronique ».
+//
+// C'est le plus proche, à condition que ce soit réciproque et qu'il
+// sorte vraiment du lot. Un village n'a pas beaucoup d'amitiés de ce
+// genre, et elles ne se défont pas sans qu'on s'en aperçoive.
+// LA FIDÉLITÉ. Pierre a écrit « Fidélité, de cœur, toujours », et il a
+// tranché : « rarement, et ça coûte ». Une promesse tient donc, sauf le
+// jour où une passion neuve dépasse très largement la tendresse qui
+// retient — et ce jour-là le village s'en souvient pour toujours.
+//
+// C'est la seule chose de ce modèle qui entre dans « ce qui ne revient
+// pas » : on peut reprendre un métier, on ne reprend pas une promesse.
+function majPromesses() {
+  for (const h of habitants) {
+    if (!h.vivant || !h.aime || !h.aime.vivant) continue;
+    const garde = (h.coeur.get(h.aime) || {}).tendresse || 0;
+    let flamme = 0, autre = null;
+    for (const [a, c] of h.coeur) {
+      if (a === h.aime || !a.vivant || a.aime) continue;
+      if (c.passion > flamme) { flamme = c.passion; autre = a; }
+    }
+    // Le seuil doit rester ATTEIGNABLE. Écrit d'abord `garde × 1,8 + 0,30`,
+    // il demandait une flamme de 1,2 là où une passion plafonne à 0,42 :
+    // aucune promesse n'a jamais pu se rompre, et la cible le disait.
+    // Le seuil est resté inatteignable un tour de plus : une tendresse
+    // installée vaut 0,9, une passion neuve plafonne à 0,42. Il ne doit
+    // être franchissable QUE contre une tendresse encore jeune — ce qui
+    // est précisément le cas où une promesse se rompt vraiment.
+    // ON NE MANQUE PAS À SA PAROLE TOUS LES MOIS. Sans ce répit, le même
+    // village en comptait trente-deux en trois cents journées : les mêmes
+    // couples se défaisaient et se reformaient, et « ce qui ne reviendra
+    // pas » se remplissait de promesses rompues au point de noyer les
+    // métiers perdus et les lignées éteintes.
+    if (village.jour < (h.aRompu || 0) + R.joursParSaison * R.repitRupture) continue;
+    if (!autre || flamme < garde * R.rompreMalgre + 0.10) continue;
+    const quitte = h.aime;
+    h.aime = null; quitte.aime = null;
+    h.courtise = autre; h.prochainFlirt = 0; h.rembarrades = 0;
+    h.aRompu = village.jour;
+    quitte.chagrin = Math.min(1, quitte.chagrin + 0.8);
+    village.arrive.ruptures = (village.arrive.ruptures || 0) + 1;
+    perdre('promesse', `${h.prenom} a manqué à sa parole. ${quitte.prenom} est resté${e(quitte)} seul${e(quitte)}.`);
+    souvenir(h, `a manqué à sa parole envers ${quitte.prenom}`);
+    souvenir(quitte, `a été quitté${e(quitte)} par ${h.prenom}`);
+    return;                                   // une seule par journée
+  }
+}
+
+function majAmities() {
+  for (const h of habitants) {
+    if (!h.vivant || h.role === 'enfant') continue;
+    let meilleur = null, best = 0;
+    for (const [a, l] of h.liens) {
+      if (!a.vivant || a === h.aime || a.role === 'enfant') continue;
+      if (l > best) { best = l; meilleur = a; }
+    }
+    const digne = meilleur && plusProcheQue(h, meilleur, R.seuilAmitie) &&
+                              plusProcheQue(meilleur, h, R.seuilAmitie);
+    if (digne && h.ami !== meilleur) {
+      // on ne l'annonce qu'une fois, et du côté qui le découvre en
+      // premier : sinon la chronique dit deux fois la même chose
+      const nouveau = meilleur.ami !== h;
+      h.ami = meilleur;
+      if (nouveau) {
+        noter(`${h.prenom} et ${meilleur.prenom} ne se quittent plus.`, false, h, 'bienfait');
+        souvenir(h, `ne quitte plus ${meilleur.prenom}`);
+        souvenir(meilleur, `ne quitte plus ${h.prenom}`);
+      }
+    } else if (!digne && h.ami) {
+      // Se perdre de vue ne fait pas une ligne de chronique. C'est le
+      // genre de chose dont on s'aperçoit des années plus tard.
+      souvenir(h, `a fini par perdre ${h.ami.prenom} de vue`);
+      h.ami = null;
+    }
+  }
+}
+
 // ---- LES MÉTIERS ----
 // Ce que le village sait encore faire, ce soir. Le travail de la terre
 // n'est jamais perdu : tout le monde a vu faire.
@@ -2947,6 +3205,9 @@ function finDeJournee() {
   naissances();
   majExtinction();
   reprendreUnMetier();
+  majCoeurs();
+  majPromesses();
+  majAmities();
   apprendre();
   majLignees();
   majRuines();
@@ -3227,7 +3488,7 @@ return {
   poidsDes, choisirOccupation, lieuDe, tensionActuelle,
   nommer, nomComplet, souvenir, noter, lien, e, NOM_ROLE, ROLES, metierDe,
   ligneChronique: (ev) => `jour ${ev.jour} — ${ev.nu}`,
-  detteDe, creancier, savoirsVivants, GENRES, LIGNEES, auLieu,
+  detteDe, creancier, savoirsVivants, GENRES, LIGNEES, auLieu, etatDuCoeur,
   estNuit, estJour, lumiere,
   analyser, appliquerRegles, resoudre,
   lancerDragon, lancerFoire, surnommer,

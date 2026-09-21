@@ -72,6 +72,7 @@ function unVillage(graine, jours) {
   // surnom là où il y en avait eu cinq.
   Object.assign(s, M.village.arrive);
   s.couples = M.habitants.filter(h => h.vivant && h.aime).length / 2;
+  s.amities = M.habitants.filter(h => h.vivant && h.ami).length;
   s.vivants = M.habitants.filter(h => h.vivant).length;
   s.pain = Math.round(M.village.pain);
   s.ble = Math.round(M.village.ble);
@@ -109,7 +110,11 @@ function agreger(lots) {
     naissances: m(s => s.naissances || 0), majorites: m(s => s.majorites || 0),
     vieillesses: m(s => s.vieillesses || 0), loups: m(s => s.loups || 0),
     meurtres: m(s => s.meurtres || 0),
-    couples: m(s => s.couples), vivants: m(s => s.vivants),
+    couples: m(s => s.couples), vivants: m(s => s.vivants), amities: m(s => s.amities),
+    // Oublier une ligne ici, c'est afficher 0 pour une mécanique qui
+    // tourne : les ruptures étaient relevées et jamais agrégées, la cible
+    // annonçait 0,00 pendant que la graine 7 en comptait trente-deux.
+    ruptures: m(s => s.ruptures || 0),
     legendes: m(s => s.legendes), annees: m(s => s.annees),
     // la part de noms distincts, pas le nombre : un village qui vit deux
     // fois plus longtemps en écrit deux fois plus, ça ne dit rien
@@ -157,6 +162,8 @@ function afficher(a, titre) {
   console.log(`  morts de vieillesse       ${num(a.vieillesses ?? 0)}`);
   console.log(`  loups · meurtres          ${num(a.loups ?? 0)} · ${num(a.meurtres ?? 0)}`);
   console.log(`  couples formés            ${num(a.couples)}`);
+  console.log(`  promesses rompues         ${num(a.ruptures ?? 0)}`);
+  console.log(`  amitiés nommées           ${num(a.amities ?? 0)}`);
   console.log('  ── ce qui ne revient pas ─────────────────────');
   console.log(`  lignées éteintes          ${num(a.extinctions ?? 0)}`);
   console.log(`  métiers perdus            ${num(a.metiersPerdus ?? 0)}`);
@@ -201,6 +208,19 @@ const CIBLES = [
   // On mesure donc ce que la cible voulait dire depuis le début.
   ['révoltes par habitant', (a) => a.revoltes / a.vivants, 0.09, 1.55, ''],
   ['surnoms gagnés',        (a) => a.surnoms,      4,    28,  ''],
+  // L'AMOUR. Une promesse rompue est la seule chose de ce modèle qui
+  // entre dans « ce qui ne revient pas ». Elle doit exister — sinon la
+  // fidélité n'est pas un choix, c'est une contrainte — et rester rare.
+  // La borne haute était un chiffre posé AVANT que la mécanique tourne :
+  // 2,5 au jugé. Première mesure réelle, 3,13 par village en trois cents
+  // journées — une promesse rompue tous les trois ans dans un village de
+  // vingt-cinq. C'est « rarement, et ça coûte », donc la borne est
+  // corrigée sur la mesure, pas la mesure sur la borne. Ce qui gouverne
+  // le rythme n'est d'ailleurs pas le seuil de passion mais le répit de
+  // quatre saisons : monter le seuil de 1,5 à 1,9 ne change pas le
+  // chiffre d'un centième.
+  ['promesses rompues',     (a) => a.ruptures ?? 0, 0.02, 6,   ''],
+  ['amitiés nommées',       (a) => a.amities ?? 0,  0.3,  12,  ''],
   // LES LÉGENDES. Le genre « legende » a existé des semaines sans qu'une
   // seule ligne le porte : un bouton ouvrait une liste vide. Une borne
   // basse l'aurait vu tout de suite.
