@@ -3077,7 +3077,117 @@ graines, donc plus de temps de banc. Noté, pas fait.
 
 ---
 
+## Le chantier du monastère (v0.37)
+
+Pierre a validé les planches&nbsp;: une abbaye cistercienne des Corbières,
+1190-1250, bâtie en sept campagnes. Voir
+`claude.ai/artifact/TYi7KCNgF1qqHm2ajApJNk` pour le plan et la coupe.
+
+**C'est la première chose du jeu qui monte.** Tout le reste s'use ou
+revient — les meules cassent, la faim passe, le dragon repasse
+cinquante-deux fois en douze ans.
+
+### Ce que la mesure a corrigé, trois fois
+
+**La cadence.** 23 000 pierres pour le chevet, en supposant qu'un
+tailleur en taille une par seconde simulée. Mesuré&nbsp;: **dix-neuf par
+journée, pas quatre-vingt-dix** — personne ne taille tout le jour. Le
+chevet se fermait à l'an 38 au lieu de l'an 8. Recalé, le chantier
+complet fait 1 700 journées, soit exactement une session longue.
+
+**Le seuil de l'enceinte, deux fois.** La dernière campagne ne se paie
+pas, elle se craint. Réglé à 0,34 au jugé&nbsp;: **quatre fois le maximum
+atteignable**, campagne morte-née. Recalé à 0,046 sur la distribution
+mesurée — sauf que cette distribution était elle-même le symptôme d'un
+bug.
+
+### L'erreur que ce dépôt s'était déjà faite
+
+`peurLongue` valait **exactement 0,000** dans quatre villages sur six
+après l'an 40. Pas «&nbsp;bas&nbsp;»&nbsp;: zéro. Parce que je relevais la
+peur une fois par jour, en fin de journée.
+
+C'est écrit en toutes lettres en tête de `equilibre.mjs` depuis des
+semaines&nbsp;:
+
+> *«&nbsp;la peur retombe en quarante secondes, donc un relevé quotidien
+> à heure fixe la rate complètement et affiche 0,00 alors qu'un dragon
+> vient de passer. C'est le premier défaut que le simulateur a révélé —
+> sur lui-même.&nbsp;»*
+
+On garde donc le **pic de la journée**. La peur vaut alors 0,187 en
+médiane, 0,242 au 90e centile. Seuil au 90e&nbsp;: un village lève ses
+murs dans le dixième de ses journées où il a eu le plus peur.
+
+Trois valeurs pour un seuil, dont deux fausses pour deux raisons
+différentes — et **la deuxième était la plus dangereuse, parce qu'elle
+avait l'air rigoureuse.**
+
+---
+
+## Des chemins qui ne sont plus des droites (v0.37)
+
+Pierre&nbsp;: *«&nbsp;à ×1000 on voit que les personnages se dépassent sur
+la ligne droite […] on a plus l'impression d'un nuage d'électrons&nbsp;»*.
+
+Deux corrections, **aucun tirage** — la règle du jeu est qu'un dé ne
+décide jamais rien, et un dé dans les pas ferait frémir tout le monde de
+la même façon.
+
+**Le cap tourne, il ne saute pas.** On garde une direction et on la
+ramène vers le but à vitesse bornée — un tour complet en une seconde et
+demie, plus vite quand on fuit, moins vite quand on est las. Les virages
+s'arrondissent d'eux-mêmes et un détour se lit dans la trajectoire.
+
+**Chacun son pas.** Un balancement propre à chaque personne, fixé à sa
+naissance et fonction de la **distance parcourue**, pas du temps&nbsp;:
+deux villageois qui vont au même endroit n'y vont plus par la même ligne.
+L'amplitude se resserre en arrivant, pour qu'on entre quand même par la
+porte.
+
+### Ce que ça coûte
+
+Les campagnes closes passent de **5,0 à 3,0** par village sur soixante-deux
+années. Un détour, c'est du temps de travail en moins — exactement ce que
+les portes avaient coûté en leur temps. Les dix-neuf cibles courtes
+tiennent sans bouger&nbsp;; c'est le seul poste qui encaisse.
+
+Le plancher de la cible est à 1 et non à 2 bien que la moyenne soit
+3,0&nbsp;: les valeurs par village sont 3, 1, 7, 2, 5, 1 — écart-type 2,3,
+donc erreur-type 0,94 sur six graines. Un plancher à 2 clignoterait une
+fois sur trois sans qu'une ligne ait changé.
+
+### L'état
+
+**Dix-neuf cibles courtes, sept longues**, toutes vertes. Population 27,0
+au jour 2000, creux 22, aucun village éteint, 36,8 naissances, les six
+villages ont vu arriver leurs moines, et l'un d'eux est allé jusqu'à ses
+murs.
+
+### Ce qui reste à faire, dans l'ordre convenu
+
+1. **Les arbres et le blé** — de vrais arbres qu'on abat et qui
+   repoussent, du blé qui pousse et qu'on coupe. C'est ce qui rendrait
+   tout le reste lisible&nbsp;: le verrou du bois se serait *vu*. Attention,
+   les arbres exploitables devront passer dans le tirage de fabrication
+   et non dans celui du décor, sinon la règle «&nbsp;le décor ne change pas
+   l'histoire&nbsp;» tombe.
+2. **Raréfier dragon, révolte, égarement.** 52,66 · 50,56 · 271,75 par
+   village en douze ans&nbsp;: ce ne sont plus des événements, c'est de la
+   météo. Les rendre rares et lourds, pas les supprimer.
+3. **Le monastère qui monte à l'écran.** La simulation est faite, le
+   dessin reste.
+4. La commanderie, les parfaits, les lettres qui partent pour Rome.
+
+---
+
 ## 📜 Historique
+
+- **2026-09-21 (suite)** — Le chantier du monastère : sept campagnes, la
+  congrégation qui n'arrive qu'après le chevet, l'enceinte qui se craint
+  au lieu de se payer. Plus les chemins courbes demandés par Pierre. Deux
+  mécaniques mortes-nées rattrapées avant livraison, dont une par
+  l'erreur exacte que le carnet décrivait déjà. v0.37.
 
 - **2026-09-21** — `amour` fusionnée. Troisième acte tranché : on
   apprenait un métier en quatre journées, dix personnes sur vingt-cinq

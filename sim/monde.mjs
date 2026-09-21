@@ -153,7 +153,29 @@ export const REGLAGES = {
   monteeTendresse: 0.020,   // par journée passée ensemble
   detteAttache: 0.14,       // et par ce qu'on doit à quelqu'un — c'est ça, surtout
   seuilPromesse: 2.1,   // se promettre sans avoir été courtisé
-  oubliLien: 0.30,      // par journée, proportionnel au lien — balayage : 0,09 laissait
+  oubliLien: 0.30,
+  // Ce qu'il faut de peur, tenue une saison entière, pour qu'un village
+  // se décide à lever des murs. Les murs disent ce qu'on craignait cette
+  // année-là.
+  //
+  // RÉGLÉ DEUX FOIS, ET LA PREMIÈRE SUR UNE MESURE FAUSSE.
+  //
+  // 0,34 au jugé d'abord : quatre fois le maximum atteignable, septième
+  // campagne morte-née. Puis 0,046, calé sur une distribution qui était
+  // elle-même le symptôme d'un bug — la peur n'était relevée qu'en fin de
+  // journée, quand elle est retombée, et valait exactement 0,000 dans
+  // quatre villages sur six. Relevée au PIC du jour (voir `peurPic`),
+  // elle vaut 0,187 en médiane, 0,242 au 90e centile, 0,287 au 99e.
+  //
+  // Le seuil est au 90e : un village lève ses murs dans le dixième de
+  // ses journées où il a eu le plus peur, et pas dans les autres.
+  peurQuiFortifie: 0.24,
+  // Les chemins. `tourner` est en radians par seconde simulée : un tour
+  // complet en une seconde et demie. `roulisChemin` est l'amplitude du
+  // balancement, en radians — à 0,16 un trajet de trente mètres s'écarte
+  // d'environ un mètre et demi de la ligne droite.
+  tourner: 4.2,
+  roulisChemin: 0.16,      // par journée, proportionnel au lien — balayage : 0,09 laissait
                         // encore 36 % des liens au-dessus de 0,80 ; à 0,30 les quartiles
                         // sont 0,30 · 0,44 · 0,59 et le plus fort lien d'un village 0,86
   ruineApres: 6,        // journées avant qu'une maison vide commence à tomber
@@ -585,6 +607,8 @@ function creerHabitant(role, logis) {
     // qui en voit quatre-vingts.
     usure: entre(0.05, 0.3),
     cadence: entre(4, 9),
+    // le balancement de sa marche : personne n'a le même
+    roulis: entre(0.20, 0.52), cap: undefined, marche: 0,
     usage: Object.fromEntries(OCCUPATIONS.map(o => [o, 0])),
     // ce qu'il faut lui offrir pour qu'elle accepte un pas de plus
     exigence: entre(0.20, 0.50),
@@ -694,6 +718,20 @@ const village = {
   annee: 1, saison: 0,           // 0 printemps, 1 été, 2 automne, 3 hiver
   froid: 0, gel: false,          // le grand froid ne vient qu'en hiver
   ble: 12, farine: 5, pain: 8, outils: 6, meubles: 0, chantier: 0,
+  // LE CHANTIER. La première chose du jeu qui MONTE. Tout le reste s'use
+  // ou revient — les meules cassent, la faim passe, le dragon repasse
+  // cinquante-deux fois en douze ans. Une campagne dure des années,
+  // demande de la pierre et un tailleur vivant, et s'arrête là où elle en
+  // est le jour où il n'y a plus ni l'un ni l'autre.
+  //
+  // Une abbaye cistercienne des Corbières, 1190-1250 : voir les planches.
+  // On bâtit par l'est, pour pouvoir dire la messe avant d'avoir un toit.
+  campagne: 0,               // index dans CAMPAGNES ; à la longueur, tout est bâti
+  taille: 0,                 // pierres taillées pour la campagne en cours
+  pierre: 0,                 // pierre brute en réserve
+  congregation: 0,           // le jour où les moines sont arrivés, 0 avant
+  chantierArrete: 0,         // depuis quelle journée plus personne n'y touche
+  batis: [],                 // { cle, nom, an } — ce qui est debout, dans l'ordre
   bois: 10,                      // ce que le bûcheron a rapporté
   rats: 0.5,                     // ils vivent de ce qu'on entasse
   betes: [],                     // chats, chiens, chevaux, rats — voir majBetes()
@@ -765,6 +803,8 @@ const village = {
   marqueur: null,            // { poids, nom } — le meilleur candidat de l'année en cours
   actes: [],                 // { qui, acte, ou, jour } — les exploits de l'année en cours
   sansPainAn: 0, naissancesAn: 0,   // ce que l'année aura compté, pour la nommer
+  peurLongue: 0,             // moyenne lente des PICS de peur — voir campagneOuverte()
+  peurPic: 0,                // le plus haut de la journée, remis à zéro le soir
   legendes: [],              // ce que le village raconte encore, année par année
 };
 // on enregistre les maisons fondatrices : ce sont elles qui peuvent
@@ -1276,7 +1316,11 @@ function poidsDes(h) {
               'il ne reste plus une bûche, et la meule est morte']);
     }
     if (h.role === 'ebeniste')    p.push(['menuiser', travail * 1.2, pourquoiTravail]);
-    if (h.role === 'tailleur')    p.push(['tailler', travail * 1.2, pourquoiTravail]);
+    if (h.role === 'tailleur') {
+      const c = campagneOuverte();
+      p.push(['tailler', travail * (c ? 1.6 : 0.15),
+              c ? `il taille pour ${c.nom}` : 'il n\'y a plus rien à bâtir']);
+    }
     if (h.role === 'bucheron')    p.push(['bûcheronner', travail * (village.bois < 40 ? 1.6 : 0.2),
                                           pourquoiTravail + (village.bois < 6 ? ' · il ne reste presque plus de bois' : '')]);
     if (h.role === 'colporteur')  p.push(['colporter', travail * 2, 'il déballe son ballot']);
@@ -1810,6 +1854,17 @@ function simuler(dt) {
     agir(h, dt);
   }
   village.peur = vivants ? peurTotale / vivants : 0;
+  // LE PIC, PAS LE COUCHER. `peurLongue` était une moyenne lente nourrie
+  // une fois par jour, en fin de journée — et elle valait EXACTEMENT
+  // 0,000 dans quatre villages sur six après l'an 40, ce qui rendait la
+  // septième campagne du chantier impossible à ouvrir.
+  //
+  // C'est l'erreur que ce dépôt s'était déjà faite, et qui est écrite en
+  // toutes lettres en tête du banc d'essai : « la peur retombe en
+  // quarante secondes, donc un relevé quotidien à heure fixe la rate
+  // complètement et affiche 0,00 alors qu'un dragon vient de passer ».
+  // On garde donc le PIC de la journée, et c'est lui qu'on lisse.
+  if (village.peur > village.peurPic) village.peurPic = village.peur;
 
   majMoulins(dt);
   voisinage(dt);
@@ -1846,8 +1901,39 @@ function avancer(h, dt) {
   if (d < PROCHE) return;
   const v = h.vitesse * (h.occupation === 'fuir' ? 2 : 1)
             * (h === village.loup ? 1.9 : 1) * (1 - h.fatigue * 0.4);
-  h.x += (dx / d) * v * dt;
-  h.z += (dz / d) * v * dt;
+
+  // PERSONNE NE MARCHE AU CORDEAU, ET DEUX PERSONNES NE MARCHENT PAS SUR
+  // LA MÊME LIGNE. À ×1000 on voyait des villageois se superposer et se
+  // dépasser sur une droite parfaite, en tournant à angle droit aux
+  // changements de but : un nuage d'électrons, pas des gens.
+  //
+  // Deux corrections, aucune tirée au sort — la règle du jeu est qu'un
+  // dé ne décide jamais rien.
+  //
+  // 1. LE CAP TOURNE, IL NE SAUTE PAS. On garde une direction et on la
+  //    ramène vers le but à vitesse bornée : les virages s'arrondissent
+  //    d'eux-mêmes, et un détour se lit dans la trajectoire.
+  const voulu = Math.atan2(dz, dx);
+  if (h.cap === undefined) h.cap = voulu;
+  let ecart = voulu - h.cap;
+  while (ecart > Math.PI) ecart -= 2 * Math.PI;
+  while (ecart < -Math.PI) ecart += 2 * Math.PI;
+  // le tour complet en une seconde et demie ; on se retourne plus vite
+  // quand on fuit, et un peu moins vite quand on est las
+  const agilite = (h.occupation === 'fuir' ? 2.4 : 1) * (1 - h.fatigue * 0.3);
+  h.cap += Math.max(-R.tourner * agilite * dt,
+                    Math.min(R.tourner * agilite * dt, ecart));
+
+  // 2. CHACUN SON PAS. Un balancement propre à chaque personne, fixé à
+  //    sa naissance et fonction du chemin parcouru — deux villageois qui
+  //    vont au même endroit n'y vont plus par la même ligne.
+  h.marche = (h.marche || 0) + v * dt;
+  const flanc = Math.sin(h.marche * h.roulis + h.rang) * R.roulisChemin
+              * Math.min(1, d / 6);          // on se recale en arrivant
+  const cap = h.cap + flanc;
+
+  h.x += Math.cos(cap) * v * dt;
+  h.z += Math.sin(cap) * v * dt;
   // « évite » : on se détourne sans cesser d'aller où l'on allait
   if (h.evite) {
     const ex = h.x - h.evite.x, ez = h.z - h.evite.z;
@@ -1981,11 +2067,20 @@ function agir(h, dt) {
     case 'bûcheronner': village.bois = Math.min(60, village.bois + dt * R.boisParSeconde); break;
     case 'forger': village.outils = Math.min(20, village.outils + dt * 0.35); break;
     case 'menuiser': village.meubles += dt * 0.25; break;
-    case 'tailler':
-      // l'église s'embellit, et une belle église se fait mieux écouter
-      village.chantier += dt * 0.1;
+    case 'tailler': {
+      // On ne taille plus dans le vide : chaque pierre va dans la
+      // campagne en cours, et le chantier s'arrête là où il en est le
+      // jour où il n'y a plus de tailleur.
+      const c = campagneOuverte();
+      if (c) {
+        const adroit = h.role === 'tailleur' ? 1 : 0.45;   // un autre s'y met, mal
+        village.taille += dt * adroit;
+        village.chantier = village.campagne + village.taille / c.pierres;
+      }
+      // une belle église se fait mieux écouter
       village.autorite = Math.min(1, village.autorite + dt * 0.004);
       break;
+    }
     case 'voler': {
       // Mesuré : à 3 pains par seconde, le voleur avalait à lui seul toute
       // la production du four (185 pains produits, 90 mangés, et pourtant
@@ -2842,6 +2937,71 @@ function majRuines() {
   }
 }
 
+// ---- LE CHANTIER ----
+// Sept campagnes, dans l'ordre où l'on bâtit vraiment : par l'est, pour
+// dire la messe avant d'avoir un toit ; la salle capitulaire avant la
+// nef, parce qu'une communauté a plus besoin de se réunir que les fidèles
+// d'avoir un vaisseau ; l'enceinte en dernier, et pas pour de l'argent.
+//
+// `pierres` est en pierres taillées. Premier jet à 23 000 pour le chevet :
+// mesuré, il se fermait à l'an 38 au lieu de l'an 8, parce qu'un tailleur
+// ne taille pas tout le jour — la cadence réelle est de DIX-NEUF pierres
+// par journée, pas quatre-vingt-dix. Les nombres ci-dessous sont recalés
+// sur cette cadence pour tenir les durées des planches : 53 années en
+// tout, soit 1 700 journées, la longueur d'une session longue.
+const CAMPAGNES = [
+  { cle: 'chevet',    nom: 'le chevet',            pierres: 4900,
+    fait: 'Le chevet est clos. On y dira la messe avant d\'avoir un toit sur la nef.' },
+  { cle: 'transept',  nom: 'le transept',          pierres: 3600,
+    fait: 'Le transept ferme, et les chapelles rayonnantes avec lui.' },
+  { cle: 'chapitre',  nom: 'la salle capitulaire', pierres: 2350,
+    fait: 'La salle capitulaire est voûtée sur ses quatre colonnes.' },
+  { cle: 'cloitre',   nom: 'le cloître',           pierres: 5500,
+    fait: 'Le cloître est fermé. On ne parle plus qu\'au parloir.' },
+  { cle: 'cellier',   nom: 'le cellier',           pierres: 4250,
+    fait: 'Le cellier et le réfectoire sont sous toit.' },
+  { cle: 'nef',       nom: 'la nef',               pierres: 8500,
+    fait: 'La nef est voûtée. Il aura fallu une vie d\'homme.' },
+  { cle: 'enceinte',  nom: 'l\'enceinte',          pierres: 3000,
+    fait: 'La porte forte est posée. Le monastère a des murs.' },
+];
+
+// La dernière campagne ne se paie pas, elle se craint : on ne lève une
+// enceinte que quand on a eu peur assez longtemps.
+function campagneOuverte() {
+  const c = CAMPAGNES[village.campagne];
+  if (!c) return null;
+  if (c.cle === 'enceinte' && village.peurLongue < R.peurQuiFortifie) return null;
+  return c;
+}
+
+function majChantier() {
+  const c = CAMPAGNES[village.campagne];
+  if (!c) return;
+  if (village.taille < c.pierres) {
+    // on note le jour où le chantier s'est tu, pour pouvoir le dire
+    const actif = habitants.some(h => h.vivant && h.occupation === 'tailler');
+    if (!actif && !village.chantierArrete) village.chantierArrete = village.jour;
+    if (actif) village.chantierArrete = 0;
+    return;
+  }
+  village.taille = 0;
+  village.campagne++;
+  village.batis.push({ cle: c.cle, nom: c.nom, an: village.annee });
+  noter(c.fait, true, null, 'village');
+  marquerAnnee(2.6, `l'année où l'on a fermé ${c.nom}`);
+  perdre('bati', `${c.fait}`, null);   // ce qui monte entre aussi dans ce qui ne revient pas
+
+  // LA CONGRÉGATION N'ARRIVE QU'APRÈS LE CHEVET. Avant, il n'y a qu'un
+  // chantier et un prêtre séculier — et une hérésie sans inquisiteur
+  // n'est qu'une opinion.
+  if (c.cle === 'chevet' && !village.congregation) {
+    village.congregation = village.jour;
+    noter('Des moines blancs sont arrivés par la route. Ils ont dormi dans le chevet.', true, null, 'village');
+    marquerAnnee(3.2, `l'année où les moines sont venus`);
+  }
+}
+
 // ---- LE CŒUR ----
 // Trois forces séparées, chacune avec sa loi dans le temps, plus une
 // quatrième qui ne se dit pas. Aucune ne dérive des autres : c'est leur
@@ -3200,6 +3360,10 @@ function finDeJournee() {
   // Chaque lien perd un peu de lui-même chaque soir — celui qu'on a vu
   // aussi, mais lui le regagne le lendemain. C'est la différence entre
   // les deux qui fait la place d'un ami.
+  // La peur d'un soir ne fortifie rien. Celle qui revient saison après
+  // saison, si. On lisse le pic du jour, pas la braise du soir.
+  village.peurLongue += (village.peurPic - village.peurLongue) * 0.06;
+  village.peurPic = 0;
   for (const h of habitants) {
     if (!h.vivant) continue;
     let somme = 0, combien = 0;
@@ -3222,6 +3386,7 @@ function finDeJournee() {
   naissances();
   majExtinction();
   reprendreUnMetier();
+  majChantier();
   majCoeurs();
   majPromesses();
   majAmities();
@@ -3505,7 +3670,7 @@ return {
   poidsDes, choisirOccupation, lieuDe, tensionActuelle,
   nommer, nomComplet, souvenir, noter, lien, e, NOM_ROLE, ROLES, metierDe,
   ligneChronique: (ev) => `jour ${ev.jour} — ${ev.nu}`,
-  detteDe, creancier, savoirsVivants, GENRES, LIGNEES, auLieu, etatDuCoeur,
+  detteDe, creancier, savoirsVivants, GENRES, LIGNEES, auLieu, etatDuCoeur, CAMPAGNES,
   estNuit, estJour, lumiere,
   analyser, appliquerRegles, resoudre,
   lancerDragon, lancerFoire, surnommer,

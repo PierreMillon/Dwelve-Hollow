@@ -73,6 +73,8 @@ function unVillage(graine, jours) {
   Object.assign(s, M.village.arrive);
   s.couples = M.habitants.filter(h => h.vivant && h.aime).length / 2;
   s.amities = M.habitants.filter(h => h.vivant && h.ami).length;
+  s.campagnes = M.village.campagne;
+  s.moines = M.village.congregation ? 1 : 0;
   s.vivants = M.habitants.filter(h => h.vivant).length;
   s.pain = Math.round(M.village.pain);
   s.ble = Math.round(M.village.ble);
@@ -115,6 +117,7 @@ function agreger(lots) {
     // tourne : les ruptures étaient relevées et jamais agrégées, la cible
     // annonçait 0,00 pendant que la graine 7 en comptait trente-deux.
     ruptures: m(s => s.ruptures || 0),
+    campagnes: m(s => s.campagnes || 0), moines: m(s => s.moines || 0),
     legendes: m(s => s.legendes), annees: m(s => s.annees),
     // la part de noms distincts, pas le nombre : un village qui vit deux
     // fois plus longtemps en écrit deux fois plus, ça ne dit rien
@@ -164,6 +167,7 @@ function afficher(a, titre) {
   console.log(`  couples formés            ${num(a.couples)}`);
   console.log(`  promesses rompues         ${num(a.ruptures ?? 0)}`);
   console.log(`  amitiés nommées           ${num(a.amities ?? 0)}`);
+  console.log(`  campagnes du chantier     ${num(a.campagnes ?? 0)} sur 7`);
   console.log('  ── ce qui ne revient pas ─────────────────────');
   console.log(`  lignées éteintes          ${num(a.extinctions ?? 0)}`);
   console.log(`  métiers perdus            ${num(a.metiersPerdus ?? 0)}`);
@@ -361,6 +365,17 @@ const CIBLES_LONGUES = [
   ['villages éteints',        (a) => a.eteints,      0,    0, ''],
   ['métiers perdus',          (a) => a.perdus,       0,  2.5, ''],
   ['naissances',              (a) => a.naissances,  25,  240, ''],
+  // LE CHANTIER. La seule chose du jeu qui monte. S'il cesse de monter,
+  // il faut que ça se voie ici — et pas au bout de trois versions, comme
+  // le genre « legende » resté vide des semaines faute d'être mesuré.
+  //
+  // Le plancher est à 1 et non à 2, bien que la moyenne soit de 3,0 :
+  // les valeurs par village sont 3, 1, 7, 2, 5, 1 — écart-type 2,3, donc
+  // erreur-type 0,94 sur six graines. Un plancher à 2 clignoterait une
+  // fois sur trois sans qu'une ligne ait changé. À 1, la cible dit
+  // seulement « le chantier n'est pas mort », ce qui est son rôle.
+  ['campagnes closes',        (a) => a.campagnes,    1,    7, ''],
+  ['villages aux moines',     (a) => a.moines,     0.5, 1.01, ''],
 ];
 
 function sessionLongue() {
@@ -371,7 +386,8 @@ function sessionLongue() {
   console.log('  graine |' + JALONS.map(j => String(j).padStart(6)).join('') +
               ' | naiss repr noyés | métiers perdus');
   console.log('  ' + '─'.repeat(78));
-  const t = { finale: 0, creux: 99, eteints: 0, perdus: 0, naissances: 0, reprises: 0 };
+  const t = { finale: 0, creux: 99, eteints: 0, perdus: 0, naissances: 0, reprises: 0,
+              campagnes: 0, moines: 0 };
   for (const g of GRAINES) {
     const M = creerMonde(g), v = M.village;
     let k = 0, creux = 99; const L = [];
@@ -383,6 +399,7 @@ function sessionLongue() {
     const fin = M.habitants.filter(h => h.vivant).length;
     t.finale += fin; t.creux = Math.min(t.creux, creux);
     t.perdus += v.perdus.size; t.naissances += v.arrive.naissances;
+    t.campagnes += v.campagne; if (v.congregation) t.moines++;
     t.reprises += v.arrive.reprises;
     if (!fin) t.eteints++;
     console.log('  ' + String(g).padStart(6) + ' |' + L.join('') + ' |' +
@@ -391,7 +408,8 @@ function sessionLongue() {
   }
   const n = GRAINES.length;
   const a = { finale: t.finale / n, creux: t.creux, eteints: t.eteints,
-              perdus: t.perdus / n, naissances: t.naissances / n, reprises: t.reprises / n };
+              perdus: t.perdus / n, naissances: t.naissances / n, reprises: t.reprises / n,
+              campagnes: t.campagnes / n, moines: t.moines / n };
   console.log(`\n  ${((Date.now() - t0) / 1000).toFixed(0)} s`);
   console.log('\n  ── ce que doit tenir une longue session ──────');
   let echecs = 0;
