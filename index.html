@@ -16,7 +16,14 @@
     /* LA BANDE DES BOUTONS. Aucun panneau ne doit mordre dessus : on
        réserve la hauteur ici, et tous les panneaux s'arrêtent au-dessus. */
     --bas: calc(54px + max(10px, env(safe-area-inset-bottom)));
-    --haut: 62px;
+    /* L'ENCOCHE. Le bandeau du haut descend de la zone sûre (voir #hud),
+       et tout ce qui se pose en dessous doit descendre d'autant. --bas
+       tenait compte de la zone sûre depuis toujours ; --haut, non : c'est
+       ce qui faisait passer la ligne de saison PAR-DESSUS le titre sur
+       iPhone. La hauteur exacte est ensuite relevée par mesurerLeCadre() ;
+       ces deux valeurs sont le repli si le script ne tourne pas. */
+    --encoche: max(0px, calc(env(safe-area-inset-top, 0px) - 8px));
+    --haut: calc(62px + var(--encoche));
     --ph-line: #46ffa0;
     --ph-text: #8ffcc4;
     --ph-dim: rgba(70, 255, 160, 0.4);
@@ -54,7 +61,7 @@
   #hud {
     position: fixed; top: 0; left: 0; z-index: 2;
     padding: 8px 12px;
-    padding-top: max(8px, env(safe-area-inset-top));
+    padding-top: calc(8px + var(--encoche));   /* == max(8px, env(top)) */
     padding-left: max(12px, env(safe-area-inset-left));
     display: flex; align-items: center; gap: 10px;
     text-shadow: 0 0 6px rgba(70, 255, 160, 0.25);
@@ -64,7 +71,7 @@
 
   #version {
     position: fixed; top: 0; right: 0; z-index: 2;
-    margin-top: max(8px, env(safe-area-inset-top));
+    margin-top: calc(8px + var(--encoche));    /* == max(8px, env(top)) */
     margin-right: max(10px, env(safe-area-inset-right));
   }
 
@@ -186,6 +193,16 @@
   #memoire .annee { color: var(--ph-text); padding: 1px 0; }
   #memoire .annee span { color: var(--ph-dim); display: inline-block; min-width: 4.4em; }
   #saison #s-annee { color: var(--ph-dim); }
+  /* LE NOM DE L'ANNÉE, SUR UN TÉLÉPHONE. Posé à la suite, il poussait le
+     bandeau à trois lignes — et un nom long en aurait pris quatre. Il
+     prend donc sa ligne, et une seule : coupé au bout plutôt que de
+     manger la chronique. Le nom entier reste lisible dans la mémoire. */
+  @media (max-width: 560px) {
+    #saison #s-annee {
+      display: block; white-space: nowrap;
+      overflow: hidden; text-overflow: ellipsis;
+    }
+  }
   #memoire .perte { color: var(--ph-line); margin-bottom: 4px; }
   #memoire .perte span { color: var(--ph-dim); }
   #memoire .suite { color: var(--ph-dim); margin: -2px 0 5px 12px; }
@@ -228,8 +245,10 @@
   #chronique div.cliquable:hover { color: var(--ph-line); }
 
   #saison {
-    position: fixed; left: 0; z-index: 2;
-    top: 40px; padding-left: max(12px, env(safe-area-inset-left));
+    position: fixed; left: 0; right: 0; z-index: 2;
+    top: var(--sous-hud, calc(40px + var(--encoche)));
+    padding-left: max(12px, env(safe-area-inset-left));
+    padding-right: max(12px, env(safe-area-inset-right));
     color: var(--ph-dim);
   }
   #saison b { color: var(--ph-text); font-weight: normal; }
@@ -458,7 +477,7 @@
   <span class="title">DWELVE HOLLOW</span>
 </div>
 
-<button id="version">v0.38</button>
+<button id="version">v0.39</button>
 
 <div id="saison">an <b id="s-an">1</b> · <b id="s-saison">printemps</b> · jour <b id="s-jour">1</b> · <b id="s-phase">aube</b> · <b id="s-lune">lune</b> · pain <b id="s-pain">0</b> · peur <b id="s-peur">0 %</b><span id="s-annee"></span></div>
 
@@ -628,7 +647,17 @@
   <div class="contenu">
     <h2>DWELVE HOLLOW — HISTORIQUE</h2>
 
-    <div class="v courante"><b>v0.38</b> — <b>la loupe de l'iPhone ne s'ouvre plus.</b>
+    <div class="v courante"><b>v0.39</b> — <b>le cadre se mesure au lieu de se deviner.</b>
+      Sur iPhone, la ligne de saison passait par-dessus le titre et le numéro de version. Le haut de
+      l'écran était posé à <b>62 pixels</b> et le bas à <b>54</b>&nbsp;: deux constantes écrites pour un
+      écran d'ordinateur, où l'encoche n'existe pas, la saison tient sur une ligne et les boutons sur
+      un rang. Sur un téléphone les trois hypothèses tombent ensemble. Les hauteurs sont maintenant
+      <b>relevées</b>, et suivies quand elles bougent&nbsp;: rotation, nom d'année qui s'allonge, taille
+      de texte du système. Le nom de l'année prend sa ligne et une seule, coupée au bout plutôt que
+      de manger la chronique&nbsp;; il reste entier dans la mémoire.
+    </div>
+
+    <div class="v"><b>v0.38</b> — <b>la loupe de l'iPhone ne s'ouvre plus.</b>
       Un appui un peu long sur le texte faisait surgir l'ovale grossissant d'iOS par-dessus le
       village. Rien ici ne se sélectionne&nbsp;: la sélection se replie d'elle-même, le menu
       contextuel et le pincement sont coupés. Les panneaux défilent comme avant.
@@ -3387,7 +3416,40 @@ $('btn-chronique').addEventListener('click', () => {
 });
 majBoutonChronique();
 
-addEventListener('resize', majCadrage);
+// ---- LE CADRE SE MESURE AU LIEU DE SE DEVINER ----
+// --haut valait 62 px et --bas 54 px : deux constantes écrites pour un
+// écran d'ordinateur, où le bandeau tient sur une ligne et les boutons sur
+// un rang. Sur un téléphone les trois hypothèses tombent ensemble —
+// l'encoche pousse le bandeau vers le bas, la ligne de saison passe à deux
+// lignes (trois quand une année porte un nom), et les boutons à deux rangs.
+// Le texte se superposait. On relève donc les vraies hauteurs et on les
+// publie : plus aucun nombre à deviner, et ça suit la rotation, le nom de
+// l'année qui s'allonge, et la taille de texte du système.
+const racine = document.documentElement;
+function mesurerLeCadre() {
+  // le bouton de version descend deux pixels plus bas que le bandeau : on
+  // passe sous le plus bas des deux, sinon la saison vient le lécher
+  const bandeau = Math.max($('hud').getBoundingClientRect().bottom,
+                           $('version').getBoundingClientRect().bottom);
+  // la ligne de saison se pose juste sous le bandeau ; sa hauteur ne
+  // dépend pas de là où on la met, donc un seul relevé suffit
+  racine.style.setProperty('--sous-hud', Math.ceil(bandeau + 4) + 'px');
+  const haut = bandeau + 4 + $('saison').offsetHeight + 6;
+  const bas = innerHeight - $('controls').getBoundingClientRect().top + 4;
+  racine.style.setProperty('--haut', Math.ceil(haut) + 'px');
+  racine.style.setProperty('--bas', Math.ceil(bas) + 'px');
+}
+mesurerLeCadre();
+// le bandeau grandit quand le nom de l'année arrive, les boutons quand la
+// largeur change : on observe les deux plutôt que de se souvenir d'appeler
+if (window.ResizeObserver) {
+  const oeil = new ResizeObserver(mesurerLeCadre);
+  oeil.observe($('saison'));
+  oeil.observe($('controls'));
+  oeil.observe($('hud'));
+}
+
+addEventListener('resize', () => { majCadrage(); mesurerLeCadre(); });
 window.DH = { scene, camera, controls, renderer, village, habitants, chronique, LIEUX,
               MOULINS, hauteur, lancerDragon, lancerFoire, tenterMusique, evenements, bruit, majMeteo,
               selectionner, poidsDes, ecranDe, distRoute, distRuisseau, analyser, regles,

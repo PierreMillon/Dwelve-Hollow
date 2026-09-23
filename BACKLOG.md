@@ -3230,7 +3230,100 @@ et les deux propriétés de détermination, toutes vertes (26,35 habitants,
 
 ---
 
+## Le cadre se mesure au lieu de se deviner (v0.39)
+
+Capture de Pierre&nbsp;: sur son iPhone, la ligne de saison passe
+**par-dessus** le titre et le numéro de version, et se coupe en deux
+lignes dont la première disparaît sous le bouton `v0.38`.
+
+### La cause tenait en une ligne de CSS
+
+```css
+--bas:  calc(54px + max(10px, env(safe-area-inset-bottom)));
+--haut: 62px;
+```
+
+Le bas tenait compte de la zone sûre. **Le haut, non.** L'un a été écrit
+avec l'encoche en tête et l'autre sans, dans le même bloc, et personne ne
+l'a vu pendant vingt-cinq versions — parce que sur un écran d'ordinateur
+les deux donnent le même résultat.
+
+Sur un iPhone 14 Pro, `env(safe-area-inset-top)` vaut 59&nbsp;px. Le
+bandeau descend donc à 59, la ligne de saison reste à 40, et elle lui
+passe dessus.
+
+### Il y avait en fait trois hypothèses fausses, pas une
+
+Le nombre 62 supposait un bandeau sur une ligne. Le nombre 54, en bas,
+supposait les boutons sur un rang. Aucun des deux n'est vrai sur un
+téléphone&nbsp;:
+
+| relevé | ordinateur | iPhone 14 Pro |
+| --- | --- | --- |
+| `--haut` | 70&nbsp;px | **157&nbsp;px** |
+| `--bas` | 58&nbsp;px | **98&nbsp;px** |
+
+Les boutons passent à deux rangs et la saison à trois lignes. Corriger
+uniquement l'encoche aurait laissé les deux autres.
+
+### Donc on ne devine plus, on relève
+
+`mesurerLeCadre()` lit la hauteur réelle du bandeau, de la ligne de saison
+et de la barre de boutons, et publie `--haut` et `--bas`. Un
+`ResizeObserver` sur les trois le rappelle quand ils bougent&nbsp;: la
+rotation, le nom d'année qui s'allonge, la taille de texte du système.
+Les anciennes constantes restent en repli si le script ne tourne pas, mais
+elles tiennent compte de l'encoche maintenant.
+
+Le nom de l'année prenait à lui seul une ligne de plus, et un nom long en
+aurait pris deux. Sous 560&nbsp;px il prend **sa ligne, et une seule**,
+coupée au bout. Vérifié en doublant la longueur du nom&nbsp;: `--haut` ne
+bouge plus. Le nom entier reste lisible dans la mémoire.
+
+### Le garde-fou — `sim/cadrage.mjs`
+
+C'est la deuxième fois que du texte se superpose sur un téléphone et que
+je ne le vois pas d'ici. Il ouvre la page à trois tailles, force
+l'encoche, pose le nom d'année le plus long, et vérifie que rien ne se
+croise. Il sert son propre serveur&nbsp;: `node sim/cadrage.mjs` suffit.
+
+`env()` n'est pas émulable en navigateur sans appareil. **Toute la zone
+sûre du haut passe donc par une seule variable, `--encoche`**, et la
+forcer reproduit exactement l'iPhone — `8px + var(--encoche)` vaut
+`max(8px, env(top))` par construction. Ce n'est pas un détour pour le
+test&nbsp;: c'est ce qui rend la chose mesurable.
+
+Une faute rattrapée en le construisant&nbsp;: ma première émulation
+déplaçait le bandeau **sans déplacer le bouton de version**, donc elle ne
+mesurait pas leur voisinage — celui qui, sur la capture, était précisément
+le problème. Une fois faite juste, elle a montré que la saison venait
+lécher le bouton à zéro pixel près&nbsp;; d'où le relevé qui passe sous le
+plus bas des deux.
+
+Rouge sur l'ancien code, vert sur le nouveau.
+
+### À faire avant chaque livraison, maintenant
+
+```
+node sim/version.mjs
+node sim/cadrage.mjs
+node sim/equilibre.mjs --check
+```
+
+Le garde-fou de version, ajouté deux jours plus tôt, a servi dès cette
+livraison-ci&nbsp;: c'est lui qui a demandé le cache en v0.39.
+
+---
+
 ## 📜 Historique
+
+- **2026-09-23** — Capture de Pierre : la ligne de saison par-dessus le
+  titre sur iPhone. `--bas` tenait compte de la zone sûre, `--haut` non,
+  depuis vingt-cinq versions. Trois hypothèses fausses en fait, pas une :
+  encoche, bandeau sur une ligne, boutons sur un rang. Le cadre se mesure
+  désormais au lieu de se deviner, et `sim/cadrage.mjs` le vérifie à trois
+  tailles. v0.39.
+
 
 - **2026-09-21 (soir)** — La loupe d'iOS ne s'ouvre plus sur la chronique
   (la sélection elle-même guettée et repliée, faute de `selectstart` sur
