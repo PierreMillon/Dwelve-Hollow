@@ -13,6 +13,27 @@ il n'y a pas de mémoire automatique d'une session à l'autre, donc tout ce
 qui n'est pas écrit ici est perdu.
 
 **Statut au 2026-09-09 : rien de codé.** Conception seulement.
+*(Dépassé — voir ci-dessous. La ligne reste, c'est la règle du fichier.)*
+
+**Où en est le projet, au 2026-09-26 — v0.39.** Le jeu est joué depuis un
+téléphone comme depuis un ordinateur. Un fichier `index.html`, une
+simulation séparée dans `sim/monde.mjs`, et trois garde-fous à passer
+avant chaque livraison :
+
+```
+node sim/version.mjs      le numéro de version concorde partout
+node sim/cadrage.mjs      rien ne se superpose, à trois tailles d'écran
+node sim/equilibre.mjs --check    dix-neuf cibles + deux propriétés
+```
+
+Ajouter `--long` pour la session de deux mille journées (sept cibles de
+plus), `--determinisme` pour les seules propriétés, `sim/balayage.mjs`
+pour régler un nombre plutôt que le deviner.
+
+**Les quatre chantiers ouverts** sont listés plus bas, sous « Ce qui reste
+à faire, dans l'ordre convenu » : les arbres et le blé, la raréfaction des
+trois événements trop fréquents, le monastère dessiné, puis la
+commanderie.
 
 ---
 
@@ -230,9 +251,11 @@ régression (`--check`). Calé sur deux modèles publiés :
 
 ---
 
-## ✅ Principes retenus (décidés, pas encore codés)
+## ✅ Principes retenus — tenus, sauf un, amendé
 
-Décidés le 2026-09-09, tirés de l'analyse ci-dessus.
+Décidés le 2026-09-09, tirés de l'analyse ci-dessus. **Relus le
+2026-09-26 : les six sont dans le code, mais le deuxième ne dit plus la
+vérité** — voir la note qui le suit.
 
 1. **Aucune IA centrale.** Des règles locales par personnage, et on
    regarde ce que ça donne. C'est déjà la doctrine écrite dans les
@@ -241,6 +264,13 @@ Décidés le 2026-09-09, tirés de l'analyse ci-dessus.
    Forge Line et aux villageois de Bastion Orbit : chaque personnage a un
    comportement courant et le retire au sort périodiquement, pondéré par
    sa situation.
+   **Amendé à la v0.15** (« Le monde sans dé ») : l'horloge est restée —
+   chacun a sa cadence propre — mais **le tirage au sort a disparu des
+   décisions**. C'est le maximum des envies, plus un penchant fixe par
+   personne, plus la lassitude. Un dé ne décide plus rien ; il ne sert
+   qu'à fabriquer le village et à faire tomber les accidents. Le principe
+   tel qu'il est écrit ci-dessus est donc **faux depuis la v0.15**, et on
+   le garde écrit pour que la correction se voie.
 3. **Des paramètres de personnalité, pas des branches de code.** Quatre ou
    cinq nombres par personnage, comme les quatre royaumes de Knight Wars.
 4. **De la mémoire partagée.** Les colonnes de Forge Line montrent qu'un
@@ -256,39 +286,60 @@ Décidés le 2026-09-09, tirés de l'analyse ci-dessus.
 
 ## 📋 À faire (demandé ou décidé, pas encore fait)
 
-- **Prototype jouable en un seul fichier HTML** — même méthode que les
-  trois autres jeux : discussion d'abord, prototype ensuite, production
-  seulement si le concept plaît.
-- **Palette terminal**, reprise telle quelle du style « Filaire pur
+*Relue le 2026-09-26. Rien n'est retiré ; chaque ligne porte son sort.*
+
+- ✅ **Prototype jouable en un seul fichier HTML** — fait à la v0.8 et
+  jamais quitté : `index.html` est resté le jeu entier, la simulation
+  mise à part depuis la v0.14.
+- ✅ **Palette terminal**, reprise telle quelle du style « Filaire pur
   (vert) » de Bastion Orbit (activé par défaut chez lui depuis sa v0.60)
   plutôt que réinventée : trait `#46ffa0`, texte `#8ffcc4`, fond des
   panneaux `#071812`, traits atténués `rgba(70,255,160,0.4)`.
-- **Déploiement GitHub Pages** — reprendre le workflow
-  `.github/workflows/deploy-pages.yml` de Bastion Orbit ou Forge Line.
-- **Entrée au menu du site perso** (`PierreMillon/pierremillon`,
-  `index.html`) une fois le jeu déployé — pas avant, pour ne pas mettre
-  un lien mort dans le menu.
-- **Concevoir les règles locales des villageois** — la première vraie
-  décision de design à prendre. Rien n'est tranché : ni le nombre d'états,
-  ni ce qui déclenche un regroupement, ni ce que le joueur peut faire.
+  **Les quatre valeurs sont dans le code à l'identique**, aucune n'a
+  bougé depuis.
+- ⛔ **Déploiement GitHub Pages** — **classé le 14 septembre sur décision
+  de Pierre** (« oublie GitHub Pages »). Voir « Le déploiement : classé ».
+  Je ne peux de toute façon pas vérifier depuis le conteneur qu'une URL
+  Pages répond : le proxy refuse `pierremillon.github.io`.
+- ⛔ **Entrée au menu du site perso** (`PierreMillon/pierremillon`,
+  `index.html`) — **abandonnée le 14 septembre**, en même temps que le
+  déploiement : sans URL publique, l'entrée serait un lien mort.
+- ✅ **Concevoir les règles locales des villageois** — tranché et
+  reconstruit plusieurs fois depuis : les envies concurrentes (v0.8), le
+  monde sans dé (v0.15), la mémoire qui décide (v0.24), l'amour (v0.36).
+  Les trois questions posées ici ont toutes reçu leur réponse, et le seuil
+  de regroupement a été trouvé au balayage, pas choisi.
 
 ## 💭 Idées à explorer plus tard (pas encore décidées)
 
-- **Que fait le joueur, au juste ?** Le jeu est contemplatif, mais
-  « contemplatif » ne veut pas dire « aucune action ». Bastion Orbit a
-  résolu la question par la Sortie (rare, coûteuse, décisive). Piste à
-  explorer : une action rare et lourde de conséquences plutôt qu'un flux
-  d'actions continu.
-- **Le temps.** Rien n'est décidé sur le rythme : temps réel lent,
-  saisons, générations qui se succèdent. Un jeu de vie autonome vit ou
-  meurt sur ce choix.
-- **La trace écrite.** Un jeu où l'on observe gagne à laisser un journal
-  de ce qui s'est passé (qui a déménagé, qui est mort, quel groupe s'est
-  formé) — cohérent avec l'esprit terminal.
+*Relues le 2026-09-26 : les trois ont été tranchées par l'usage.*
+
+- ✅ **Que fait le joueur, au juste ?** Répondu autrement que prévu, et
+  mieux : pas une action rare, mais **trois façons d'entrer sans jouer** —
+  écrire une règle que le village suivra, donner une âme à un nouveau-né
+  (neuf nombres, puis on ne peut plus rien), et désigner quelqu'un pour le
+  suivre. Aucune n'agit sur le cours des choses une fois posée. C'est
+  l'écart entre poser une cause et regarder son effet qui fait le jeu.
+- ✅ **Le temps.** Tranché : une journée vaut quatre-vingt-dix secondes
+  simulées, une année trente-deux journées, quatre saisons, et les
+  générations se succèdent pour de bon (naissances, usure, vieillesse,
+  métiers qui se perdent). Quatre vitesses — ×1, ×10, ×100, ×1000 — et
+  une horloge de décision en temps **simulé**, sans quoi accélérer
+  changerait l'histoire.
+- ✅ **La trace écrite.** C'est devenu le cœur du jeu, pas un
+  accompagnement : la chronique en plein écran, la mémoire qui se
+  cherche, les surnoms gagnés, les légendes composées, et les années qui
+  portent un nom. Le texte **est** le jeu.
 
 ---
 
-## Le passage à la 3D — recommandation faite, pas encore tranchée
+## Le passage à la 3D — tranché, et tenu
+
+*(Titre corrigé le 2026-09-26 : « recommandation faite, pas encore
+tranchée » datait du 9 septembre au soir. La page de test a été écrite et
+vérifiée au navigateur **la nuit même**, la direction validée dans la
+foulée, et le village bâti dessus le 10. Three.js n'a jamais été remis en
+cause depuis ; le moteur est vendu avec le dépôt.)*
 
 Constat de Pierre (2026-09-09) : les trois jeux précédents sont en 2D avec
 un moteur de volume maison (pavés isométriques, faces teintées en dur, tri
@@ -1411,9 +1462,14 @@ de lumière dans la rue.
 
 ### Ce qui n'a pas été fait, et pourquoi
 
-Le vent ne fait pas encore tourner le moulin. Ce serait juste, mais ça
+~~Le vent ne fait pas encore tourner le moulin. Ce serait juste, mais ça
 toucherait la production de farine, donc l'équilibre entier. À faire comme
-un chantier à part, avec un balayage.
+un chantier à part, avec un balayage.~~
+
+**Fait dès la v0.17**, comme un chantier à part exactement : la force du
+moulin à vent vaut `0,3 + vent × 1,4`, celle du moulin à eau ne dépend
+que du gel. Le village tient donc à un moulin fiable et à un moulin
+capricieux, ce qui était le but.
 
 ---
 
@@ -1568,11 +1624,17 @@ Les douze cibles tiennent, détermination comprise.
 
 ---
 
-## LES LÉGENDES — le chapitre de conception (à faire)
+## LES LÉGENDES — le chapitre de conception (fait)
 
 Dicté par Pierre, et c'est la direction la plus importante prise jusqu'ici.
 Rien de tout cela n'est encore codé : ce chapitre est là pour que rien ne
 s'en perde.
+
+*(Relu le 2026-09-26. **Codé en deux temps** : les figures à la v0.23
+— l'auberge, les étrangers, le chasseur de monstres, le seigneur qui boit
+le sang — puis la composition elle-même à la v0.32, où une légende prend
+un acte, un lieu, le nom de l'année et un présage. Le chapitre reste ici
+tel qu'il a été dicté, c'est de lui que tout est sorti.)*
 
 ### Le principe
 
@@ -1734,12 +1796,15 @@ plein d'enfants ne brûle plus personne, et `poidsAccuser` est passé de 6
 Treize cibles, toutes tenues. Bûchers 0,69 · révoltes 5,5 · naissances
 4,9 · surnoms 4,8 · noyés 2,0 · 20,6 habitants en vie · famine 2,5 %.
 
-### Reste à faire de ce chantier
+### Reste à faire de ce chantier — fait depuis
 
-Le **créateur de personnage** — « voulez-vous donner une âme ? », un
+~~Le **créateur de personnage** — « voulez-vous donner une âme ? », un
 bouton discret à chaque naissance et à chaque étranger. Si on ne clique
 pas, il ne se passe rien et le village s'en charge. Neuf nombres à poser,
-puis le panneau se ferme et on ne peut plus rien.
+puis le panneau se ferme et on ne peut plus rien.~~
+
+**Fait à la v0.22**, voir « Donner une âme ». Le bouton s'efface de
+lui-même au bout de vingt-cinq secondes si on n'y touche pas.
 
 ---
 
@@ -2158,9 +2223,10 @@ que rien ne soit perdu. Il n'y a plus qu'un seul endroit qui nomme.
 
 ### Reste à faire
 
-- L'entrée « Dwelve Hollow » au menu du site : en attente. Je ne peux pas
+- ~~L'entrée « Dwelve Hollow » au menu du site : en attente. Je ne peux pas
   vérifier depuis le conteneur que l'URL GitHub Pages répond (le proxy
-  refuse `pierremillon.github.io`). Pierre donnera le lien.
+  refuse `pierremillon.github.io`). Pierre donnera le lien.~~
+  **Périmé** : abandonné le 14 septembre avec le déploiement.
 - Les 11 images par seconde en rendu logiciel : **réglé le 14 septembre**,
   voir « Les 11 images par seconde : réserve levée ». C'est le rastériseur
   logiciel, pas le jeu.
@@ -2234,12 +2300,13 @@ physique**. `linewidth` se compte en pixels CSS et le rendu tourne à
 devient intermittent — et c'est le sol qui lâche en premier, parce que
 c'est déjà le trait le plus fin du jeu (1,10 contre 1,70 pour les arêtes).
 
-Proposition en attente&nbsp;: écrire les largeurs en pixels *physiques* et
-laisser la page diviser par la densité,
-`const fin = (physiques) => Math.max(physiques, 1) / DENSITE`. Le trait
-devient alors aussi fin que l'écran le permet sans jamais casser, et la
-hiérarchie survit — tout mettre à un pixel effacerait la différence entre
-une arête de maison et une ligne de sol.
+~~Proposition en attente~~ — **adoptée et en place** : les largeurs
+s'écrivent en pixels *physiques* et la page divise par la densité
+(`finesse(m, physiques)`, qui retient la valeur physique pour le cas où
+la densité change en cours de route). Le trait est aussi fin que l'écran
+le permet sans jamais casser, et la hiérarchie survit — tout mettre à un
+pixel effacerait la différence entre une arête de maison et une ligne de
+sol.
 
 ---
 
@@ -2376,7 +2443,12 @@ têtes&nbsp;: le chiffre absolu montait sans que le village soit plus cruel.
 
 ---
 
-## L'amour : trois forces, planche remise (décision en attente)
+## L'amour : trois forces, planche remise (tranché, et codé)
+
+*(Titre corrigé le 2026-09-26 : Pierre a répondu au quiz — les trois
+sexes, la fidélité « rarement, et ça coûte », l'amitié nommée dans la
+chronique, la fiche à barres avec bascule variable — et le modèle est
+entré dans le jeu à la v0.36.)*
 
 Pierre a envoyé une carte personnelle de vingt-quatre dimensions — passion,
 attachement, idéalisation, intimité, tendresse, fidélité, dépendance… — et
@@ -2579,6 +2651,11 @@ six villages traversent soixante-deux années.
 Le bûcheron tient à un seul homme deux jours sur trois. Ça ne casse rien
 aujourd'hui — le bois se perd et se retrouve — mais c'est le prochain
 maillon à un fil.
+
+*(2026-09-26 — **atténué, pas fermé.** La v0.35 a ajouté le recours : sous
+trois bûches, n'importe quel adulte va couper du bois, et l'envie monte
+encore s'il n'y a plus de pain. Le village ne meurt donc plus de ce fil,
+mais il tient toujours à un seul homme en temps normal.)*
 
 ---
 
@@ -3070,10 +3147,15 @@ naissances. Page vérifiée au navigateur.
 
 ### Ce qui reste ouvert
 
-La perte d'un métier est revenue mais reste rare&nbsp;: 0,17 par village
+~~La perte d'un métier est revenue mais reste rare&nbsp;: 0,17 par village
 sur six villages, c'est un métier perdu quelque part. Trop peu pour en
 faire une cible longue sans qu'elle clignote — il faudrait plus de
-graines, donc plus de temps de banc. Noté, pas fait.
+graines, donc plus de temps de banc. Noté, pas fait.~~
+
+**Fermé à la v0.36** : les soixante journées d'apprentissage ont rendu le
+métier réellement perdable, et `pertes définitives` est devenue une cible
+**courte** — celle qui tourne sur quarante-huit villages, donc sans
+clignoter. Elle vaut 0,88 pour un plancher à 0,12.
 
 ---
 
@@ -3178,6 +3260,52 @@ murs.
 3. **Le monastère qui monte à l'écran.** La simulation est faite, le
    dessin reste.
 4. La commanderie, les parfaits, les lettres qui partent pour Rome.
+
+### Les réserves ouvertes, rassemblées
+
+*Écrit le 2026-09-26. Elles étaient justes là où elles sont nées, mais
+noyées dans trois mille lignes — donc invisibles. Les voici ensemble, avec
+l'endroit où elles s'expliquent. Ce ne sont pas des chantiers&nbsp;: ce
+sont des choses sues et non réglées, ce qui n'est pas pareil.*
+
+- **Le bûcheron tient à un seul homme** deux jours sur trois. Atténué à la
+  v0.35 — sous trois bûches, n'importe quel adulte va couper — mais le
+  fil est toujours là en temps normal. Voir « Ce qui reste ouvert » sous
+  la v0.24.
+- **Le surnom et la légende ne se parlent pas.** Le surnom est resté une
+  liste de dix, à part&nbsp;: il mesure un caractère sur la durée, la
+  légende mesure un geste. Les rapprocher demande une décision de Pierre,
+  pas du code. Voir la v0.32.
+- **`campagnes closes` tient sur six graines**, moyenne 3,0, erreur type
+  0,94 — d'où un plancher posé à 1. C'est peu pour une cible longue. Elle
+  ne ment pas, mais elle ne dit pas grand-chose non plus. Voir la v0.37.
+- **Le nom du jeu contredit la règle dont il est tiré.** Koike va du mot
+  connu vers le mot rare&nbsp;; *Dwelve Hollow* fait l'inverse, et
+  *Dwelve* n'est pas rare, il n'existe pas. Point ouvert depuis le
+  premier jour, décision laissée à Pierre, **rien ne sera changé sans
+  lui**.
+- **Trois points de la vidéo de nommage restent non corroborés** (syllabe
+  forte, son « d », attrait des noms anglais). YouTube est bloqué par la
+  politique réseau du conteneur, les miroirs de transcription aussi. Ils
+  sont probables, ils ne sont pas établis, et ils resteront marqués tels
+  quels.
+
+### Ce qui a été fermé en relisant, le 2026-09-26
+
+Pour que le carnet ne garde pas comme ouvert ce qui ne l'est plus&nbsp;:
+le vent fait bien tourner le moulin (v0.17), les largeurs de trait
+s'écrivent en pixels physiques (v0.26), la carte de l'amour est tranchée
+et codée (v0.36), la perte d'un métier est devenue une cible courte
+(v0.36), le créateur d'âme existe (v0.22), le chapitre des légendes est
+codé (v0.23 puis v0.32), le passage à la 3D est tranché depuis la nuit du
+9 septembre, le déploiement et l'entrée au menu du site sont classés sur
+décision de Pierre (14 septembre).
+
+**Et un principe fondateur a été marqué faux plutôt que corrigé en
+douce**&nbsp;: le n°2 annonçait un comportement « retiré au sort
+périodiquement ». La v0.15 a supprimé le dé des décisions. L'horloge est
+restée, le tirage non. Le principe est laissé écrit, avec sa correction
+dessous.
 
 ---
 
@@ -3316,6 +3444,15 @@ livraison-ci&nbsp;: c'est lui qui a demandé le cache en v0.39.
 ---
 
 ## 📜 Historique
+
+- **2026-09-26** — Carnet relu en entier. Il annonçait encore
+  « rien de codé » et gardait neuf choses comme à faire qui étaient
+  faites, dont le vent qui fait tourner le moulin et la finesse du trait.
+  Chacune porte maintenant son sort sans rien perdre du texte d'origine,
+  un état du projet ouvre le fichier, et les réserves vraiment ouvertes
+  — cinq — sont rassemblées au même endroit. Le principe fondateur n° 2
+  est marqué **faux** depuis la v0.15 plutôt que corrigé en douce.
+
 
 - **2026-09-23** — Capture de Pierre : la ligne de saison par-dessus le
   titre sur iPhone. `--bas` tenait compte de la zone sûre, `--haut` non,
